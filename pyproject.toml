@@ -10,7 +10,7 @@ requires-python = ">= 3.10"
 
 dependencies = [
     "influxdb-client[ciso]>=1.44.0",
-    "my-lib @ git+https://github.com/kimata/my-py-lib@1cff4c3e693c24b486be717a4465f3df7e6700a4",
+    "my-lib @ git+https://github.com/kimata/my-py-lib@46e902399891f050fa78f2cc47277a7153b7a62f",
     "opencv-contrib-python-headless>=4.10.0.84",
     "matplotlib>=3.9.2",
     "pandas>=2.2.2",
@@ -61,7 +61,18 @@ testpaths = [
 ]
 filterwarnings = [
     "ignore:datetime\\.datetime\\.utcfromtimestamp\\(\\) is deprecated:DeprecationWarning",
-    "ignore::DeprecationWarning:multiprocessing\\.popen_fork"
+    "ignore::DeprecationWarning:multiprocessing\\.popen_fork",
+    "ignore:unclosed database.*:ResourceWarning:rich.*",
+    "ignore:unclosed database.*:ResourceWarning:influxdb_client.*",
+    "ignore:unclosed database.*:ResourceWarning:coverage.*",
+    "ignore:unclosed database.*:ResourceWarning:time_machine.*",
+    "ignore:unclosed database.*:ResourceWarning:werkzeug.*",
+    "ignore:unclosed database.*:ResourceWarning:_pytest.*",
+    "ignore:unclosed database.*:ResourceWarning:typing.*",
+    "ignore:unclosed database.*:ResourceWarning:multiprocessing.*",
+    "ignore:unclosed database.*:ResourceWarning:logging.*",
+    "ignore::ResourceWarning:_pytest.unraisableexception",
+    "ignore::ResourceWarning:coverage.sqldata"
 ]
 
 [tool.coverage.run]

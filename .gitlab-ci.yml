@@ -3,6 +3,7 @@ image: gitlab.green-rabbit.net:5050/kimata/local-ubuntu:250706_043ea01d
 variables:
     UV_LINK_MODE: copy
     UV_PYTHON_INSTALL_DIR: ${CI_PROJECT_DIR}/.uv_python
+
 stages:
     - generate-tag
     - build
@@ -415,6 +416,8 @@ deploy:
     stage: deploy
     needs:
         - generate-tag
+        - job: build-image
+          artifacts: false
         - job: test-display
           artifacts: false
         - job: test-display-small
