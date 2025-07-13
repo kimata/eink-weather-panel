@@ -51,7 +51,6 @@ build-image:
     script:
         - 'echo "Building: ${CI_REGISTRY_IMAGE}:${TAG}"'
 
-        - export GIT_SSL_NO_VERIFY=1
         - git clone https://gitlab-ci-token:${CI_JOB_TOKEN}@gitlab.green-rabbit.net/kimata/panel-config.git
         - mv panel-config/eink-weather.yaml config.yaml
         - mv panel-config/eink-weather-demo.yaml config-demo.yaml
@@ -424,26 +423,14 @@ deploy:
             kimata/eink-weather-panel:pod-rollout
         # イメージの更新
         - 'echo "Updating deployment images to $TAG..."'
-        - >
-            kubectl --insecure-skip-tls-verify=true -n panel set image
-            deployment/eink-weather-panel eink-weather-panel=${IMAGE}
-        - >
-            kubectl --insecure-skip-tls-verify=true -n panel set image
-            deployment/eink-weather-panel-small eink-weather-panel-small=${IMAGE}
-        - >
-            kubectl --insecure-skip-tls-verify=true -n panel set image
-            deployment/eink-weather-panel-webapp eink-weather-panel-webapp=${IMAGE}
+        - kubectl -n panel set image deployment/eink-weather-panel eink-weather-panel=${IMAGE}
+        - kubectl -n panel set image deployment/eink-weather-panel-small eink-weather-panel-small=${IMAGE}
+        - kubectl -n panel set image deployment/eink-weather-panel-webapp eink-weather-panel-webapp=${IMAGE}
         # ロールアウト状況の確認
         - 'echo "Waiting for deployments to complete..."'
-        - >
-            kubectl --insecure-skip-tls-verify=true -n panel rollout status
-            deployment/eink-weather-panel --timeout=120s
-        - >
-            kubectl --insecure-skip-tls-verify=true -n panel rollout status
-            deployment/eink-weather-panel-small --timeout=120s
-        - >
-            kubectl --insecure-skip-tls-verify=true -n panel rollout status
-            deployment/eink-weather-panel-webapp --timeout=120s
+        - kubectl -n panel rollout status deployment/eink-weather-panel --timeout=120s
+        - kubectl -n panel rollout status deployment/eink-weather-panel-small --timeout=120s
+        - kubectl -n panel rollout status deployment/eink-weather-panel-webapp --timeout=120s
 
         - 'echo "✓ All deployments updated successfully to $TAG"'
     rules:
