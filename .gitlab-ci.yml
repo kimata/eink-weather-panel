@@ -424,24 +424,24 @@ deploy:
         - 'echo "Updating deployment images to $TAG..."'
         - >
             kubectl --insecure-skip-tls-verify=true -n panel set image
-            deployment/e-ink-weather-panel-deployment e-ink-weather-panel=${IMAGE}
+            deployment/eink-weather-panel eink-weather-panel=${IMAGE}
         - >
             kubectl --insecure-skip-tls-verify=true -n panel set image
-            deployment/e-ink-weather-small-panel-deployment e-ink-weather-small-panel=${IMAGE}
+            deployment/eink-weather-panel-small eink-weather-panel-small=${IMAGE}
         - >
             kubectl --insecure-skip-tls-verify=true -n panel set image
-            deployment/e-ink-weather-webapp-deployment e-ink-weather-webapp=${IMAGE}
+            deployment/eink-weather-panel-webapp eink-weather-panel-webapp=${IMAGE}
         # ロールアウト状況の確認
         - 'echo "Waiting for deployments to complete..."'
         - >
             kubectl --insecure-skip-tls-verify=true -n panel rollout status
-            deployment/e-ink-weather-panel-deployment --timeout=120s
+            deployment/eink-weather-panel --timeout=120s
         - >
             kubectl --insecure-skip-tls-verify=true -n panel rollout status
-            deployment/e-ink-weather-small-panel-deployment --timeout=120s
+            deployment/eink-weather-panel-small --timeout=120s
         - >
             kubectl --insecure-skip-tls-verify=true -n panel rollout status
-            deployment/e-ink-weather-webapp-deployment --timeout=120s
+            deployment/eink-weather-panel-webapp --timeout=120s
 
         - 'echo "✓ All deployments updated successfully to $TAG"'
     rules:
