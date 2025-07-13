@@ -319,7 +319,7 @@ test-webapp:
             docker run --rm --detach=true --tty=true
             --name ${CI_JOB_NAME}-${CI_JOB_ID} --label job=${CI_JOB_NAME}
             --publish :5000
-            ${CI_REGISTRY_IMAGE}:${TAG} ./src/webui.py -c config-demo.yaml
+            ${CI_REGISTRY_IMAGE}:${TAG} ./src/webui.py -c config-demo.yaml -d
 
         - docker ps | grep ${CI_JOB_NAME}-${CI_JOB_ID}
 
@@ -330,7 +330,7 @@ test-webapp:
         - >
             DOCKER_GATEWAY=$(docker network inspect bridge --format="{{range .IPAM.Config}}{{.Gateway}}{{end}}")
         - >
-            APP_URL="http://${DOCKER_GATEWAY}:${APP_PORT}/weather_panel/"
+            APP_URL="http://${DOCKER_GATEWAY}:${APP_PORT}/panel/"
         - >
             echo "APP_URL: ${APP_URL}"
         - >
@@ -378,6 +378,8 @@ tag-latest:
     needs:
         - generate-tag
         - job: test-display
+          artifacts: false
+        - job: build-image
           artifacts: false
         - job: test-display-small
           artifacts: false

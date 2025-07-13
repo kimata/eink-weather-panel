@@ -6,7 +6,7 @@ import pathlib
 
 from playwright.sync_api import expect
 
-APP_URL_TMPL = "http://{host}:{port}/weather_panel/"
+APP_URL_TMPL = "http://{host}:{port}/panel/"
 EVIDENCE_PATH = pathlib.Path(__file__).parent / "evidence"
 
 
