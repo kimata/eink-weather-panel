@@ -90,8 +90,8 @@ function App() {
                 const lineHeight = 20;
                 const linesToScroll = Math.ceil(scrollDistance / lineHeight);
 
-                // 一定の速度でスクロール（例: 3行/秒）
-                const linesPerSecond = 3;
+                // 4.5行/秒でスクロール
+                const linesPerSecond = 4.5;
                 const scrollDuration = Math.max(300, (linesToScroll / linesPerSecond) * 1000);
 
                 scroller.scrollTo("logEnd", {
@@ -104,6 +104,28 @@ function App() {
 
         return () => clearTimeout(timeoutId);
     }, [log, scroller]);
+
+    // 画像生成完了時のスクロール処理
+    useEffect(() => {
+        if (finish && log.length > 0) {
+            // 画像生成が完了した時、残りのスクロールを2秒で完了
+            const logContainer = document.getElementById("log");
+            if (logContainer) {
+                const currentScrollTop = logContainer.scrollTop;
+                const targetScrollTop = logContainer.scrollHeight - logContainer.clientHeight;
+                const scrollDistance = targetScrollTop - currentScrollTop;
+
+                // スクロールが完了していない場合のみ実行
+                if (scrollDistance > 5) {
+                    scroller.scrollTo("logEnd", {
+                        smooth: true,
+                        containerId: "log",
+                        duration: 2000, // 2秒で完了
+                    });
+                }
+            }
+        }
+    }, [finish, log.length, scroller]);
 
     const readLog = async (token: string) => {
         const decoder = new TextDecoder();
