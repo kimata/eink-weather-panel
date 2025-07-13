@@ -41,7 +41,7 @@ ENV UV_LINK_MODE=copy \
 # ubuntu ユーザーで uv をインストール
 RUN curl -LsSf https://astral.sh/uv/install.sh | sh
 
-WORKDIR /opt/e-ink_weather
+WORKDIR /opt/eink-weather-panel
 
 RUN --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
     --mount=type=bind,source=.python-version,target=.python-version \
