@@ -10,7 +10,7 @@ from unittest import mock
 import my_lib.webapp.config
 import pytest
 
-my_lib.webapp.config.URL_PREFIX = "/weather_panel"
+my_lib.webapp.config.URL_PREFIX = "/panel"
 
 logging.getLogger("selenium.webdriver.remote").setLevel(logging.WARNING)
 logging.getLogger("selenium.webdriver.common").setLevel(logging.DEBUG)
