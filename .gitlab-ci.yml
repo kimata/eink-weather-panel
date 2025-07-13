@@ -152,7 +152,7 @@ test-walk-through:
             --label job=${CI_JOB_NAME} ${CI_REGISTRY_IMAGE}:${TAG}
             ${PANEL_SCRIPT} -c config.yaml -o ${CI_JOB_NAME}.png
         - docker wait ${CI_JOB_NAME}-${CI_JOB_ID}
-        - docker cp ${CI_JOB_NAME}-${CI_JOB_ID}:/opt/e-ink_weather/${CI_JOB_NAME}.png .
+        - docker cp ${CI_JOB_NAME}-${CI_JOB_ID}:/opt/eink-weather-panel/${CI_JOB_NAME}.png .
         - docker rm ${CI_JOB_NAME}-${CI_JOB_ID}
     artifacts:
         paths:
@@ -196,7 +196,7 @@ test-rain-cloud-panel:
             --label job=${CI_JOB_NAME} ${CI_REGISTRY_IMAGE}:${TAG}
             src/create_image.py ${CREATE_IMAGE_ARGS} -o ${CI_JOB_NAME}.png
         - docker wait ${CI_JOB_NAME}-${CI_JOB_ID}
-        - docker cp ${CI_JOB_NAME}-${CI_JOB_ID}:/opt/e-ink_weather/${CI_JOB_NAME}.png .
+        - docker cp ${CI_JOB_NAME}-${CI_JOB_ID}:/opt/eink-weather-panel/${CI_JOB_NAME}.png .
         - docker rm ${CI_JOB_NAME}-${CI_JOB_ID}
     artifacts:
         paths:
