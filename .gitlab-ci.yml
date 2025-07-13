@@ -111,19 +111,7 @@ test-walk-through:
         - test-prepare
     script:
         - uv run pytest --numprocesses=auto --junit-xml=tests/evidence/junit-report.xml tests/test_basic.py
-    cache:
-        - key:
-              files:
-                  - pyproject.toml
-                  - .gitlab-ci.yml
-              prefix: ${CI_COMMIT_REF_SLUG}-venv
-          paths:
-              - .venv
-          policy: pull
-        - key: ${CI_COMMIT_REF_SLUG}-uv-toolchain
-          paths:
-              - .uv_python
-          policy: pull
+
     artifacts:
         when: always
         paths:
@@ -363,10 +351,7 @@ test-webapp:
 
         - docker logs ${CI_JOB_NAME}-${CI_JOB_ID} > flask_log.txt
         - docker stop ${CI_JOB_NAME}-${CI_JOB_ID}
-    cache:
-        key: ${CI_JOB_NAME}
-        paths:
-            - .venv
+
     artifacts:
         when: always
         paths:
