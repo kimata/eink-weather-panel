@@ -90,13 +90,13 @@ def execute(ssh, config, config_file, small_mode, test_mode):
         cmd.append("-t")
 
     proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)  # noqa: S603
-    ssh_stdin.write(proc.communicate()[0])
-    proc.wait()
+    stdout_data, stderr_data = proc.communicate()
+    ssh_stdin.write(stdout_data)
 
     ssh_stdin.flush()
     ssh_stdin.channel.shutdown_write()
 
-    logging.info(proc.communicate()[1].decode("utf-8"))
+    logging.info(stderr_data.decode("utf-8"))
 
     fbi_status = ssh_stdout.channel.recv_exit_status()
 
