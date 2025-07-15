@@ -24,7 +24,7 @@ function App() {
     ];
 
     const DEFAULT_IMAGE = "gray.png";
-    const API_ENDPOINT = "/weather_panel/api";
+    const API_ENDPOINT = "/panel/api";
     const [mode, setMode] = useState(MODE_OPTION_LIST[0]);
     const [imageSrc, setImageSrc] = useState(DEFAULT_IMAGE);
     const [finish, setFinish] = useState(true);
