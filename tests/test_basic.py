@@ -184,7 +184,6 @@ def gen_sensor_data(value=[30, 34, 25, 20], valid=True):  # noqa: B006
     return sensor_data
 
 
-# NOTE: テストを並列実行すると、この関数が結果を誤判定する可能性あり
 def check_notify_slack(message, index=-1):
     import my_lib.notify.slack
 
@@ -1079,6 +1078,9 @@ def test_display_image(mocker, config):
 
     mocker.patch("builtins.open", side_effect=open_mock)
 
+    prev_ssh_mock = mocker.MagicMock()
+    prev_ssh_mock.exec_command.return_value = (stdin_mock, stdout_mock, stderr_mock)
+
     display_image.execute(
         config,
         "TEST",
@@ -1087,7 +1089,7 @@ def test_display_image(mocker, config):
         small_mode=True,
         test_mode=True,
         is_one_time=False,
-        prev_ssh=mocker.MagicMock(),
+        prev_ssh=prev_ssh_mock,
     )
 
     check_notify_slack(None)
@@ -1189,6 +1191,9 @@ def test_display_image_error_major(mocker, config):
 
     mocker.patch("builtins.open", side_effect=open_mock)
 
+    prev_ssh_mock = mocker.MagicMock()
+    prev_ssh_mock.exec_command.return_value = (stdin_mock, stdout_mock, stderr_mock)
+
     display_image.execute(
         config,
         "TEST",
@@ -1197,7 +1202,7 @@ def test_display_image_error_major(mocker, config):
         small_mode=True,
         test_mode=True,
         is_one_time=False,
-        prev_ssh=mocker.MagicMock(),
+        prev_ssh=prev_ssh_mock,
     )
 
     # NOTE: 本来、create_image の中で通知されているので、上記の故障注入方法では通知はされない
@@ -1248,6 +1253,9 @@ def test_display_image_error_minor(mocker, config):
 
     mocker.patch("builtins.open", side_effect=open_mock)
 
+    prev_ssh_mock = mocker.MagicMock()
+    prev_ssh_mock.exec_command.return_value = (stdin_mock, stdout_mock, stderr_mock)
+
     display_image.execute(
         config,
         "TEST",
@@ -1256,7 +1264,7 @@ def test_display_image_error_minor(mocker, config):
         small_mode=True,
         test_mode=True,
         is_one_time=False,
-        prev_ssh=mocker.MagicMock(),
+        prev_ssh=prev_ssh_mock,
     )
 
     # NOTE: 本来、create_image の中で通知されているので、上記の故障注入方法では通知はされない
@@ -1306,6 +1314,9 @@ def test_display_image_error_unknown(mocker, config):
 
     mocker.patch("builtins.open", side_effect=open_mock)
 
+    prev_ssh_mock = mocker.MagicMock()
+    prev_ssh_mock.exec_command.return_value = (stdin_mock, stdout_mock, stderr_mock)
+
     with pytest.raises(SystemExit):
         display_image.execute(
             config,
@@ -1315,7 +1326,7 @@ def test_display_image_error_unknown(mocker, config):
             small_mode=True,
             test_mode=True,
             is_one_time=False,
-            prev_ssh=mocker.MagicMock(),
+            prev_ssh=prev_ssh_mock,
         )
 
     # NOTE: 本来、create_image の中で通知されているので、上記の故障注入方法では通知はされない
