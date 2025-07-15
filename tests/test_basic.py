@@ -1166,6 +1166,7 @@ def test_display_image_error_major(mocker, config):
 
     subprocess_popen_mock = mocker.MagicMock()
     type(subprocess_popen_mock).returncode = mocker.PropertyMock(return_value=create_image.ERROR_CODE_MAJOR)
+    subprocess_popen_mock.communicate.return_value = (b"", b"")  # stdout, stderr
 
     mocker.patch("subprocess.Popen", return_value=subprocess_popen_mock)
 
@@ -1224,6 +1225,7 @@ def test_display_image_error_minor(mocker, config):
 
     subprocess_popen_mock = mocker.MagicMock()
     type(subprocess_popen_mock).returncode = mocker.PropertyMock(return_value=create_image.ERROR_CODE_MINOR)
+    subprocess_popen_mock.communicate.return_value = (b"", b"")  # stdout, stderr
 
     mocker.patch("subprocess.Popen", return_value=subprocess_popen_mock)
 
@@ -1281,6 +1283,7 @@ def test_display_image_error_unknown(mocker, config):
 
     subprocess_popen_mock = mocker.MagicMock()
     type(subprocess_popen_mock).returncode = mocker.PropertyMock(return_value=-1)
+    subprocess_popen_mock.communicate.return_value = (b"", b"")  # stdout, stderr
 
     mocker.patch("subprocess.Popen", return_value=subprocess_popen_mock)
 
