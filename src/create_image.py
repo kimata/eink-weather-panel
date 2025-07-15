@@ -25,6 +25,7 @@ import traceback
 
 import my_lib.panel_util
 import my_lib.pil_util
+import my_lib.proc_util
 import PIL.Image
 
 import weather_display.metrics.collector
@@ -251,5 +252,11 @@ if __name__ == "__main__":
         logging.warning("create_image: Something wrong..")
 
     logging.info("Finish.")
+
+    # 終了前にゾンビプロセスを回収
+    try:
+        my_lib.proc_util.reap_zombie()
+    except Exception as e:
+        logging.warning("Failed to reap zombie processes: %s", e)
 
     sys.exit(status)

@@ -24,6 +24,7 @@ import my_lib.chrome_util
 import my_lib.notify.slack
 import my_lib.panel_util
 import my_lib.pil_util
+import my_lib.proc_util
 import my_lib.thread_util
 import numpy  # noqa: ICN001
 import PIL.Image
@@ -443,6 +444,9 @@ def create_rain_cloud_img(panel_config, sub_panel_config, face_map, slack_config
         if driver:
             try:
                 driver.quit()
+                # Chrome関連のゾンビプロセスを確実に回収
+                time.sleep(0.5)  # driver.quit()が完了するまで少し待つ
+                my_lib.proc_util.reap_zombie()
             except Exception as cleanup_error:
                 logging.warning("Failed to cleanup driver: %s", cleanup_error)
 
