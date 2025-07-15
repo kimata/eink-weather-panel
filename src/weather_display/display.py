@@ -104,9 +104,6 @@ def execute(ssh, config, config_file, small_mode, test_mode):
     proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)  # noqa: S603
     stdout_data, stderr_data = proc.communicate()
 
-    # プロセスが確実に終了するまで待機
-    proc.wait()
-
     ssh_stdin.write(stdout_data)
 
     ssh_stdin.flush()
