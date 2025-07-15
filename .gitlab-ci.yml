@@ -394,11 +394,9 @@ deploy:
           artifacts: false
         - job: test-webapp
           artifacts: false
+
     image:
         name: gitlab.green-rabbit.net:5050/kimata/local-kubectl:250715_c88f3965
-
-    before_script:
-        - echo $CI_REGISTRY_PASSWORD | docker login -u $CI_REGISTRY_USER --password-stdin $CI_REGISTRY
 
     script:
         - 'IMAGE="${CI_REGISTRY_IMAGE}:${TAG}"'
