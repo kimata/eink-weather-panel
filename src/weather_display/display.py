@@ -55,12 +55,24 @@ def ssh_kill_and_close_impl(ssh, cmd):
 
     try:
         # NOTE: fbi コマンドのプロセスが残るので強制終了させる
-        ssh.exec_command(f"sudo killall -9 {cmd}")
+        stdin, stdout, stderr = ssh.exec_command(f"sudo killall -9 {cmd}")
+
+        # SSHコマンドの完了を待機してゾンビプロセスを防止
+        stdout.channel.recv_exit_status()
+
+        # チャンネルのクリーンアップ
+        try:
+            stdin.close()
+            stdout.close()
+            stderr.close()
+        except Exception as e:
+            logging.warning("Error closing SSH command channels: %s", e)
+
         ssh.close()
         return
     except AttributeError:
         return
-    except:
+    except Exception:
         raise
 
 
@@ -91,6 +103,10 @@ def execute(ssh, config, config_file, small_mode, test_mode):
 
     proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)  # noqa: S603
     stdout_data, stderr_data = proc.communicate()
+
+    # プロセスが確実に終了するまで待機
+    proc.wait()
+
     ssh_stdin.write(stdout_data)
 
     ssh_stdin.flush()
@@ -98,6 +114,7 @@ def execute(ssh, config, config_file, small_mode, test_mode):
 
     logging.info(stderr_data.decode("utf-8"))
 
+    # SSH接続の終了ステータスを取得
     fbi_status = ssh_stdout.channel.recv_exit_status()
 
     # NOTE: -24 は create_image.py の異常時の終了コードに合わせる。
@@ -117,8 +134,12 @@ def execute(ssh, config, config_file, small_mode, test_mode):
         logging.error("Failed to create image. (code: %d)", proc.returncode)
         sys.exit(proc.returncode)
 
-    ssh_stdin.close()
-    ssh_stdout.close()
-    ssh_stderr.close()
+    # SSH接続のクリーンアップ
+    try:
+        ssh_stdin.close()
+        ssh_stdout.close()
+        ssh_stderr.close()
+    except Exception as e:
+        logging.warning("Error closing SSH channels: %s", e)
 
     my_lib.proc_util.reap_zombie()
