@@ -2,7 +2,7 @@ image: gitlab.green-rabbit.net:5050/kimata/local-ubuntu:250706_043ea01d
 
 variables:
     UV_LINK_MODE: copy
-    UV_PYTHON_INSTALL_DIR: ${CI_PROJECT_DIR}/.uv_python
+    UV_CACHE_DIR: .uv-cache
 
 stages:
     - generate-tag
@@ -83,25 +83,18 @@ test-prepare:
 
     script:
         - uv sync --locked --no-editable
+
     artifacts:
         paths:
-            - .venv
-            - .uv_python
+            - ${UV_CACHE_DIR}
         expire_in: 1 hour
 
     cache:
         - key:
               files:
-                  - pyproject.toml
-                  - .gitlab-ci.yml
-              prefix: ${CI_COMMIT_REF_SLUG}-venv
+                  - uv.lock
           paths:
-              - .venv
-          policy: pull-push
-        - key: ${CI_COMMIT_REF_SLUG}-uv-toolchain
-          paths:
-              - .uv_python
-          policy: pull-push
+              - ${UV_CACHE_DIR}
 
 test-walk-through:
     stage: test
@@ -193,8 +186,7 @@ test-sample:
     extends: .create_image_template
     needs:
         - generate-tag
-        - job: build-image
-          artifacts: false
+        - build-image
         - job: test-weather-panel
           artifacts: false
         - job: test-power-graph
@@ -209,8 +201,7 @@ test-sample-small:
     extends: .create_image_template
     needs:
         - generate-tag
-        - job: build-image
-          artifacts: false
+        - build-image
         - job: test-weather-panel
           artifacts: false
         - job: test-rain-cloud-panel
@@ -221,8 +212,7 @@ test-demo:
     extends: .create_image_template
     needs:
         - generate-tag
-        - job: build-image
-          artifacts: false
+        - build-image
         - job: test-weather-panel
           artifacts: false
         - job: test-power-graph
@@ -239,8 +229,7 @@ test-regular:
     extends: .create_image_template
     needs:
         - generate-tag
-        - job: build-image
-          artifacts: false
+        - build-image
         - job: test-weather-panel
           artifacts: false
         - job: test-power-graph
@@ -255,8 +244,7 @@ test-regular-small:
     extends: .create_image_template
     needs:
         - generate-tag
-        - job: build-image
-          artifacts: false
+        - build-image
         - job: test-weather-panel
           artifacts: false
         - job: test-rain-cloud-panel
@@ -281,8 +269,7 @@ test-display:
     extends: .display_image_template
     needs:
         - generate-tag
-        - job: build-image
-          artifacts: false
+        - build-image
         - job: test-regular
           artifacts: false
     variables:
@@ -292,8 +279,7 @@ test-display-small:
     extends: .display_image_template
     needs:
         - generate-tag
-        - job: build-image
-          artifacts: false
+        - build-image
         - job: test-regular-small
           artifacts: false
     variables:
@@ -335,10 +321,10 @@ test-webapp:
         - >
             timeout 60 bash -c "until curl --fail --connect-timeout 10 --max-time 15 \"${APP_URL}\" > /dev/null 2>&1;
             do echo 'Retrying in 5 seconds...'; sleep 5; done" || ACCESS_FAILED=1
+        - docker logs ${CI_JOB_NAME}-${CI_JOB_ID} > flask_log.txt
         - |
             if [ "$ACCESS_FAILED" = "1" ]; then
                 echo "Failed to access App"
-                docker logs ${CI_JOB_NAME}-${CI_JOB_ID} > flask_log.txt
                 docker stop ${CI_JOB_NAME}-${CI_JOB_ID}
                 exit 1
             fi
@@ -376,9 +362,8 @@ tag-latest:
     stage: tag-latest
     needs:
         - generate-tag
+        - build-image
         - job: test-display
-          artifacts: false
-        - job: build-image
           artifacts: false
         - job: test-display-small
           artifacts: false
@@ -402,8 +387,7 @@ deploy:
     stage: deploy
     needs:
         - generate-tag
-        - job: build-image
-          artifacts: false
+        - build-image
         - job: test-display
           artifacts: false
         - job: test-display-small
