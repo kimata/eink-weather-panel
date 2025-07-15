@@ -19,6 +19,7 @@ import datetime
 import logging
 import os
 import pathlib
+import signal
 import sys
 import time
 import traceback
@@ -42,6 +43,21 @@ SCHEMA_CONFIG_SMALL = "config-small.schema"
 NOTIFY_THRESHOLD = 2
 
 elapsed_list = []
+
+
+def sigchld_handler(signum, frame):  # noqa: ARG001
+    """SIGCHLD シグナルハンドラ - 子プロセス終了時の自動回収"""
+    while True:
+        try:
+            pid, status = os.waitpid(-1, os.WNOHANG)
+            if pid == 0:
+                break
+            logging.info("Reaped child process: PID %d", pid)
+        except ChildProcessError:
+            break
+        except Exception as e:
+            logging.warning("Error in SIGCHLD handler: %s", e)
+            break
 
 
 def execute(  # noqa: PLR0913
@@ -161,6 +177,10 @@ if __name__ == "__main__":
     )
 
     logging.info("Raspberry Pi hostname: %s", rasp_hostname)
+
+    # SIGCHLDハンドラを設定してゾンビプロセスを自動回収
+    signal.signal(signal.SIGCHLD, sigchld_handler)
+    logging.info("SIGCHLD handler installed for automatic zombie process reaping")
 
     handle = weather_display.metrics.server.start(config, metrics_port)
 
