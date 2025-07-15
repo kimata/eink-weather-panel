@@ -395,8 +395,7 @@ deploy:
         - job: test-webapp
           artifacts: false
     image:
-        name: bitnami/kubectl:latest
-        entrypoint: [""]
+        name: gitlab.green-rabbit.net:5050/kimata/local-kubectl:250715_c88f3965
 
     script:
         - 'IMAGE="${CI_REGISTRY_IMAGE}:${TAG}"'
