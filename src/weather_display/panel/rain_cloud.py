@@ -441,7 +441,10 @@ def create_rain_cloud_img(panel_config, sub_panel_config, face_map, slack_config
     finally:
         # 必ずdriverをクリーンアップ
         if driver:
-            my_lib.selenium_util.quit_driver_gracefully(driver)
+            try:
+                driver.quit()
+            except Exception as cleanup_error:
+                logging.warning("Failed to cleanup driver: %s", cleanup_error)
 
     img, bar = retouch_cloud_image(img, panel_config)
     img = draw_equidistant_circle(img)
@@ -534,7 +537,7 @@ def create_rain_cloud_panel_impl(  # noqa: PLR0913
     slack_config,
     is_side_by_side,
     trial,
-    opt_config,  # noqa: ARG001
+    is_threaded=True,
 ):
     if is_side_by_side:
         sub_width = int(panel_config["panel"]["width"] / 2)
@@ -573,7 +576,11 @@ def create_rain_cloud_panel_impl(  # noqa: PLR0913
     )
     face_map = get_face_map(font_config)
 
-    executor = concurrent.futures.ThreadPoolExecutor(len(SUB_PANEL_CONFIG_LIST))
+    executor = (
+        concurrent.futures.ThreadPoolExecutor(len(SUB_PANEL_CONFIG_LIST))
+        if is_threaded
+        else my_lib.thread_util.SingleThreadExecutor()
+    )
 
     task_list = [
         executor.submit(
@@ -596,7 +603,7 @@ def create_rain_cloud_panel_impl(  # noqa: PLR0913
     return draw_legend(img, bar, panel_config, face_map)
 
 
-def create(config, is_side_by_side=True):
+def create(config, is_side_by_side=True, is_threaded=True):
     logging.info("draw rain cloud panel")
 
     # Chrome プロファイルのクリーンアップを実行
@@ -617,6 +624,7 @@ def create(config, is_side_by_side=True):
         config["font"],
         config.get("slack", None),
         is_side_by_side,
+        is_threaded,
     )
 
 
