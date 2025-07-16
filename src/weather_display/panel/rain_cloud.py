@@ -14,8 +14,10 @@ Options:
 import concurrent
 import io
 import logging
+import os
 import pathlib
 import pickle
+import signal
 import time
 import traceback
 
@@ -400,6 +402,9 @@ def create_rain_cloud_img(panel_config, sub_panel_config, face_map, slack_config
     driver = None
     img = None
 
+    # 子プロセスのゾンビ化を防ぐためのSIGCHLDハンドラを設定
+    original_handler = signal.signal(signal.SIGCHLD, signal.SIG_IGN)
+
     try:
         driver = my_lib.selenium_util.create_driver(
             "rain_cloud" + ("_future" if sub_panel_config["is_future"] else ""), DATA_PATH
@@ -447,6 +452,18 @@ def create_rain_cloud_img(panel_config, sub_panel_config, face_map, slack_config
 
             except Exception as cleanup_error:
                 logging.warning("Failed to cleanup driver: %s", cleanup_error)
+
+        # SIGCHLDハンドラを元に戻す
+        signal.signal(signal.SIGCHLD, original_handler)
+
+        # 残っている子プロセスを回収
+        try:
+            while True:
+                pid, status = os.waitpid(-1, os.WNOHANG)
+                if pid == 0:
+                    break
+        except ChildProcessError:
+            pass
 
     img, bar = retouch_cloud_image(img, panel_config)
     img = draw_equidistant_circle(img)
