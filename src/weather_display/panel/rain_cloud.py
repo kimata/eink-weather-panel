@@ -30,7 +30,6 @@ import my_lib.thread_util
 import numpy  # noqa: ICN001
 import PIL.Image
 import PIL.ImageDraw
-import psutil
 import selenium.webdriver.common.by
 import selenium.webdriver.support
 import selenium.webdriver.support.wait
@@ -398,54 +397,8 @@ def draw_caption(img, title, face_map):
     return img
 
 
-def log_chrome_processes(phase, driver_id=None):
-    """Chromeプロセスの状態をログに記録"""
-    try:
-        chrome_processes = []
-        for proc in psutil.process_iter(["pid", "ppid", "name", "cmdline", "status"]):
-            try:
-                if proc.info["name"] and "chrome" in proc.info["name"].lower():
-                    chrome_processes.append(
-                        {
-                            "pid": proc.info["pid"],
-                            "ppid": proc.info["ppid"],
-                            "name": proc.info["name"],
-                            "status": proc.info["status"],
-                            "cmdline": " ".join(proc.info["cmdline"][:3]) if proc.info["cmdline"] else "",
-                        }
-                    )
-            except (psutil.NoSuchProcess, psutil.AccessDenied):  # noqa: PERF203
-                continue
-
-        if chrome_processes:
-            logging.debug(
-                "[%s] Chrome processes (%s): %d found", phase, driver_id or "unknown", len(chrome_processes)
-            )
-            for proc in chrome_processes:
-                logging.debug(
-                    "  PID=%d PPID=%d NAME=%s STATUS=%s CMD=%s",
-                    proc["pid"],
-                    proc["ppid"],
-                    proc["name"],
-                    proc["status"],
-                    proc["cmdline"],
-                )
-        else:
-            logging.debug("[%s] Chrome processes (%s): none found", phase, driver_id or "unknown")
-    except Exception as e:
-        logging.warning("Failed to log Chrome processes: %s", e)
-
-
-def create_rain_cloud_img(panel_config, sub_panel_config, face_map, slack_config, trial):  # noqa: C901, PLR0912, PLR0915
+def create_rain_cloud_img(panel_config, sub_panel_config, face_map, slack_config, trial):  # noqa: C901, PLR0912
     logging.info("create rain cloud image (%s)", "future" if sub_panel_config["is_future"] else "current")
-
-    driver_id = (
-        f"rain_cloud{'_future' if sub_panel_config['is_future'] else ''}_{os.getpid()}_{int(time.time())}"
-    )
-    logging.debug("Starting driver creation with ID: %s", driver_id)
-
-    # プロセス開始前の状態をログ
-    log_chrome_processes("BEFORE_DRIVER_CREATION", driver_id)
 
     driver = None
     img = None
@@ -454,25 +407,6 @@ def create_rain_cloud_img(panel_config, sub_panel_config, face_map, slack_config
         driver = my_lib.selenium_util.create_driver(
             "rain_cloud" + ("_future" if sub_panel_config["is_future"] else ""), DATA_PATH
         )
-
-        # ドライバー作成後の状態をログ
-        log_chrome_processes("AFTER_DRIVER_CREATION", driver_id)
-        logging.debug("Driver created successfully: %s", driver_id)
-
-        # ドライバーのプロセス情報をログ
-        try:
-            if hasattr(driver, "service") and driver.service and hasattr(driver.service, "process"):
-                service_proc = driver.service.process
-                if service_proc:
-                    logging.info(
-                        "ChromeDriver service PID: %d, poll: %s", service_proc.pid, service_proc.poll()
-                    )
-                else:
-                    logging.warning("ChromeDriver service process is None")
-            else:
-                logging.warning("ChromeDriver service not accessible")
-        except Exception as e:
-            logging.warning("Failed to get ChromeDriver service info: %s", e)
 
         wait = selenium.webdriver.support.wait.WebDriverWait(driver, 5)
         my_lib.selenium_util.clear_cache(driver)
@@ -486,9 +420,6 @@ def create_rain_cloud_img(panel_config, sub_panel_config, face_map, slack_config
             sub_panel_config["is_future"],
         )
 
-        # 画像取得後の状態をログ
-        log_chrome_processes("AFTER_IMAGE_FETCH", driver_id)
-        logging.debug("Image fetched successfully: %s", driver_id)
     except Exception:
         if driver and (trial >= 3) and (slack_config is not None):
             try:
@@ -514,36 +445,22 @@ def create_rain_cloud_img(panel_config, sub_panel_config, face_map, slack_config
         # 必ずdriverをクリーンアップ
         if driver:
             try:
-                logging.debug("Starting driver cleanup: %s", driver_id)
-                log_chrome_processes("BEFORE_DRIVER_CLEANUP", driver_id)
-
                 # 新しい確実な終了処理を使用
                 my_lib.selenium_util.quit_driver_gracefully(driver)
-                logging.debug("quit_driver_gracefully completed: %s", driver_id)
-
-                # 終了処理後の状態をログ
-                log_chrome_processes("AFTER_quit_DRIVER_GRACEFULLY", driver_id)
 
                 # Chrome関連のゾンビプロセスを確実に回収
-                logging.debug("Starting zombie reaping: %s", driver_id)
-
-                # reap_zombie前後のプロセス状態を比較
-                log_chrome_processes("BEFORE_REAP_ZOMBIE", driver_id)
                 my_lib.proc_util.reap_zombie()
 
                 # 追加で孤立したChromeプロセスのクリーンアップを実行
                 try:
-                    logging.debug("Performing additional Chrome process cleanup: %s", driver_id)
                     my_lib.chrome_util.cleanup_orphaned_chrome_processes()
                 except Exception as chrome_cleanup_error:
-                    logging.warning(
-                        "Additional Chrome cleanup failed for %s: %s", driver_id, chrome_cleanup_error
-                    )
-
-                log_chrome_processes("AFTER_REAP_ZOMBIE", driver_id)
+                    logging.warning("Additional Chrome cleanup failed: %s", chrome_cleanup_error)
 
                 # 最終的に残っているchrome_crashpad_handlerプロセスを強制終了
                 try:
+                    import psutil
+
                     orphaned_crashpad = []
                     for proc in psutil.process_iter(["pid", "ppid", "name", "cmdline"]):
                         try:
@@ -565,10 +482,8 @@ def create_rain_cloud_img(panel_config, sub_panel_config, face_map, slack_config
                 except Exception as crashpad_cleanup_error:
                     logging.warning("Failed to cleanup crashpad handlers: %s", crashpad_cleanup_error)
 
-                logging.debug("Driver cleanup completed: %s", driver_id)
             except Exception as cleanup_error:
-                logging.warning("Failed to cleanup driver %s: %s", driver_id, cleanup_error)
-                log_chrome_processes("CLEANUP_ERROR", driver_id)
+                logging.warning("Failed to cleanup driver: %s", cleanup_error)
 
     img, bar = retouch_cloud_image(img, panel_config)
     img = draw_equidistant_circle(img)
@@ -730,9 +645,6 @@ def create_rain_cloud_panel_impl(  # noqa: PLR0913
 def create(config, is_side_by_side=True, is_threaded=True):
     logging.info("draw rain cloud panel")
 
-    # パネル作成開始時のプロセス状態をログ
-    log_chrome_processes("PANEL_START")
-
     # Chrome プロファイルのクリーンアップを実行
     try:
         removed_profiles = my_lib.chrome_util.cleanup_old_chrome_profiles(
@@ -742,12 +654,11 @@ def create(config, is_side_by_side=True, is_threaded=True):
             logging.info("Cleaned up %d old Chrome profiles", len(removed_profiles))
 
         my_lib.chrome_util.cleanup_orphaned_chrome_processes()
-        log_chrome_processes("AFTER_ORPHAN_CLEANUP")
     except Exception as cleanup_error:
         logging.warning("Chrome cleanup failed: %s", cleanup_error)
 
     try:
-        result = my_lib.panel_util.draw_panel_patiently(
+        return my_lib.panel_util.draw_panel_patiently(
             create_rain_cloud_panel_impl,
             config["rain_cloud"],
             config["font"],
@@ -755,12 +666,8 @@ def create(config, is_side_by_side=True, is_threaded=True):
             is_side_by_side,
             is_threaded,
         )
-        # パネル作成完了後のプロセス状態をログ
-        log_chrome_processes("PANEL_COMPLETE")
-        return result
     except Exception:
         logging.exception("Panel creation failed")
-        log_chrome_processes("PANEL_ERROR")
         raise
 
 
