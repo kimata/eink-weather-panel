@@ -1,5 +1,8 @@
+import contextlib
 import logging
+import os
 import pathlib
+import signal
 import subprocess
 import sys
 import time
@@ -84,6 +87,32 @@ def ssh_connect(hostname, key_file_path):
     return exec_patiently(ssh_connect_impl, (hostname, key_file_path))
 
 
+def terminate_session_processes(session_id):
+    """セッションIDに属する全プロセスを段階的に終了する"""
+    try:
+        # セッションIDに属する全プロセスを取得
+        result = subprocess.run(  # noqa: S603
+            ["/bin/ps", "-s", str(session_id), "-o", "pid="], capture_output=True, text=True, check=False
+        )
+
+        if result.returncode == 0 and result.stdout:
+            pids = [int(pid.strip()) for pid in result.stdout.strip().split() if pid.strip()]
+
+            # SIGTERM送信
+            for pid in pids:
+                with contextlib.suppress(ProcessLookupError):
+                    os.kill(pid, signal.SIGTERM)
+
+            time.sleep(2)
+
+            # まだ残っているプロセスにSIGKILL送信
+            for pid in pids:
+                with contextlib.suppress(ProcessLookupError):
+                    os.kill(pid, signal.SIGKILL)
+    except Exception as e:
+        logging.warning("Error terminating session processes: %s", e)
+
+
 def execute(ssh, config, config_file, small_mode, test_mode):
     ssh_stdin, ssh_stdout, ssh_stderr = exec_patiently(
         ssh.exec_command,
@@ -101,8 +130,26 @@ def execute(ssh, config, config_file, small_mode, test_mode):
     if test_mode:
         cmd.append("-t")
 
-    proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)  # noqa: S603
-    stdout_data, stderr_data = proc.communicate()
+    # セッション管理でプロセスグループを作成してゾンビプロセス対策
+    proc = subprocess.Popen(  # noqa: S603
+        cmd,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        start_new_session=True,  # 新しいセッションを作成
+    )
+
+    # セッションIDを取得（プロセスIDと同じ）
+    session_id = proc.pid
+
+    try:
+        # タイムアウト付きでプロセスの完了を待機
+        stdout_data, stderr_data = proc.communicate(timeout=300)  # 5分でタイムアウト
+    except subprocess.TimeoutExpired:
+        logging.warning("create_image.py process timed out, terminating session %d...", session_id)
+        terminate_session_processes(session_id)
+        my_lib.proc_util.reap_zombie()
+        timeout_msg = "Image creation process timed out"
+        raise RuntimeError(timeout_msg) from None
 
     ssh_stdin.write(stdout_data)
 
@@ -139,4 +186,5 @@ def execute(ssh, config, config_file, small_mode, test_mode):
     except Exception as e:
         logging.warning("Error closing SSH channels: %s", e)
 
+    # プロセス終了後に必ずゾンビプロセスを回収
     my_lib.proc_util.reap_zombie()
