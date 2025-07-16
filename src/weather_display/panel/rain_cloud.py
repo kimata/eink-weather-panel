@@ -442,7 +442,7 @@ def create_rain_cloud_img(panel_config, sub_panel_config, face_map, slack_config
         # 必ずdriverをクリーンアップ
         if driver:
             try:
-                driver.quit()
+                my_lib.selenium_util.quit_driver_gracefully(driver)
             except Exception as cleanup_error:
                 logging.warning("Failed to cleanup driver: %s", cleanup_error)
 
