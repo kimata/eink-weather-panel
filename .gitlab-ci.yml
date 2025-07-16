@@ -363,6 +363,8 @@ tag-latest:
     needs:
         - generate-tag
         - build-image
+        - job: test-walk-through
+          artifacts: false
         - job: test-display
           artifacts: false
         - job: test-display-small
@@ -388,6 +390,8 @@ deploy:
     needs:
         - generate-tag
         - build-image
+        - job: test-walk-through
+          artifacts: false
         - job: test-display
           artifacts: false
         - job: test-display-small
