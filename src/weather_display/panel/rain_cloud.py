@@ -14,14 +14,13 @@ Options:
 import concurrent
 import io
 import logging
-import os
 import pathlib
 import pickle
-import signal
 import time
 import traceback
 
 import cv2
+import my_lib.chrome_util
 import my_lib.notify.slack
 import my_lib.panel_util
 import my_lib.pil_util
@@ -418,7 +417,6 @@ def create_rain_cloud_img(panel_config, sub_panel_config, face_map, slack_config
             sub_panel_config["height"],
             sub_panel_config["is_future"],
         )
-
     except Exception:
         if driver and (trial >= 3) and (slack_config is not None):
             try:
@@ -444,21 +442,7 @@ def create_rain_cloud_img(panel_config, sub_panel_config, face_map, slack_config
         # 必ずdriverをクリーンアップ
         if driver:
             try:
-                # 確実な終了処理を使用
-                my_lib.selenium_util.quit_driver_gracefully(driver)
-
-                # 少し待機してプロセスがクリーンアップされるのを待つ
-                time.sleep(0.5)
-
-                # メインスレッドでない場合でも子プロセスを回収
-                try:
-                    while True:
-                        pid, status = os.waitpid(-1, os.WNOHANG)
-                        if pid == 0:
-                            break
-                except ChildProcessError:
-                    pass
-
+                driver.quit()
             except Exception as cleanup_error:
                 logging.warning("Failed to cleanup driver: %s", cleanup_error)
 
@@ -547,17 +531,6 @@ def draw_legend(img, bar, panel_config, face_map):
     return img
 
 
-def sigchld_handler(signum, frame):  # noqa: ARG001
-    """SIGCHLD シグナルハンドラ - 子プロセス終了時の自動回収"""
-    while True:
-        try:
-            pid, status = os.waitpid(-1, os.WNOHANG)
-            if pid == 0:
-                break
-        except ChildProcessError:
-            break
-
-
 def create_rain_cloud_panel_impl(  # noqa: PLR0913
     panel_config,
     font_config,
@@ -603,18 +576,6 @@ def create_rain_cloud_panel_impl(  # noqa: PLR0913
     )
     face_map = get_face_map(font_config)
 
-    # プロセス内のメインスレッドでSIGCHLDハンドラを設定
-    # multiprocessing.Pool内でも、そのプロセスのメインスレッドでは設定可能
-    original_handler = None
-    try:
-        import threading
-
-        if threading.current_thread() == threading.main_thread():
-            original_handler = signal.signal(signal.SIGCHLD, sigchld_handler)
-            logging.info("SIGCHLD handler installed in process: PID %d", os.getpid())
-    except Exception:  # noqa: S110
-        pass  # サブスレッドでは設定不可
-
     executor = (
         concurrent.futures.ThreadPoolExecutor(len(SUB_PANEL_CONFIG_LIST))
         if is_threaded
@@ -639,34 +600,32 @@ def create_rain_cloud_panel_impl(  # noqa: PLR0913
 
     executor.shutdown(True)
 
-    # SIGCHLDハンドラを元に戻す
-    try:
-        import threading
-
-        if threading.current_thread() == threading.main_thread() and original_handler is not None:
-            signal.signal(signal.SIGCHLD, original_handler)
-            logging.info("SIGCHLD handler restored in process: PID %d", os.getpid())
-    except Exception:  # noqa: S110
-        pass  # サブスレッドでは設定不可
-
     return draw_legend(img, bar, panel_config, face_map)
 
 
 def create(config, is_side_by_side=True, is_threaded=True):
     logging.info("draw rain cloud panel")
 
+    # Chrome プロファイルのクリーンアップを実行
     try:
-        return my_lib.panel_util.draw_panel_patiently(
-            create_rain_cloud_panel_impl,
-            config["rain_cloud"],
-            config["font"],
-            config.get("slack", None),
-            is_side_by_side,
-            is_threaded,
+        removed_profiles = my_lib.chrome_util.cleanup_old_chrome_profiles(
+            DATA_PATH, max_age_hours=12, keep_count=2
         )
-    except Exception:
-        logging.exception("Panel creation failed")
-        raise
+        if removed_profiles:
+            logging.info("Cleaned up %d old Chrome profiles", len(removed_profiles))
+
+        my_lib.chrome_util.cleanup_orphaned_chrome_processes()
+    except Exception as cleanup_error:
+        logging.warning("Chrome cleanup failed: %s", cleanup_error)
+
+    return my_lib.panel_util.draw_panel_patiently(
+        create_rain_cloud_panel_impl,
+        config["rain_cloud"],
+        config["font"],
+        config.get("slack", None),
+        is_side_by_side,
+        is_threaded,
+    )
 
 
 if __name__ == "__main__":
