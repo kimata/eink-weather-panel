@@ -402,9 +402,6 @@ def create_rain_cloud_img(panel_config, sub_panel_config, face_map, slack_config
     driver = None
     img = None
 
-    # 子プロセスのゾンビ化を防ぐためのSIGCHLDハンドラを設定
-    original_handler = signal.signal(signal.SIGCHLD, signal.SIG_IGN)
-
     try:
         driver = my_lib.selenium_util.create_driver(
             "rain_cloud" + ("_future" if sub_panel_config["is_future"] else ""), DATA_PATH
@@ -450,20 +447,20 @@ def create_rain_cloud_img(panel_config, sub_panel_config, face_map, slack_config
                 # 確実な終了処理を使用
                 my_lib.selenium_util.quit_driver_gracefully(driver)
 
+                # 少し待機してプロセスがクリーンアップされるのを待つ
+                time.sleep(0.5)
+
+                # メインスレッドでない場合でも子プロセスを回収
+                try:
+                    while True:
+                        pid, status = os.waitpid(-1, os.WNOHANG)
+                        if pid == 0:
+                            break
+                except ChildProcessError:
+                    pass
+
             except Exception as cleanup_error:
                 logging.warning("Failed to cleanup driver: %s", cleanup_error)
-
-        # SIGCHLDハンドラを元に戻す
-        signal.signal(signal.SIGCHLD, original_handler)
-
-        # 残っている子プロセスを回収
-        try:
-            while True:
-                pid, status = os.waitpid(-1, os.WNOHANG)
-                if pid == 0:
-                    break
-        except ChildProcessError:
-            pass
 
     img, bar = retouch_cloud_image(img, panel_config)
     img = draw_equidistant_circle(img)
@@ -550,6 +547,17 @@ def draw_legend(img, bar, panel_config, face_map):
     return img
 
 
+def sigchld_handler(signum, frame):  # noqa: ARG001
+    """SIGCHLD シグナルハンドラ - 子プロセス終了時の自動回収"""
+    while True:
+        try:
+            pid, status = os.waitpid(-1, os.WNOHANG)
+            if pid == 0:
+                break
+        except ChildProcessError:
+            break
+
+
 def create_rain_cloud_panel_impl(  # noqa: PLR0913
     panel_config,
     font_config,
@@ -595,6 +603,16 @@ def create_rain_cloud_panel_impl(  # noqa: PLR0913
     )
     face_map = get_face_map(font_config)
 
+    # メインスレッドでSIGCHLDハンドラを設定
+    original_handler = None
+    try:
+        import threading
+
+        if threading.current_thread() == threading.main_thread():
+            original_handler = signal.signal(signal.SIGCHLD, sigchld_handler)
+    except Exception:  # noqa: S110
+        pass  # サブスレッドでは設定不可
+
     executor = (
         concurrent.futures.ThreadPoolExecutor(len(SUB_PANEL_CONFIG_LIST))
         if is_threaded
@@ -618,6 +636,15 @@ def create_rain_cloud_panel_impl(  # noqa: PLR0913
         img.paste(sub_img, (sub_panel_config["offset_x"], sub_panel_config["offset_y"]))
 
     executor.shutdown(True)
+
+    # SIGCHLDハンドラを元に戻す
+    try:
+        import threading
+
+        if threading.current_thread() == threading.main_thread() and original_handler is not None:
+            signal.signal(signal.SIGCHLD, original_handler)
+    except Exception:  # noqa: S110
+        pass  # サブスレッドでは設定不可
 
     return draw_legend(img, bar, panel_config, face_map)
 
