@@ -14,18 +14,15 @@ Options:
 import concurrent
 import io
 import logging
-import os
 import pathlib
 import pickle
 import time
 import traceback
 
 import cv2
-import my_lib.chrome_util
 import my_lib.notify.slack
 import my_lib.panel_util
 import my_lib.pil_util
-import my_lib.proc_util
 import my_lib.thread_util
 import numpy  # noqa: ICN001
 import PIL.Image
@@ -37,13 +34,6 @@ from my_lib.selenium_util import click_xpath  # NOTE: テスト時に mock す�
 
 DATA_PATH = pathlib.Path("data")
 WINDOW_SIZE_CACHE_FILE = DATA_PATH / "window_size_cache.dat"
-
-
-def is_process_monitoring_enabled():
-    """プロセス監視が有効かどうかを判定する"""
-    # テスト環境では無効化
-    return os.getenv("TEST") != "true"
-
 
 CLOUD_IMAGE_XPATH = '//div[contains(@id, "jmatile_map_")]'
 
@@ -404,7 +394,7 @@ def draw_caption(img, title, face_map):
     return img
 
 
-def create_rain_cloud_img(panel_config, sub_panel_config, face_map, slack_config, trial):  # noqa: C901, PLR0912
+def create_rain_cloud_img(panel_config, sub_panel_config, face_map, slack_config, trial):
     logging.info("create rain cloud image (%s)", "future" if sub_panel_config["is_future"] else "current")
 
     driver = None
@@ -452,43 +442,8 @@ def create_rain_cloud_img(panel_config, sub_panel_config, face_map, slack_config
         # 必ずdriverをクリーンアップ
         if driver:
             try:
-                # 新しい確実な終了処理を使用
+                # 確実な終了処理を使用
                 my_lib.selenium_util.quit_driver_gracefully(driver)
-
-                # テスト環境でない場合のみ、Chrome関連のゾンビプロセスを確実に回収
-                if is_process_monitoring_enabled():
-                    my_lib.proc_util.reap_zombie()
-
-                    # 追加で孤立したChromeプロセスのクリーンアップを実行
-                    try:
-                        my_lib.chrome_util.cleanup_orphaned_chrome_processes()
-                    except Exception as chrome_cleanup_error:
-                        logging.warning("Additional Chrome cleanup failed: %s", chrome_cleanup_error)
-
-                    # 最終的に残っているchrome_crashpad_handlerプロセスを強制終了
-                    try:
-                        import psutil
-
-                        orphaned_crashpad = []
-                        for proc in psutil.process_iter(["pid", "ppid", "name", "cmdline"]):
-                            try:
-                                if (
-                                    proc.info["name"]
-                                    and "chrome_crashpad_handler" in proc.info["name"]
-                                    and proc.info["ppid"] == 1
-                                ):  # 親プロセスがinitの場合
-                                    orphaned_crashpad.append(proc.pid)
-                            except (psutil.NoSuchProcess, psutil.AccessDenied):  # noqa: PERF203
-                                continue
-
-                        for pid in orphaned_crashpad:
-                            try:
-                                logging.warning("Terminating orphaned chrome_crashpad_handler: %d", pid)
-                                os.kill(pid, 15)  # SIGTERM
-                            except OSError:  # noqa: PERF203
-                                pass  # Already terminated
-                    except Exception as crashpad_cleanup_error:
-                        logging.warning("Failed to cleanup crashpad handlers: %s", crashpad_cleanup_error)
 
             except Exception as cleanup_error:
                 logging.warning("Failed to cleanup driver: %s", cleanup_error)
@@ -652,19 +607,6 @@ def create_rain_cloud_panel_impl(  # noqa: PLR0913
 
 def create(config, is_side_by_side=True, is_threaded=True):
     logging.info("draw rain cloud panel")
-
-    # テスト環境でない場合のみ、Chrome プロファイルのクリーンアップを実行
-    if is_process_monitoring_enabled():
-        try:
-            removed_profiles = my_lib.chrome_util.cleanup_old_chrome_profiles(
-                DATA_PATH, max_age_hours=12, keep_count=2
-            )
-            if removed_profiles:
-                logging.info("Cleaned up %d old Chrome profiles", len(removed_profiles))
-
-            my_lib.chrome_util.cleanup_orphaned_chrome_processes()
-        except Exception as cleanup_error:
-            logging.warning("Chrome cleanup failed: %s", cleanup_error)
 
     try:
         return my_lib.panel_util.draw_panel_patiently(
