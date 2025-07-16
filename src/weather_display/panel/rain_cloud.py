@@ -603,13 +603,15 @@ def create_rain_cloud_panel_impl(  # noqa: PLR0913
     )
     face_map = get_face_map(font_config)
 
-    # メインスレッドでSIGCHLDハンドラを設定
+    # プロセス内のメインスレッドでSIGCHLDハンドラを設定
+    # multiprocessing.Pool内でも、そのプロセスのメインスレッドでは設定可能
     original_handler = None
     try:
         import threading
 
         if threading.current_thread() == threading.main_thread():
             original_handler = signal.signal(signal.SIGCHLD, sigchld_handler)
+            logging.info("SIGCHLD handler installed in process: PID %d", os.getpid())
     except Exception:  # noqa: S110
         pass  # サブスレッドでは設定不可
 
@@ -643,6 +645,7 @@ def create_rain_cloud_panel_impl(  # noqa: PLR0913
 
         if threading.current_thread() == threading.main_thread() and original_handler is not None:
             signal.signal(signal.SIGCHLD, original_handler)
+            logging.info("SIGCHLD handler restored in process: PID %d", os.getpid())
     except Exception:  # noqa: S110
         pass  # サブスレッドでは設定不可
 
