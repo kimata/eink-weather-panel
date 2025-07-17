@@ -690,7 +690,7 @@ requires-dist = [
     { name = "flask-cors", specifier = ">=5.0.0" },
     { name = "influxdb-client", extras = ["ciso"], specifier = ">=1.44.0" },
     { name = "matplotlib", specifier = ">=3.9.2" },
-    { name = "my-lib", git = "https://github.com/kimata/my-py-lib?rev=a3ecf4ae0f091bf601e63a3572087d2686e040f3" },
+    { name = "my-lib", git = "https://github.com/kimata/my-py-lib?rev=9b224810fc4708b6007debb63d8e8dbfab4d65f9" },
     { name = "opencv-contrib-python-headless", specifier = ">=4.10.0.84" },
     { name = "pandas", specifier = ">=2.2.2" },
     { name = "paramiko", specifier = ">=3.4.1" },
@@ -1557,7 +1557,7 @@ wheels = [
 [[package]]
 name = "my-lib"
 version = "0.1.0"
-source = { git = "https://github.com/kimata/my-py-lib?rev=a3ecf4ae0f091bf601e63a3572087d2686e040f3#a3ecf4ae0f091bf601e63a3572087d2686e040f3" }
+source = { git = "https://github.com/kimata/my-py-lib?rev=9b224810fc4708b6007debb63d8e8dbfab4d65f9#9b224810fc4708b6007debb63d8e8dbfab4d65f9" }
 dependencies = [
     { name = "coloredlogs" },
     { name = "docopt-ng" },
