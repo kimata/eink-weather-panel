@@ -14,6 +14,7 @@ Options:
 import concurrent
 import io
 import logging
+import os
 import pathlib
 import pickle
 import time
@@ -605,6 +606,30 @@ def create_rain_cloud_panel_impl(  # noqa: PLR0913
 
 def create(config, is_side_by_side=True, is_threaded=True):
     logging.info("draw rain cloud panel")
+
+    # ダミーモードの場合は簡単な画像を返す
+    if os.environ.get("DUMMY_MODE", "false") == "true":
+        logging.info("Running in dummy mode, returning placeholder image")
+
+        # 設定からサイズを取得
+        panel_config = config["rain_cloud"]
+        width = panel_config["panel"]["width"]
+        height = panel_config["panel"]["height"]
+
+        # ダミー画像を作成
+        img = PIL.Image.new("RGBA", (width, height), (200, 200, 200, 255))
+
+        # 中央にテキストを描画
+        font_config = config["font"]
+        try:
+            font = my_lib.pil_util.get_font(font_config, "jp_medium", 40)
+        except Exception:
+            font = None
+
+        text = "雨雲レーダー\n(ダミー)"
+        my_lib.pil_util.draw_text(img, text, (width // 2, height // 2), font, "center", "#666")
+
+        return (img, 0.1)  # 成功として短時間で返す
 
     # Chrome プロファイルのクリーンアップを実行
     try:
