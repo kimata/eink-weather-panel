@@ -86,7 +86,7 @@ def generate_image_impl(config_file, is_small_mode, is_dummy_mode, is_test_mode,
     panel_data = panel_data_map[token]
     cmd = ["python3", create_image_path, "-c", config_file]
     if is_small_mode:
-        cmd.append("-s")
+        cmd.append("-S")
     if is_dummy_mode:
         cmd.append("-d")
     if is_test_mode:
