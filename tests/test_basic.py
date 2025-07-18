@@ -187,7 +187,8 @@ def gen_sensor_data(value=[30, 34, 25, 20], valid=True):  # noqa: B006
 def check_notify_slack(message, index=-1):
     import my_lib.notify.slack
 
-    notify_hist = my_lib.notify.slack.hist_get()
+    # 並列実行時は自分のワーカーの履歴のみチェック（is_thread_local=True）
+    notify_hist = my_lib.notify.slack.hist_get(is_thread_local=True)
 
     if message is None:
         assert notify_hist == [], "正常なはずなのに、エラー通知がされています。"
