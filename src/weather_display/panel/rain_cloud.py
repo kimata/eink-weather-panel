@@ -34,6 +34,8 @@ import selenium.webdriver.support
 import selenium.webdriver.support.wait
 from my_lib.selenium_util import click_xpath  # NOTE: テスト時に mock する
 
+PATIENT_COUNT = 3
+
 DATA_PATH = pathlib.Path("data")
 WINDOW_SIZE_CACHE_FILE = DATA_PATH / "window_size_cache.dat"
 
@@ -264,16 +266,7 @@ def fetch_cloud_image(driver, wait, url, width, height, is_future=False):  # noq
     wait.until(lambda driver: driver.execute_script("return document.readyState") == "complete")
     time.sleep(0.5)
 
-    png_data = driver.find_element(selenium.webdriver.common.by.By.XPATH, CLOUD_IMAGE_XPATH).screenshot_as_png
-
-    # refresh()でセッションエラーが発生することがあるため、try-catchで保護
-    try:
-        driver.refresh()
-    except Exception:
-        # refresh()の失敗は無視（スクリーンショットは既に取得済み）
-        logging.warning("Failed to refresh driver, but continuing...")
-
-    return png_data
+    return driver.find_element(selenium.webdriver.common.by.By.XPATH, CLOUD_IMAGE_XPATH).screenshot_as_png
 
 
 def retouch_cloud_image(png_data, panel_config):
@@ -381,19 +374,13 @@ def draw_caption(img, title, face_map):
 
 
 def get_driver_profile_name(is_future):
-    import threading
-
     name = "rain_cloud" + ("_future" if is_future else "")
     suffix = os.environ.get("PYTEST_XDIST_WORKER", None)
 
     if suffix is None:
-        # 非並列実行時でも、スレッドIDを追加して競合を防ぐ
-        thread_id = threading.get_ident()
-        return f"{name}_{thread_id}"
+        return name
     else:
-        # 並列実行時はワーカーIDとスレッドIDの両方を使用
-        thread_id = threading.get_ident()
-        return f"{name}_{suffix}_{thread_id}"
+        return f"{name}_{suffix}"
 
 
 def create_rain_cloud_img(panel_config, sub_panel_config, face_map, slack_config, trial):
@@ -419,7 +406,7 @@ def create_rain_cloud_img(panel_config, sub_panel_config, face_map, slack_config
             sub_panel_config["is_future"],
         )
     except Exception:
-        if driver and (trial >= 3) and (slack_config is not None):
+        if driver and (trial >= PATIENT_COUNT) and (slack_config is not None):
             try:
                 my_lib.notify.slack.error_with_image(
                     slack_config["bot_token"],

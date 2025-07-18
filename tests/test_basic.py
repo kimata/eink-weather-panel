@@ -666,13 +666,14 @@ def test_create_rain_cloud_panel_cache_and_error(mocker, request, config):
     # NOTE: 6回だけエラーにする
     def click_xpath_mock(driver, xpath, wait=None, is_warn=True):
         click_xpath_mock.i += 1
-        if click_xpath_mock.i <= 6:
+        if click_xpath_mock.i <= 2:
             raise RuntimeError
 
         return click_xpath_orig(driver, xpath, wait, is_warn)
 
     click_xpath_mock.i = 0
 
+    weather_display.panel.rain_cloud.PATIENT_COUNT = 1
     mocker.patch("weather_display.panel.rain_cloud.click_xpath", side_effect=click_xpath_mock)
     mocker.patch("weather_display.panel.rain_cloud.time.sleep")  # Mock time.sleep to prevent timeout
 
