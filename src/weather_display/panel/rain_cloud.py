@@ -16,7 +16,6 @@ import io
 import logging
 import os
 import pathlib
-import pickle
 import time
 import traceback
 
@@ -25,6 +24,7 @@ import my_lib.chrome_util
 import my_lib.notify.slack
 import my_lib.panel_util
 import my_lib.pil_util
+import my_lib.serializer
 import my_lib.thread_util
 import numpy  # noqa: ICN001
 import PIL.Image
@@ -141,27 +141,6 @@ def shape_cloud_display(driver, wait, width, height, is_future):  # noqa: ARG001
     hide_label_and_icon(driver, wait)
 
 
-def load_window_size_cache():
-    """ウィンドウサイズキャッシュを読み込む"""
-    try:
-        if WINDOW_SIZE_CACHE_FILE.exists():
-            with WINDOW_SIZE_CACHE_FILE.open("rb") as f:
-                return pickle.load(f)  # noqa: S301
-    except Exception:
-        logging.warning("Failed to load window size cache")
-    return {}
-
-
-def save_window_size_cache(cache):
-    """ウィンドウサイズキャッシュを保存する"""
-    try:
-        WINDOW_SIZE_CACHE_FILE.parent.mkdir(exist_ok=True)
-        with WINDOW_SIZE_CACHE_FILE.open("wb") as f:
-            pickle.dump(cache, f)
-    except Exception:
-        logging.warning("Failed to save window size cache")
-
-
 def change_window_size_fallback(driver, width, height):
     """従来のウィンドウサイズ調整ロジック（フォールバック用）"""
     logging.info("Using fallback window size adjustment")
@@ -224,7 +203,7 @@ def change_window_size(driver, width, height):
     logging.info("target: %d x %d", width, height)
 
     cache_key = f"{width}x{height}"
-    cache = load_window_size_cache()
+    cache = my_lib.serializer.load(WINDOW_SIZE_CACHE_FILE)
 
     if cache_key in cache:
         # キャッシュから最適なウィンドウサイズを取得して一発設定
@@ -257,7 +236,7 @@ def change_window_size(driver, width, height):
     element_size = driver.find_element(selenium.webdriver.common.by.By.XPATH, CLOUD_IMAGE_XPATH).size
     if (element_size["width"], element_size["height"]) == (width, height):
         cache[cache_key] = final_window_size
-        save_window_size_cache(cache)
+        my_lib.serializer.store(WINDOW_SIZE_CACHE_FILE, cache)
         logging.info("Saved window size to cache: %s -> %s", cache_key, final_window_size)
 
     logging.info(
@@ -287,7 +266,12 @@ def fetch_cloud_image(driver, wait, url, width, height, is_future=False):  # noq
 
     png_data = driver.find_element(selenium.webdriver.common.by.By.XPATH, CLOUD_IMAGE_XPATH).screenshot_as_png
 
-    driver.refresh()
+    # refresh()でセッションエラーが発生することがあるため、try-catchで保護
+    try:
+        driver.refresh()
+    except Exception:
+        # refresh()の失敗は無視（スクリーンショットは既に取得済み）
+        logging.warning("Failed to refresh driver, but continuing...")
 
     return png_data
 
@@ -397,13 +381,19 @@ def draw_caption(img, title, face_map):
 
 
 def get_driver_profile_name(is_future):
+    import threading
+
     name = "rain_cloud" + ("_future" if is_future else "")
     suffix = os.environ.get("PYTEST_XDIST_WORKER", None)
 
     if suffix is None:
-        return name
+        # 非並列実行時でも、スレッドIDを追加して競合を防ぐ
+        thread_id = threading.get_ident()
+        return f"{name}_{thread_id}"
     else:
-        return f"{name}_{suffix}"
+        # 並列実行時はワーカーIDとスレッドIDの両方を使用
+        thread_id = threading.get_ident()
+        return f"{name}_{suffix}_{thread_id}"
 
 
 def create_rain_cloud_img(panel_config, sub_panel_config, face_map, slack_config, trial):
