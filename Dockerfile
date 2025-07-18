@@ -9,6 +9,7 @@ RUN --mount=type=cache,target=/var/lib/apt,sharing=locked \
     apt-get update && apt-get install --no-install-recommends --assume-yes \
     curl \
     ca-certificates \
+    tini \
     build-essential \
     git \
     language-pack-ja \
@@ -61,5 +62,5 @@ RUN mkdir -p data
 RUN --mount=type=cache,target=/home/ubuntu/.cache/uv,uid=1000,gid=1000 \
     uv sync --no-group dev --compile-bytecode
 
-ENTRYPOINT ["uv", "run", "--no-group", "dev"]
+ENTRYPOINT ["/usr/bin/tini", "--", "uv", "run", "--no-group", "dev"]
 CMD ["src/display_image.py"]
