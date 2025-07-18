@@ -21,6 +21,7 @@ import os
 import pathlib
 import signal
 import sys
+import threading
 import time
 import traceback
 import zoneinfo
@@ -44,20 +45,16 @@ NOTIFY_THRESHOLD = 2
 
 elapsed_list = []
 
+should_terminate = threading.Event()
 
-def sigchld_handler(signum, frame):  # noqa: ARG001
-    """SIGCHLD シグナルハンドラ - 子プロセス終了時の自動回収"""
-    while True:
-        try:
-            pid, status = os.waitpid(-1, os.WNOHANG)
-            if pid == 0:
-                break
-            logging.info("Reaped child process: PID %d", pid)
-        except ChildProcessError:
-            break
-        except Exception as e:
-            logging.warning("Error in SIGCHLD handler: %s", e)
-            break
+
+def sig_handler(num, frame):  # noqa: ARG001
+    global should_terminate
+
+    logging.warning("receive signal %d", num)
+
+    if num == signal.SIGTERM:
+        should_terminate.set()
 
 
 def execute(  # noqa: PLR0913
@@ -178,15 +175,14 @@ if __name__ == "__main__":
 
     logging.info("Raspberry Pi hostname: %s", rasp_hostname)
 
-    # SIGCHLDハンドラを設定してゾンビプロセスを自動回収
-    signal.signal(signal.SIGCHLD, sigchld_handler)
-    logging.info("SIGCHLD handler installed for automatic zombie process reaping")
+    signal.signal(signal.SIGTERM, sig_handler)
 
     handle = weather_display.metrics.server.start(config, metrics_port)
 
     fail_count = 0
     prev_ssh = None
     timing_controller = None
+
     while True:
         try:
             prev_ssh, sleep_time, timing_controller = execute(
@@ -202,7 +198,7 @@ if __name__ == "__main__":
             )
             fail_count = 0
 
-            if is_one_time:
+            if is_one_time or should_terminate.is_set():
                 break
 
             logging.info("sleep %.1f sec...", sleep_time)
