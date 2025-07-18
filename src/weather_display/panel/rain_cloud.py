@@ -396,6 +396,16 @@ def draw_caption(img, title, face_map):
     return img
 
 
+def get_driver_profile_name(is_future):
+    name = "rain_cloud" + ("_future" if is_future else "")
+    suffix = os.environ.get("PYTEST_XDIST_WORKER", None)
+
+    if suffix is None:
+        return name
+    else:
+        return f"{name}_{suffix}"
+
+
 def create_rain_cloud_img(panel_config, sub_panel_config, face_map, slack_config, trial):
     logging.info("create rain cloud image (%s)", "future" if sub_panel_config["is_future"] else "current")
 
@@ -404,7 +414,7 @@ def create_rain_cloud_img(panel_config, sub_panel_config, face_map, slack_config
 
     try:
         driver = my_lib.selenium_util.create_driver(
-            "rain_cloud" + ("_future" if sub_panel_config["is_future"] else ""), DATA_PATH
+            get_driver_profile_name(sub_panel_config["is_future"]), DATA_PATH
         )
 
         wait = selenium.webdriver.support.wait.WebDriverWait(driver, 5)
