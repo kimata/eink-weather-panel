@@ -63,4 +63,5 @@ RUN --mount=type=cache,target=/home/ubuntu/.cache/uv,uid=1000,gid=1000 \
     uv sync --no-group dev --compile-bytecode
 
 ENTRYPOINT ["/usr/bin/tini", "--", "uv", "run", "--no-group", "dev"]
+
 CMD ["src/display_image.py"]

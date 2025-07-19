@@ -337,6 +337,11 @@ test-webapp:
         - docker logs ${CI_JOB_NAME}-${CI_JOB_ID} > flask_log.txt
         - docker stop ${CI_JOB_NAME}-${CI_JOB_ID}
 
+    cache:
+        key: playwright-cache
+        paths:
+            - .cache/ms-playwright/
+
     artifacts:
         when: always
         paths:
@@ -416,9 +421,9 @@ deploy:
         - kubectl -n panel set image deployment/eink-weather-panel-webapp eink-weather-panel-webapp=${IMAGE}
         # ロールアウト状況の確認
         - 'echo "Waiting for deployments to complete..."'
-        - kubectl -n panel rollout status deployment/eink-weather-panel --timeout=120s
-        - kubectl -n panel rollout status deployment/eink-weather-panel-small --timeout=120s
-        - kubectl -n panel rollout status deployment/eink-weather-panel-webapp --timeout=120s
+        - kubectl -n panel rollout status deployment/eink-weather-panel --timeout=300s
+        - kubectl -n panel rollout status deployment/eink-weather-panel-small --timeout=300s
+        - kubectl -n panel rollout status deployment/eink-weather-panel-webapp --timeout=300s
 
         - 'echo "✓ All deployments updated successfully to $TAG"'
     rules:
