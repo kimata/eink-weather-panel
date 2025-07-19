@@ -584,7 +584,7 @@ def generate_hourly_patterns_section(hourly_patterns):  # noqa: ARG001
                 <div class="card metrics-card" id="draw-panel-boxplot">
                     <i class="fas fa-link card-permalink" onclick="copyPermalink('draw-panel-boxplot')"></i>
                     <div class="card-header">
-                        <p class="card-header-title">画像生成処理 - 時間別分布（箱ひげ図）</p>
+                        <p class="card-header-title">画像生成処理 - 時間別分布</p>
                     </div>
                     <div class="card-content">
                         <div class="chart-container">
@@ -613,7 +613,7 @@ def generate_hourly_patterns_section(hourly_patterns):  # noqa: ARG001
                 <div class="card metrics-card" id="display-image-box">
                     <i class="fas fa-link card-permalink" onclick="copyPermalink('display-image-box')"></i>
                     <div class="card-header">
-                        <p class="card-header-title">表示実行処理 - 時間別分布（箱ひげ図）</p>
+                        <p class="card-header-title">表示実行処理 - 時間別分布</p>
                     </div>
                     <div class="card-content">
                         <div class="chart-container">
@@ -634,7 +634,7 @@ def generate_trends_section(trends):  # noqa: ARG001
         <h2 class="title is-4 section-header">
             <div class="permalink-container">
                 <span class="icon"><i class="fas fa-chart-area"></i></span>
-                パフォーマンス推移（箱ヒゲ図）
+                パフォーマンス推移
                 <i class="fas fa-link permalink-icon" onclick="copyPermalink('performance-trends')"></i>
             </div>
         </h2>
@@ -990,7 +990,7 @@ def generate_diff_sec_section():
                 <div class="card metrics-card" id="diff-sec-boxplot">
                     <i class="fas fa-link card-permalink" onclick="copyPermalink('diff-sec-boxplot')"></i>
                     <div class="card-header">
-                        <p class="card-header-title">表示タイミング - 時間別分布（箱ひげ図）</p>
+                        <p class="card-header-title">表示タイミング - 時間別分布</p>
                     </div>
                     <div class="card-content">
                         <div class="chart-container">
