@@ -330,6 +330,53 @@ uv run pytest --numprocesses=auto tests/
 
 ### アーキテクチャ
 
+#### プログラム連携図
+
+```mermaid
+graph TB
+    subgraph "メイン処理フロー"
+        DI[display_image.py<br/>メイン実行・表示制御] --> CI[create_image.py<br/>画像生成処理]
+        CI --> PANELS[気象パネル群]
+        DI --> DISPLAY[E-Ink Display<br/>画像表示]
+    end
+
+    subgraph "気象パネル群"
+        PANELS --> WP[weather_panel.py<br/>天気予報]
+        PANELS --> RC[rain_cloud_panel.py<br/>雨雲レーダー]
+        PANELS --> SG[sensor_graph.py<br/>センサーグラフ]
+        PANELS --> PG[power_graph.py<br/>電力グラフ]
+        PANELS --> WBGT[wbgt_panel.py<br/>WBGT指数]
+        PANELS --> TP[time_panel.py<br/>時刻表示]
+    end
+
+    subgraph "外部データソース"
+        YAHOO[Yahoo Weather API] --> WP
+        JMA[気象庁雨雲レーダー] --> RC
+        INFLUX[InfluxDB センサーDB] --> SG
+        INFLUX --> PG
+    end
+
+    subgraph "Web インターフェース"
+        WEBAPP[webapp.py<br/>Flask API] --> CI
+        REACT[React Frontend] --> WEBAPP
+        WEBAPP --> METRICS[メトリクス収集・表示]
+    end
+
+    subgraph "メトリクス・監視"
+        METRICS --> SQLITE[(SQLiteDB<br/>パフォーマンスデータ)]
+        DI --> MCOLLECT[metrics/collector.py<br/>処理時間収集]
+        CI --> MCOLLECT
+    end
+
+    style DI fill:#e1f5fe
+    style CI fill:#f3e5f5
+    style WEBAPP fill:#e8f5e8
+    style REACT fill:#fff3e0
+    style METRICS fill:#fce4ec
+```
+
+#### ファイル構成
+
 ```bash
 src/
 ├── weather_display/        # 表示パネル実装
