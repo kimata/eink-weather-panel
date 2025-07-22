@@ -58,17 +58,6 @@ https://weather-panel-webapp-demo.kubernetes.green-rabbit.net/weather_panel/
 
 ## 🔧 システム構成
 
-```mermaid
-graph TB
-    A[Weather Panel App] --> B[Yahoo Weather API]
-    A --> C[気象庁雨雲レーダー]
-    A --> D[InfluxDB センサーデータ]
-    A --> E[Raspberry Pi + E-Ink Display]
-
-    F[React Web UI] --> A
-    G[Docker/Kubernetes] --> A
-```
-
 ### 主要コンポーネント
 
 | 機能               | 説明                                       | 実装                  |
