@@ -50,7 +50,6 @@ build-image:
 
     variables:
         BUILDER: builder
-        BUILD_KIT_IMAGE: gitlab.green-rabbit.net:5050/kimata/local-buildkit:250705_7cc0d1c
 
     script:
         - 'echo "Building: ${CI_REGISTRY_IMAGE}:${TAG}"'
@@ -67,8 +66,6 @@ build-image:
         - |
             docker buildx create \
                 --name ${BUILDER} \
-                --driver docker-container \
-                --driver-opt image=${BUILD_KIT_IMAGE} \
                 --use \
                 --config /etc/buildkitd.toml
 
