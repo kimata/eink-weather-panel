@@ -67,8 +67,11 @@ build-image:
         - |
             docker buildx create \
                 --name ${BUILDER} \
+                --driver docker-container \
+                --driver-opt image=${BUILD_KIT_IMAGE} \
                 --use \
                 --config /etc/buildkitd.toml
+
         - docker buildx use ${BUILDER}
         - docker buildx inspect --bootstrap
         - >
@@ -327,7 +330,7 @@ test-webapp:
         - |
             if [ "$ACCESS_FAILED" = "1" ]; then
                 echo "Failed to access App"
-                docker stop ${CI_JOB_NAME}-${CI_JOB_ID}
+                docker stop ${CI_JOB_NAME}-${CI_JOB_ID} || true
                 exit 1
             fi
 
