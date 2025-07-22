@@ -330,49 +330,230 @@ uv run pytest --numprocesses=auto tests/
 
 ### アーキテクチャ
 
-#### プログラム連携図
+#### 詳細データフロー図
 
 ```mermaid
-graph TB
-    subgraph "メイン処理フロー"
-        DI[display_image.py<br/>メイン実行・表示制御] --> CI[create_image.py<br/>画像生成処理]
-        CI --> PANELS[気象パネル群]
-        DI --> DISPLAY[E-Ink Display<br/>画像表示]
-    end
-
-    subgraph "気象パネル群"
-        PANELS --> WP[weather_panel.py<br/>天気予報]
-        PANELS --> RC[rain_cloud_panel.py<br/>雨雲レーダー]
-        PANELS --> SG[sensor_graph.py<br/>センサーグラフ]
-        PANELS --> PG[power_graph.py<br/>電力グラフ]
-        PANELS --> WBGT[wbgt_panel.py<br/>WBGT指数]
-        PANELS --> TP[time_panel.py<br/>時刻表示]
-    end
-
+flowchart TB
     subgraph "外部データソース"
-        YAHOO[Yahoo Weather API] --> WP
-        JMA[気象庁雨雲レーダー] --> RC
-        INFLUX[InfluxDB センサーDB] --> SG
-        INFLUX --> PG
+        YAHOO[Yahoo Weather API<br/>🌤️ 7日間予報<br/>📊 気温・湿度・風速]
+        JMA[気象庁雨雲レーダー<br/>🌧️ リアルタイム降水量<br/>🗾 地域別降水分布]
+        INFLUX[InfluxDB<br/>📈 時系列センサーデータ<br/>🌡️ 温度・湿度・照度・CO2]
+        POWER_DB[Power Monitor DB<br/>⚡ 電力消費データ<br/>📊 使用量履歴]
+    end
+
+    subgraph "コア処理エンジン"
+        DI[display_image.py<br/>🎛️ メイン実行制御<br/>⏰ 定期実行スケジューラー<br/>🔄 タイミング制御]
+        CI[create_image.py<br/>🖼️ 画像合成エンジン<br/>⚙️ マルチプロセス制御<br/>📏 レイアウト管理]
+    end
+
+    subgraph "気象パネル処理"
+        WP[weather.py<br/>🌤️ 天気予報パネル<br/>📅 7日間予報表示<br/>🎨 天気アイコン生成]
+        RC[rain_cloud.py<br/>🌧️ 雨雲レーダーパネル<br/>🗾 地図合成処理<br/>🎯 位置マーカー]
+        RF[rain_fall.py<br/>☔ 降水量グラフ<br/>📊 時間別降水量<br/>📈 予報データ]
+        SG[sensor_graph.py<br/>📊 センサーグラフ<br/>📈 多軸グラフ生成<br/>🎨 カラーマップ]
+        PG[power_graph.py<br/>⚡ 電力グラフ<br/>📊 消費量推移<br/>💰 コスト計算]
+        WBGT[wbgt.py<br/>🌡️ WBGT指数<br/>⚠️ 熱中症警戒<br/>🚨 アラート表示]
+        TP[time.py<br/>🕐 現在時刻<br/>📅 日付表示<br/>🌅 日の出・日の入り]
     end
 
     subgraph "Web インターフェース"
-        WEBAPP[webapp.py<br/>Flask API] --> CI
-        REACT[React Frontend] --> WEBAPP
-        WEBAPP --> METRICS[メトリクス収集・表示]
+        WEBAPP[webapp.py<br/>🌐 Flask REST API<br/>🔄 非同期処理<br/>📤 JSON レスポンス]
+        REACT[React Frontend<br/>⚛️ SPA アプリ<br/>🖼️ リアルタイムプレビュー<br/>⚙️ パラメータ調整]
+        GENERATOR[generator.py<br/>🎛️ Web画像生成<br/>🔧 動的パラメータ<br/>📱 レスポンシブ対応]
     end
 
-    subgraph "メトリクス・監視"
-        METRICS --> SQLITE[(SQLiteDB<br/>パフォーマンスデータ)]
-        DI --> MCOLLECT[metrics/collector.py<br/>処理時間収集]
-        CI --> MCOLLECT
+    subgraph "表示・出力"
+        DISPLAY[🖥️ E-Ink Display<br/>📺 Raspberry Pi<br/>🔌 SSH接続<br/>🖼️ フレームバッファ出力]
+        PNG_OUTPUT[🖼️ PNG画像ファイル<br/>💾 ローカル保存<br/>🌐 Web配信]
     end
 
+    subgraph "監視・メトリクス"
+        MCOLLECT[metrics/collector.py<br/>📊 パフォーマンス収集<br/>⏱️ 実行時間測定<br/>❌ エラー追跡]
+        MSERVER[metrics/server.py<br/>🌐 メトリクスAPI<br/>📈 統計処理<br/>🔍 異常検知]
+        SQLITE[(SQLite DB<br/>📁 metrics.db<br/>📊 パフォーマンス履歴<br/>⚠️ エラーログ)]
+    end
+
+    subgraph "設定・制御"
+        CONFIG[config.yaml<br/>⚙️ システム設定<br/>🎨 レイアウト定義<br/>🔧 API認証情報]
+        TIMING[timing_filter.py<br/>⏰ カルマンフィルター<br/>🎯 更新タイミング制御<br/>📐 遅延補正]
+    end
+
+    %% データフロー接続
+    YAHOO --> WP
+    JMA --> RC
+    JMA --> RF
+    INFLUX --> SG
+    POWER_DB --> PG
+
+    WP --> CI
+    RC --> CI
+    RF --> CI
+    SG --> CI
+    PG --> CI
+    WBGT --> CI
+    TP --> CI
+
+    CONFIG --> DI
+    CONFIG --> CI
+    CONFIG --> WP
+    CONFIG --> RC
+    CONFIG --> SG
+
+    DI --> CI
+    CI --> PNG_OUTPUT
+    DI --> DISPLAY
+
+    REACT --> WEBAPP
+    WEBAPP --> GENERATOR
+    GENERATOR --> CI
+
+    DI --> MCOLLECT
+    CI --> MCOLLECT
+    MCOLLECT --> SQLITE
+    MSERVER --> SQLITE
+    DI --> MSERVER
+
+    TIMING --> DI
+
+    %% スタイリング
+    style YAHOO fill:#e3f2fd
+    style JMA fill:#e8f5e8
+    style INFLUX fill:#fff3e0
+    style POWER_DB fill:#fce4ec
     style DI fill:#e1f5fe
     style CI fill:#f3e5f5
     style WEBAPP fill:#e8f5e8
     style REACT fill:#fff3e0
-    style METRICS fill:#fce4ec
+    style SQLITE fill:#f5f5f5
+    style DISPLAY fill:#ffebee
+```
+
+#### create_image.py と display_image.py のインタラクション
+
+```mermaid
+sequenceDiagram
+    participant User as 👤 User/Cron
+    participant DI as display_image.py<br/>🎛️ Main Controller
+    participant TC as timing_filter.py<br/>⏰ Timing Control
+    participant SSH as 🔗 SSH Connection
+    participant CI as create_image.py<br/>🖼️ Image Generator
+    participant MP as 🔄 Multiprocess Pool
+    participant P1 as 🌤️ Weather Panel
+    participant P2 as 🌧️ Rain Panel
+    participant P3 as 📊 Sensor Panel
+    participant PN as ⚡ Other Panels...
+    participant MC as metrics/collector.py<br/>📊 Metrics
+    participant DB as 💾 SQLite DB
+    participant RPI as 🥧 Raspberry Pi
+
+    User->>DI: python display_image.py
+
+    Note over DI: 🚀 Initialize & Load Config
+    DI->>DI: Load config.yaml
+    DI->>TC: Initialize TimingController
+    DI->>SSH: ssh_connect(rasp_hostname)
+
+    loop ♾️ Main Display Loop
+        Note over DI: ⏰ Calculate Sleep Time
+        DI->>TC: calculate_sleep_time()
+        TC-->>DI: sleep_time, diff_sec
+
+        Note over DI: 🎯 Execute Display Process
+        DI->>SSH: ssh_kill_and_close("fbi")
+        DI->>CI: subprocess call create_image.py
+
+        Note over CI: 🖼️ Image Generation Process
+        CI->>MP: Create multiprocess pool
+
+        par 🔄 Parallel Panel Generation
+            CI->>P1: weather.create()
+            CI->>P2: rain_cloud.create()
+            CI->>P3: sensor_graph.create()
+            CI->>PN: other panels...
+        end
+
+        Note over MP: ⏳ Wait for all panels
+        P1-->>CI: (panel_image, elapsed_time)
+        P2-->>CI: (panel_image, elapsed_time)
+        P3-->>CI: (panel_image, elapsed_time)
+        PN-->>CI: (panel_image, elapsed_time)
+
+        CI->>CI: Composite all panels
+        CI->>MC: collect_draw_panel_metrics()
+        MC->>DB: INSERT panel metrics
+
+        CI-->>DI: Return PNG image
+
+        Note over DI: 📤 Display on E-Ink
+        DI->>SSH: scp image to Raspberry Pi
+        DI->>SSH: fbi command for display
+        SSH->>RPI: Display image on E-Ink
+
+        DI->>MC: collect_display_image_metrics()
+        MC->>DB: INSERT display metrics
+
+        alt 🔄 Continuous Mode
+            DI->>DI: sleep(sleep_time)
+        else 1️⃣ One-time Mode
+            DI->>User: Exit
+        end
+    end
+
+    Note over DI,DB: 📊 Metrics Collection Throughout Process
+    Note over TC: 🎯 Adaptive timing control using Kalman filter
+    Note over MP: ⚡ Parallel processing for performance
+```
+
+#### パネル生成の詳細フロー
+
+```mermaid
+sequenceDiagram
+    participant CI as create_image.py
+    participant MP as Multiprocess Pool
+    participant WP as weather.py
+    participant API1 as Yahoo Weather API
+    participant RC as rain_cloud.py
+    participant API2 as 気象庁レーダー
+    participant SG as sensor_graph.py
+    participant API3 as InfluxDB
+    participant MC as Metrics Collector
+
+    Note over CI: 🚀 Start Panel Generation
+    CI->>MP: Create process pool
+
+    par 🌤️ Weather Panel
+        MP->>WP: weather.create(config)
+        WP->>API1: Request 7-day forecast
+        API1-->>WP: Weather data (JSON)
+        WP->>WP: Generate weather icons
+        WP->>WP: Create forecast layout
+        WP-->>MP: (weather_image, elapsed_time)
+    and 🌧️ Rain Cloud Panel
+        MP->>RC: rain_cloud.create(config)
+        RC->>API2: Download radar image
+        API2-->>RC: Rain radar PNG
+        RC->>RC: Overlay location markers
+        RC->>RC: Add timestamp & legend
+        RC-->>MP: (rain_image, elapsed_time)
+    and 📊 Sensor Panel
+        MP->>SG: sensor_graph.create(config)
+        SG->>API3: Query sensor data
+        API3-->>SG: Time series data
+        SG->>SG: Generate multi-axis graphs
+        SG->>SG: Apply color mapping
+        SG-->>MP: (sensor_image, elapsed_time)
+    end
+
+    Note over MP: ⏳ Wait for all panels to complete
+    MP-->>CI: All panel images + metrics
+
+    CI->>CI: Composite panels onto base image
+    CI->>MC: Record total generation time
+
+    Note over CI: 📊 Performance Monitoring
+    CI->>MC: Log individual panel times
+    CI->>MC: Log any errors occurred
+    MC->>MC: Calculate statistics
 ```
 
 #### ファイル構成
