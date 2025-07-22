@@ -27,6 +27,9 @@ build-react:
     stage: build
     needs: []
     image: node:24.2
+
+    before_script: []
+
     script:
         - cd react
         - npm ci --cache .npm --prefer-offline
@@ -403,6 +406,8 @@ deploy:
     image:
         name: gitlab.green-rabbit.net:5050/kimata/local-kubectl:250715_c88f3965
 
+    before_script: []
+
     script:
         - 'IMAGE="${CI_REGISTRY_IMAGE}:${TAG}"'
         - 'echo "Deploying image: $IMAGE"'
@@ -435,6 +440,8 @@ renovate:
     dependencies: []
     image:
         name: gitlab.green-rabbit.net:5050/kimata/local-renovate:250715_3b8866ff
+
+    before_script: []
 
     script:
         - renovate --platform gitlab --token ${RENOVATE_TOKEN} --endpoint ${CI_SERVER_URL}/api/v4 ${CI_PROJECT_PATH}
