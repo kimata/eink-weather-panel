@@ -42,7 +42,7 @@ build-image:
         - build-react
 
     variables:
-        BUILDER: builder-${CI_JOB_ID}
+        BUILDER: builder
         BUILD_KIT_IMAGE: gitlab.green-rabbit.net:5050/kimata/local-buildkit:250705_7cc0d1c
 
     before_script:
