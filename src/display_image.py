@@ -34,6 +34,7 @@ import weather_display.display
 import weather_display.metrics.collector
 import weather_display.metrics.server
 import weather_display.timing_filter
+from metrics_worker import shutdown_worker
 
 TIMEZONE = zoneinfo.ZoneInfo("Asia/Tokyo")
 
@@ -216,3 +217,10 @@ if __name__ == "__main__":
                 time.sleep(10)
 
     weather_display.metrics.server.term(handle)
+
+    # メトリクスワーカーをシャットダウン
+    try:
+        shutdown_worker()
+        logging.info("Metrics worker shutdown completed")
+    except Exception:
+        logging.exception("Error during metrics worker shutdown")
