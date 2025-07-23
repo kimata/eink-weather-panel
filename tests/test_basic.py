@@ -676,6 +676,7 @@ def test_create_rain_cloud_panel_cache_and_error(mocker, request, config):
     weather_display.panel.rain_cloud.PATIENT_COUNT = 1
     mocker.patch("weather_display.panel.rain_cloud.click_xpath", side_effect=click_xpath_mock)
     mocker.patch("weather_display.panel.rain_cloud.time.sleep")  # Mock time.sleep to prevent timeout
+    mocker.patch.dict("os.environ", {"DUMMY_MODE": "false"})
 
     check_image(
         request,
