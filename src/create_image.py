@@ -36,6 +36,7 @@ import weather_display.panel.sensor_graph
 import weather_display.panel.time
 import weather_display.panel.wbgt
 import weather_display.panel.weather
+from metrics_worker import shutdown_worker
 
 SCHEMA_CONFIG = "config.schema"
 SCHEMA_CONFIG_SMALL = "config-small.schema"
@@ -258,5 +259,12 @@ if __name__ == "__main__":
         my_lib.proc_util.reap_zombie()
     except Exception as e:
         logging.warning("Failed to reap zombie processes: %s", e)
+
+    # メトリクスワーカーをシャットダウン
+    try:
+        shutdown_worker()
+        logging.info("Metrics worker shutdown completed")
+    except Exception:
+        logging.exception("Error during metrics worker shutdown")
 
     sys.exit(status)
