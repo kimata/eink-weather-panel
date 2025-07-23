@@ -46,18 +46,28 @@ def metrics_view():
         # メトリクス分析器を初期化
         analyzer = weather_display.metrics.collector.MetricsAnalyzer(db_path)
 
-        # すべてのメトリクスデータを収集
-        basic_stats = analyzer.get_basic_statistics(days=100)
-        hourly_patterns = analyzer.get_hourly_patterns(days=100)
-        anomalies = analyzer.detect_anomalies(days=100)
-        trends = analyzer.get_performance_trends(days=100)
+        # データ範囲を取得
+        data_range = analyzer.get_data_range()
+
+        # すべてのメトリクスデータを収集（全期間）
+        basic_stats = analyzer.get_basic_statistics()
+        hourly_patterns = analyzer.get_hourly_patterns()
+        anomalies = analyzer.detect_anomalies()
+        trends = analyzer.get_performance_trends()
         alerts = analyzer.check_performance_alerts()
-        panel_trends = analyzer.get_panel_performance_trends(days=100)
-        performance_stats = analyzer.get_performance_statistics(days=100)
+        panel_trends = analyzer.get_panel_performance_trends()
+        performance_stats = analyzer.get_performance_statistics()
 
         # HTMLを生成
         html_content = generate_metrics_html(
-            basic_stats, hourly_patterns, anomalies, trends, alerts, panel_trends, performance_stats
+            basic_stats,
+            hourly_patterns,
+            anomalies,
+            trends,
+            alerts,
+            panel_trends,
+            performance_stats,
+            data_range,
         )
 
         return flask.Response(html_content, mimetype="text/html")
@@ -138,9 +148,32 @@ def favicon():
 
 
 def generate_metrics_html(  # noqa: PLR0913
-    basic_stats, hourly_patterns, anomalies, trends, alerts, panel_trends, performance_stats
+    basic_stats, hourly_patterns, anomalies, trends, alerts, panel_trends, performance_stats, data_range
 ):
     """Bulma CSSを使用した包括的なメトリクスHTMLを生成。"""
+    # データ範囲から動的なタイトルを生成
+    import datetime
+
+    subtitle_text = "パフォーマンス監視と異常検知"
+    if data_range and data_range["overall"]["earliest"]:
+        try:
+            earliest_str = data_range["overall"]["earliest"]
+            # ISO形式の日時をパース
+            earliest_dt = datetime.datetime.fromisoformat(earliest_str.replace("+09:00", "+09:00"))
+            latest_str = data_range["overall"]["latest"]
+            latest_dt = datetime.datetime.fromisoformat(latest_str.replace("+09:00", "+09:00"))
+
+            # 日数を計算
+            days_diff = (latest_dt - earliest_dt).days + 1  # +1 to include both start and end days
+
+            # 開始日をフォーマット
+            start_date_formatted = earliest_dt.strftime("%Y年%m月%d日")
+
+            subtitle_text = f"過去{days_diff}日間（{start_date_formatted}〜）のパフォーマンス監視と異常検知"
+        except Exception:
+            # フォーマットエラーの場合はデフォルトのまま
+            subtitle_text = "パフォーマンス監視と異常検知"
+
     # JavaScript チャート用にデータをJSONに変換
     hourly_data_json = json.dumps(hourly_patterns)
     trends_data_json = json.dumps(trends)
@@ -282,7 +315,7 @@ def generate_metrics_html(  # noqa: PLR0913
                         <i class="fas fa-link permalink-icon" onclick="copyPermalink('dashboard')"></i>
                     </div>
                 </h1>
-                <p class="subtitle has-text-centered">過去100日間のパフォーマンス監視と異常検知</p>
+                <p class="subtitle has-text-centered">{subtitle_text}</p>
 
                 <!-- アラート -->
                 {generate_alerts_section(alerts)}
@@ -454,7 +487,7 @@ def generate_basic_stats_section(basic_stats):
         <h2 class="title is-4 section-header">
             <div class="permalink-container">
                 <span class="icon"><i class="fas fa-chart-bar"></i></span>
-                基本統計（過去100日間）
+                基本統計
                 <i class="fas fa-link permalink-icon" onclick="copyPermalink('basic-stats')"></i>
             </div>
         </h2>
