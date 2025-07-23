@@ -817,6 +817,7 @@ def test_slack_error_with_image(mocker, request, config):
 
     mocker.patch("weather_display.panel.rain_cloud.click_xpath", side_effect=click_xpath_mock)
     mocker.patch("weather_display.panel.rain_cloud.time.sleep")  # Mock time.sleep to prevent timeout
+    mocker.patch.dict("os.environ", {"DUMMY_MODE": "false"})
 
     check_image(
         request,
