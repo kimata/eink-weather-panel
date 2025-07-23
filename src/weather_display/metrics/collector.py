@@ -370,249 +370,128 @@ class MetricsAnalyzer:
                 },
             }
 
-    def get_basic_statistics(self, days: int | None = 30) -> dict:
-        """Get basic statistics for the last N days. If days is None, get all data."""
-        since = datetime.datetime.now(TIMEZONE) - datetime.timedelta(days=days) if days is not None else None
-
+    def get_basic_statistics(self) -> dict:
+        """Get basic statistics for all data."""
         with self._get_connection() as conn:
             cursor = conn.cursor()
 
             # Draw panel statistics
-            if days is not None:
-                cursor.execute(
-                    """
-                    SELECT
-                        COUNT(*) as total_operations,
-                        AVG(total_elapsed_time) as avg_elapsed_time,
-                        MIN(total_elapsed_time) as min_elapsed_time,
-                        MAX(total_elapsed_time) as max_elapsed_time,
-                        SUM(CASE WHEN error_code > 0 THEN 1 ELSE 0 END) as error_count
-                    FROM draw_panel_metrics
-                    WHERE timestamp >= ?
-                """,
-                    (since,),
-                )
-            else:
-                cursor.execute(
-                    """
-                    SELECT
-                        COUNT(*) as total_operations,
-                        AVG(total_elapsed_time) as avg_elapsed_time,
-                        MIN(total_elapsed_time) as min_elapsed_time,
-                        MAX(total_elapsed_time) as max_elapsed_time,
-                        SUM(CASE WHEN error_code > 0 THEN 1 ELSE 0 END) as error_count
-                    FROM draw_panel_metrics
+            cursor.execute(
                 """
-                )
+                SELECT
+                    COUNT(*) as total_operations,
+                    AVG(total_elapsed_time) as avg_elapsed_time,
+                    MIN(total_elapsed_time) as min_elapsed_time,
+                    MAX(total_elapsed_time) as max_elapsed_time,
+                    SUM(CASE WHEN error_code > 0 THEN 1 ELSE 0 END) as error_count
+                FROM draw_panel_metrics
+            """
+            )
             draw_panel_stats = dict(cursor.fetchone())
 
             # Display image statistics
-            if days is not None:
-                cursor.execute(
-                    """
-                    SELECT
-                        COUNT(*) as total_operations,
-                        AVG(elapsed_time) as avg_elapsed_time,
-                        MIN(elapsed_time) as min_elapsed_time,
-                        MAX(elapsed_time) as max_elapsed_time,
-                        SUM(CASE WHEN success = 0 THEN 1 ELSE 0 END) as error_count
-                    FROM display_image_metrics
-                    WHERE timestamp >= ?
-                """,
-                    (since,),
-                )
-            else:
-                cursor.execute(
-                    """
-                    SELECT
-                        COUNT(*) as total_operations,
-                        AVG(elapsed_time) as avg_elapsed_time,
-                        MIN(elapsed_time) as min_elapsed_time,
-                        MAX(elapsed_time) as max_elapsed_time,
-                        SUM(CASE WHEN success = 0 THEN 1 ELSE 0 END) as error_count
-                    FROM display_image_metrics
+            cursor.execute(
                 """
-                )
+                SELECT
+                    COUNT(*) as total_operations,
+                    AVG(elapsed_time) as avg_elapsed_time,
+                    MIN(elapsed_time) as min_elapsed_time,
+                    MAX(elapsed_time) as max_elapsed_time,
+                    SUM(CASE WHEN success = 0 THEN 1 ELSE 0 END) as error_count
+                FROM display_image_metrics
+            """
+            )
             display_image_stats = dict(cursor.fetchone())
 
             return {
-                "period_days": days,
                 "draw_panel": draw_panel_stats,
                 "display_image": display_image_stats,
             }
 
-    def get_hourly_patterns(self, days: int | None = 30) -> dict:
-        """Analyze performance patterns by hour of day. If days is None, get all data."""
-        since = datetime.datetime.now(TIMEZONE) - datetime.timedelta(days=days) if days is not None else None
-
+    def get_hourly_patterns(self) -> dict:
+        """Analyze performance patterns by hour of day for all data."""
         with self._get_connection() as conn:
             cursor = conn.cursor()
 
             # Draw panel hourly patterns (aggregated)
-            if since is not None:
-                cursor.execute(
-                    """
-                    SELECT
-                        hour,
-                        COUNT(*) as count,
-                        AVG(total_elapsed_time) as avg_elapsed_time,
-                        MIN(total_elapsed_time) as min_elapsed_time,
-                        MAX(total_elapsed_time) as max_elapsed_time,
-                        SUM(CASE WHEN error_code > 0 THEN 1 ELSE 0 END) * 100.0 / COUNT(*) as error_rate
-                    FROM draw_panel_metrics
-                    WHERE timestamp >= ?
-                    GROUP BY hour
-                    ORDER BY hour
-                """,
-                    (since,),
-                )
-            else:
-                cursor.execute(
-                    """
-                    SELECT
-                        hour,
-                        COUNT(*) as count,
-                        AVG(total_elapsed_time) as avg_elapsed_time,
-                        MIN(total_elapsed_time) as min_elapsed_time,
-                        MAX(total_elapsed_time) as max_elapsed_time,
-                        SUM(CASE WHEN error_code > 0 THEN 1 ELSE 0 END) * 100.0 / COUNT(*) as error_rate
-                    FROM draw_panel_metrics
-                    GROUP BY hour
-                    ORDER BY hour
+            cursor.execute(
                 """
-                )
+                SELECT
+                    hour,
+                    COUNT(*) as count,
+                    AVG(total_elapsed_time) as avg_elapsed_time,
+                    MIN(total_elapsed_time) as min_elapsed_time,
+                    MAX(total_elapsed_time) as max_elapsed_time,
+                    SUM(CASE WHEN error_code > 0 THEN 1 ELSE 0 END) * 100.0 / COUNT(*) as error_rate
+                FROM draw_panel_metrics
+                GROUP BY hour
+                ORDER BY hour
+            """
+            )
             draw_panel_hourly = [dict(row) for row in cursor.fetchall()]
 
             # Display image hourly patterns (aggregated)
-            if since is not None:
-                cursor.execute(
-                    """
-                    SELECT
-                        hour,
-                        COUNT(*) as count,
-                        AVG(elapsed_time) as avg_elapsed_time,
-                        MIN(elapsed_time) as min_elapsed_time,
-                        MAX(elapsed_time) as max_elapsed_time,
-                        SUM(CASE WHEN success = 0 THEN 1 ELSE 0 END) * 100.0 / COUNT(*) as error_rate
-                    FROM display_image_metrics
-                    WHERE timestamp >= ?
-                    GROUP BY hour
-                    ORDER BY hour
-                """,
-                    (since,),
-                )
-            else:
-                cursor.execute(
-                    """
-                    SELECT
-                        hour,
-                        COUNT(*) as count,
-                        AVG(elapsed_time) as avg_elapsed_time,
-                        MIN(elapsed_time) as min_elapsed_time,
-                        MAX(elapsed_time) as max_elapsed_time,
-                        SUM(CASE WHEN success = 0 THEN 1 ELSE 0 END) * 100.0 / COUNT(*) as error_rate
-                    FROM display_image_metrics
-                    GROUP BY hour
-                    ORDER BY hour
+            cursor.execute(
                 """
-                )
+                SELECT
+                    hour,
+                    COUNT(*) as count,
+                    AVG(elapsed_time) as avg_elapsed_time,
+                    MIN(elapsed_time) as min_elapsed_time,
+                    MAX(elapsed_time) as max_elapsed_time,
+                    SUM(CASE WHEN success = 0 THEN 1 ELSE 0 END) * 100.0 / COUNT(*) as error_rate
+                FROM display_image_metrics
+                GROUP BY hour
+                ORDER BY hour
+            """
+            )
             display_image_hourly = [dict(row) for row in cursor.fetchall()]
 
             # Display timing (diff_sec) hourly patterns
-            if since is not None:
-                cursor.execute(
-                    """
-                    SELECT
-                        hour,
-                        COUNT(*) as count,
-                        AVG(CAST(diff_sec AS REAL)) as avg_diff_sec,
-                        MIN(CAST(diff_sec AS REAL)) as min_diff_sec,
-                        MAX(CAST(diff_sec AS REAL)) as max_diff_sec
-                    FROM display_image_metrics
-                    WHERE timestamp >= ? AND diff_sec IS NOT NULL AND is_one_time = 0
-                    GROUP BY hour
-                    ORDER BY hour
-                """,
-                    (since,),
-                )
-            else:
-                cursor.execute(
-                    """
-                    SELECT
-                        hour,
-                        COUNT(*) as count,
-                        AVG(CAST(diff_sec AS REAL)) as avg_diff_sec,
-                        MIN(CAST(diff_sec AS REAL)) as min_diff_sec,
-                        MAX(CAST(diff_sec AS REAL)) as max_diff_sec
-                    FROM display_image_metrics
-                    WHERE diff_sec IS NOT NULL AND is_one_time = 0
-                    GROUP BY hour
-                    ORDER BY hour
+            cursor.execute(
                 """
-                )
+                SELECT
+                    hour,
+                    COUNT(*) as count,
+                    AVG(CAST(diff_sec AS REAL)) as avg_diff_sec,
+                    MIN(CAST(diff_sec AS REAL)) as min_diff_sec,
+                    MAX(CAST(diff_sec AS REAL)) as max_diff_sec
+                FROM display_image_metrics
+                WHERE diff_sec IS NOT NULL AND is_one_time = 0
+                GROUP BY hour
+                ORDER BY hour
+            """
+            )
             diff_sec_hourly = [dict(row) for row in cursor.fetchall()]
 
             # Get raw data for boxplots
-            if since is not None:
-                cursor.execute(
-                    """
-                    SELECT hour, total_elapsed_time
-                    FROM draw_panel_metrics
-                    WHERE timestamp >= ?
-                    ORDER BY hour
-                """,
-                    (since,),
-                )
-            else:
-                cursor.execute(
-                    """
-                    SELECT hour, total_elapsed_time
-                    FROM draw_panel_metrics
-                    ORDER BY hour
+            cursor.execute(
                 """
-                )
+                SELECT hour, total_elapsed_time
+                FROM draw_panel_metrics
+                ORDER BY hour
+            """
+            )
             draw_panel_raw = cursor.fetchall()
 
-            if since is not None:
-                cursor.execute(
-                    """
-                    SELECT hour, elapsed_time
-                    FROM display_image_metrics
-                    WHERE timestamp >= ?
-                    ORDER BY hour
-                """,
-                    (since,),
-                )
-            else:
-                cursor.execute(
-                    """
-                    SELECT hour, elapsed_time
-                    FROM display_image_metrics
-                    ORDER BY hour
+            cursor.execute(
                 """
-                )
+                SELECT hour, elapsed_time
+                FROM display_image_metrics
+                ORDER BY hour
+            """
+            )
             display_image_raw = cursor.fetchall()
 
             # Get diff_sec raw data for boxplots
-            if since is not None:
-                cursor.execute(
-                    """
-                    SELECT hour, CAST(diff_sec AS REAL)
-                    FROM display_image_metrics
-                    WHERE timestamp >= ? AND diff_sec IS NOT NULL AND is_one_time = 0
-                    ORDER BY hour
-                """,
-                    (since,),
-                )
-            else:
-                cursor.execute(
-                    """
-                    SELECT hour, CAST(diff_sec AS REAL)
-                    FROM display_image_metrics
-                    WHERE diff_sec IS NOT NULL AND is_one_time = 0
-                    ORDER BY hour
+            cursor.execute(
                 """
-                )
+                SELECT hour, CAST(diff_sec AS REAL)
+                FROM display_image_metrics
+                WHERE diff_sec IS NOT NULL AND is_one_time = 0
+                ORDER BY hour
+            """
+            )
             diff_sec_raw = cursor.fetchall()
 
             # Group raw data by hour for boxplots
@@ -646,63 +525,38 @@ class MetricsAnalyzer:
                 "diff_sec_boxplot": diff_sec_boxplot,
             }
 
-    def detect_anomalies(self, days: int | None = 30, contamination: float = 0.1) -> dict:
+    def detect_anomalies(self, contamination: float = 0.1) -> dict:
         """
         Detect anomalies in performance metrics using Isolation Forest.
 
         Args:
-            days: Number of days to analyze
             contamination: Expected proportion of anomalies (0.0 to 0.5)
 
         Returns:
             Dictionary with anomaly detection results
 
         """
-        since = datetime.datetime.now(TIMEZONE) - datetime.timedelta(days=days) if days is not None else None
-
         with self._get_connection() as conn:
             cursor = conn.cursor()
 
             # Get draw panel data
-            if since is not None:
-                cursor.execute(
-                    """
-                    SELECT id, timestamp, hour, day_of_week, total_elapsed_time, error_code
-                    FROM draw_panel_metrics
-                    WHERE timestamp >= ?
-                    ORDER BY timestamp
-                """,
-                    (since,),
-                )
-            else:
-                cursor.execute(
-                    """
-                    SELECT id, timestamp, hour, day_of_week, total_elapsed_time, error_code
-                    FROM draw_panel_metrics
-                    ORDER BY timestamp
+            cursor.execute(
                 """
-                )
+                SELECT id, timestamp, hour, day_of_week, total_elapsed_time, error_code
+                FROM draw_panel_metrics
+                ORDER BY timestamp
+            """
+            )
             draw_panel_data = [dict(row) for row in cursor.fetchall()]
 
             # Get display image data
-            if since is not None:
-                cursor.execute(
-                    """
-                    SELECT id, timestamp, hour, day_of_week, elapsed_time, success
-                    FROM display_image_metrics
-                    WHERE timestamp >= ?
-                    ORDER BY timestamp
-                """,
-                    (since,),
-                )
-            else:
-                cursor.execute(
-                    """
-                    SELECT id, timestamp, hour, day_of_week, elapsed_time, success
-                    FROM display_image_metrics
-                    ORDER BY timestamp
+            cursor.execute(
                 """
-                )
+                SELECT id, timestamp, hour, day_of_week, elapsed_time, success
+                FROM display_image_metrics
+                ORDER BY timestamp
+            """
+            )
             display_image_data = [dict(row) for row in cursor.fetchall()]
 
         results = {}
@@ -779,136 +633,69 @@ class MetricsAnalyzer:
 
         return results
 
-    def get_performance_trends(self, days: int | None = 30) -> dict:
-        """Analyze performance trends over time. If days is None, get all data."""
-        since = datetime.datetime.now(TIMEZONE) - datetime.timedelta(days=days) if days is not None else None
-
+    def get_performance_trends(self) -> dict:
+        """Analyze performance trends over time for all data."""
         with self._get_connection() as conn:
             cursor = conn.cursor()
 
             # Daily trends for draw panel
-            if since is not None:
-                cursor.execute(
-                    """
-                    SELECT
-                        DATE(timestamp) as date,
-                        COUNT(*) as operations,
-                        AVG(total_elapsed_time) as avg_elapsed_time,
-                        SUM(CASE WHEN error_code > 0 THEN 1 ELSE 0 END) * 100.0 / COUNT(*) as error_rate
-                    FROM draw_panel_metrics
-                    WHERE timestamp >= ?
-                    GROUP BY DATE(timestamp)
-                    ORDER BY date
-                """,
-                    (since,),
-                )
-            else:
-                cursor.execute(
-                    """
-                    SELECT
-                        DATE(timestamp) as date,
-                        COUNT(*) as operations,
-                        AVG(total_elapsed_time) as avg_elapsed_time,
-                        SUM(CASE WHEN error_code > 0 THEN 1 ELSE 0 END) * 100.0 / COUNT(*) as error_rate
-                    FROM draw_panel_metrics
-                    GROUP BY DATE(timestamp)
-                    ORDER BY date
+            cursor.execute(
                 """
-                )
+                SELECT
+                    DATE(timestamp) as date,
+                    COUNT(*) as operations,
+                    AVG(total_elapsed_time) as avg_elapsed_time,
+                    SUM(CASE WHEN error_code > 0 THEN 1 ELSE 0 END) * 100.0 / COUNT(*) as error_rate
+                FROM draw_panel_metrics
+                GROUP BY DATE(timestamp)
+                ORDER BY date
+            """
+            )
             draw_panel_trends = [dict(row) for row in cursor.fetchall()]
 
             # Daily trends for display image
-            if since is not None:
-                cursor.execute(
-                    """
-                    SELECT
-                        DATE(timestamp) as date,
-                        COUNT(*) as operations,
-                        AVG(elapsed_time) as avg_elapsed_time,
-                        SUM(CASE WHEN success = 0 THEN 1 ELSE 0 END) * 100.0 / COUNT(*) as error_rate
-                    FROM display_image_metrics
-                    WHERE timestamp >= ?
-                    GROUP BY DATE(timestamp)
-                    ORDER BY date
-                """,
-                    (since,),
-                )
-            else:
-                cursor.execute(
-                    """
-                    SELECT
-                        DATE(timestamp) as date,
-                        COUNT(*) as operations,
-                        AVG(elapsed_time) as avg_elapsed_time,
-                        SUM(CASE WHEN success = 0 THEN 1 ELSE 0 END) * 100.0 / COUNT(*) as error_rate
-                    FROM display_image_metrics
-                    GROUP BY DATE(timestamp)
-                    ORDER BY date
+            cursor.execute(
                 """
-                )
+                SELECT
+                    DATE(timestamp) as date,
+                    COUNT(*) as operations,
+                    AVG(elapsed_time) as avg_elapsed_time,
+                    SUM(CASE WHEN success = 0 THEN 1 ELSE 0 END) * 100.0 / COUNT(*) as error_rate
+                FROM display_image_metrics
+                GROUP BY DATE(timestamp)
+                ORDER BY date
+            """
+            )
             display_image_trends = [dict(row) for row in cursor.fetchall()]
 
             # Get raw elapsed times for boxplot by day
-            if since is not None:
-                cursor.execute(
-                    """
-                    SELECT DATE(timestamp) as date, total_elapsed_time
-                    FROM draw_panel_metrics
-                    WHERE timestamp >= ?
-                    ORDER BY date
-                """,
-                    (since,),
-                )
-            else:
-                cursor.execute(
-                    """
-                    SELECT DATE(timestamp) as date, total_elapsed_time
-                    FROM draw_panel_metrics
-                    ORDER BY date
+            cursor.execute(
                 """
-                )
+                SELECT DATE(timestamp) as date, total_elapsed_time
+                FROM draw_panel_metrics
+                ORDER BY date
+            """
+            )
             draw_panel_raw = cursor.fetchall()
 
-            if since is not None:
-                cursor.execute(
-                    """
-                    SELECT DATE(timestamp) as date, elapsed_time
-                    FROM display_image_metrics
-                    WHERE timestamp >= ?
-                    ORDER BY date
-                """,
-                    (since,),
-                )
-            else:
-                cursor.execute(
-                    """
-                    SELECT DATE(timestamp) as date, elapsed_time
-                    FROM display_image_metrics
-                    ORDER BY date
+            cursor.execute(
                 """
-                )
+                SELECT DATE(timestamp) as date, elapsed_time
+                FROM display_image_metrics
+                ORDER BY date
+            """
+            )
             display_image_raw = cursor.fetchall()
 
             # Get raw diff_sec data for boxplot by day
-            if since is not None:
-                cursor.execute(
-                    """
-                    SELECT DATE(timestamp) as date, CAST(diff_sec AS REAL)
-                    FROM display_image_metrics
-                    WHERE timestamp >= ? AND diff_sec IS NOT NULL AND is_one_time = 0
-                    ORDER BY date
-                """,
-                    (since,),
-                )
-            else:
-                cursor.execute(
-                    """
-                    SELECT DATE(timestamp) as date, CAST(diff_sec AS REAL)
-                    FROM display_image_metrics
-                    WHERE diff_sec IS NOT NULL AND is_one_time = 0
-                    ORDER BY date
+            cursor.execute(
                 """
-                )
+                SELECT DATE(timestamp) as date, CAST(diff_sec AS REAL)
+                FROM display_image_metrics
+                WHERE diff_sec IS NOT NULL AND is_one_time = 0
+                ORDER BY date
+            """
+            )
             diff_sec_raw = cursor.fetchall()
 
             # Group by date for boxplot data
@@ -1062,40 +849,23 @@ class MetricsAnalyzer:
 
         return alerts
 
-    def get_panel_performance_trends(self, days: int | None = 30) -> dict:
-        """パネル別の処理時間推移を取得する。If days is None, get all data."""
-        since = datetime.datetime.now(TIMEZONE) - datetime.timedelta(days=days) if days is not None else None
-
+    def get_panel_performance_trends(self) -> dict:
+        """パネル別の処理時間推移を取得する。Get all data."""
         with self._get_connection() as conn:
             cursor = conn.cursor()
 
             # パネル別の処理時間データを取得
-            if since is not None:
-                cursor.execute(
-                    """
-                    SELECT
-                        pm.panel_name,
-                        pm.elapsed_time,
-                        dpm.timestamp
-                    FROM panel_metrics pm
-                    JOIN draw_panel_metrics dpm ON pm.draw_panel_id = dpm.id
-                    WHERE dpm.timestamp >= ?
-                    ORDER BY pm.panel_name, dpm.timestamp
-                """,
-                    (since,),
-                )
-            else:
-                cursor.execute(
-                    """
-                    SELECT
-                        pm.panel_name,
-                        pm.elapsed_time,
-                        dpm.timestamp
-                    FROM panel_metrics pm
-                    JOIN draw_panel_metrics dpm ON pm.draw_panel_id = dpm.id
-                    ORDER BY pm.panel_name, dpm.timestamp
+            cursor.execute(
                 """
-                )
+                SELECT
+                    pm.panel_name,
+                    pm.elapsed_time,
+                    dpm.timestamp
+                FROM panel_metrics pm
+                JOIN draw_panel_metrics dpm ON pm.draw_panel_id = dpm.id
+                ORDER BY pm.panel_name, dpm.timestamp
+            """
+            )
             panel_data = cursor.fetchall()
 
             # パネル名ごとにグループ化
@@ -1110,57 +880,31 @@ class MetricsAnalyzer:
 
             return panel_groups
 
-    def get_performance_statistics(self, days: int | None = 30) -> dict:
-        """パフォーマンス統計情報を取得する（異常検知詳細用）If days is None, get all data."""
-        since = datetime.datetime.now(TIMEZONE) - datetime.timedelta(days=days) if days is not None else None
-
+    def get_performance_statistics(self) -> dict:
+        """パフォーマンス統計情報を取得する（異常検知詳細用）Get all data."""
         with self._get_connection() as conn:
             cursor = conn.cursor()
 
             # 画像生成処理の統計
-            if since is not None:
-                cursor.execute(
-                    """
-                    SELECT
-                        AVG(total_elapsed_time) as avg_time,
-                        COUNT(*) as count,
-                        MIN(total_elapsed_time) as min_time,
-                        MAX(total_elapsed_time) as max_time
-                    FROM draw_panel_metrics
-                    WHERE timestamp >= ?
-                """,
-                    (since,),
-                )
-            else:
-                cursor.execute(
-                    """
-                    SELECT
-                        AVG(total_elapsed_time) as avg_time,
-                        COUNT(*) as count,
-                        MIN(total_elapsed_time) as min_time,
-                        MAX(total_elapsed_time) as max_time
-                    FROM draw_panel_metrics
+            cursor.execute(
                 """
-                )
+                SELECT
+                    AVG(total_elapsed_time) as avg_time,
+                    COUNT(*) as count,
+                    MIN(total_elapsed_time) as min_time,
+                    MAX(total_elapsed_time) as max_time
+                FROM draw_panel_metrics
+            """
+            )
             draw_panel_stats = dict(cursor.fetchone())
 
             # 標準偏差を計算（SQLiteにはSTDDEV関数がないため、手動計算）
-            if since is not None:
-                cursor.execute(
-                    """
-                    SELECT total_elapsed_time
-                    FROM draw_panel_metrics
-                    WHERE timestamp >= ?
-                """,
-                    (since,),
-                )
-            else:
-                cursor.execute(
-                    """
-                    SELECT total_elapsed_time
-                    FROM draw_panel_metrics
+            cursor.execute(
                 """
-                )
+                SELECT total_elapsed_time
+                FROM draw_panel_metrics
+            """
+            )
             draw_panel_times = [row[0] for row in cursor.fetchall()]
 
             if len(draw_panel_times) > 1:
@@ -1169,48 +913,24 @@ class MetricsAnalyzer:
                 draw_panel_stats["std_time"] = 0
 
             # 表示実行処理の統計
-            if since is not None:
-                cursor.execute(
-                    """
-                    SELECT
-                        AVG(elapsed_time) as avg_time,
-                        COUNT(*) as count,
-                        MIN(elapsed_time) as min_time,
-                        MAX(elapsed_time) as max_time
-                    FROM display_image_metrics
-                    WHERE timestamp >= ?
-                """,
-                    (since,),
-                )
-            else:
-                cursor.execute(
-                    """
-                    SELECT
-                        AVG(elapsed_time) as avg_time,
-                        COUNT(*) as count,
-                        MIN(elapsed_time) as min_time,
-                        MAX(elapsed_time) as max_time
-                    FROM display_image_metrics
+            cursor.execute(
                 """
-                )
+                SELECT
+                    AVG(elapsed_time) as avg_time,
+                    COUNT(*) as count,
+                    MIN(elapsed_time) as min_time,
+                    MAX(elapsed_time) as max_time
+                FROM display_image_metrics
+            """
+            )
             display_image_stats = dict(cursor.fetchone())
 
-            if since is not None:
-                cursor.execute(
-                    """
-                    SELECT elapsed_time
-                    FROM display_image_metrics
-                    WHERE timestamp >= ?
-                """,
-                    (since,),
-                )
-            else:
-                cursor.execute(
-                    """
-                    SELECT elapsed_time
-                    FROM display_image_metrics
+            cursor.execute(
                 """
-                )
+                SELECT elapsed_time
+                FROM display_image_metrics
+            """
+            )
             display_image_times = [row[0] for row in cursor.fetchall()]
 
             if len(display_image_times) > 1:
