@@ -3,7 +3,7 @@
 電子ペーパ表示用の画像を表示する簡易的な Web サーバです。
 
 Usage:
-  webapp.py [-c CONFIG] [-s CONFIG] [-p PORT] [-d] [-D]
+  webui.py [-c CONFIG] [-s CONFIG] [-p PORT] [-d] [-D]
 
 Options:
   -c CONFIG         : 通常モードで使う設定ファイルを指定します。[default: config.yaml]
@@ -52,8 +52,8 @@ def sig_handler(num, frame):  # noqa: ARG001
 
 
 def create_app(config_file_normal, config_file_small, dummy_mode=False):
-    # # NOTE: アクセスログは無効にする
-    # logging.getLogger("werkzeug").setLevel(logging.ERROR)
+    # NOTE: アクセスログは無効にする
+    logging.getLogger("werkzeug").setLevel(logging.ERROR)
 
     import my_lib.webapp.config
 
@@ -77,7 +77,7 @@ def create_app(config_file_normal, config_file_small, dummy_mode=False):
     else:  # pragma: no cover
         pass
 
-    app = flask.Flask("unit_cooler")
+    app = flask.Flask("eink-weather-panel")
 
     flask_cors.CORS(app)
 
@@ -87,6 +87,7 @@ def create_app(config_file_normal, config_file_small, dummy_mode=False):
 
     app.register_blueprint(my_lib.webapp.base.blueprint, url_prefix=my_lib.webapp.config.URL_PREFIX)
     app.register_blueprint(my_lib.webapp.base.blueprint_default)
+    app.register_blueprint(my_lib.webapp.util.blueprint, url_prefix=my_lib.webapp.config.URL_PREFIX)
     app.register_blueprint(
         weather_display.runner.webapi.run.blueprint, url_prefix=my_lib.webapp.config.URL_PREFIX
     )

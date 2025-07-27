@@ -4,8 +4,8 @@ import datetime
 import logging
 import pathlib
 import re
+import unittest
 import zoneinfo
-from unittest import mock
 
 import my_lib.webapp.config
 import pytest
@@ -25,7 +25,8 @@ TIMEZONE = zoneinfo.ZoneInfo("Asia/Tokyo")
 
 @pytest.fixture(scope="session", autouse=True)
 def env_mock():
-    with mock.patch.dict(
+    # NOTE: session スコープなので、mocker ではなく、unittest.mock を使う
+    with unittest.mock.patch.dict(
         "os.environ",
         {
             "TEST": "true",
@@ -38,15 +39,15 @@ def env_mock():
 @pytest.fixture(scope="session", autouse=True)
 def slack_mock():
     with (
-        mock.patch(
+        unittest.mock.patch(
             "my_lib.notify.slack.slack_sdk.web.client.WebClient.chat_postMessage",
             return_value={"ok": True, "ts": "1234567890.123456"},
         ),
-        mock.patch(
+        unittest.mock.patch(
             "my_lib.notify.slack.slack_sdk.web.client.WebClient.files_upload_v2",
             return_value={"ok": True, "files": [{"id": "test_file_id"}]},
         ),
-        mock.patch(
+        unittest.mock.patch(
             "my_lib.notify.slack.slack_sdk.web.client.WebClient.files_getUploadURLExternal",
             return_value={"ok": True, "upload_url": "https://example.com"},
         ) as fixture,
@@ -58,7 +59,7 @@ def slack_mock():
 def app():
     import webui
 
-    with mock.patch.dict("os.environ", {"WERKZEUG_RUN_MAIN": "true"}):
+    with unittest.mock.patch.dict("os.environ", {"WERKZEUG_RUN_MAIN": "true"}):
         app = webui.create_app(CONFIG_FILE, CONFIG_SMALL_FILE, dummy_mode=True)
 
         yield app
