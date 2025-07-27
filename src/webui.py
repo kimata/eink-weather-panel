@@ -23,7 +23,6 @@ import flask
 import flask_cors
 import my_lib.config
 import my_lib.logger
-import my_lib.webapp.base
 
 import weather_display.metrics.webapi.page
 import weather_display.runner.webapi.run
@@ -59,6 +58,9 @@ def create_app(config_file_normal, config_file_small, dummy_mode=False):
 
     my_lib.webapp.config.URL_PREFIX = "/panel"
     my_lib.webapp.config.init(my_lib.config.load(config_file_normal, pathlib.Path(SCHEMA_CONFIG)))
+
+    import my_lib.webapp.base
+    import my_lib.webapp.util
 
     if os.environ.get("WERKZEUG_RUN_MAIN") == "true":
         # NOTE: オプションでダミーモードが指定された場合、環境変数もそれに揃えておく
