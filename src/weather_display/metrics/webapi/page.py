@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 
-import io
 import json
 import logging
 import pathlib
@@ -9,7 +8,6 @@ import flask
 import my_lib.config
 import my_lib.flask_util
 import my_lib.webapp.config
-from PIL import Image, ImageDraw
 
 import weather_display.metrics.collector
 
@@ -77,73 +75,27 @@ def metrics_view():
         return flask.Response(f"エラー: {e!s}", mimetype="text/plain", status=500)
 
 
-def generate_metrics_icon():
-    """メトリクス用のアイコンを動的生成（アンチエイリアス対応）"""
-    # アンチエイリアスのため4倍サイズで描画してから縮小
-    scale = 4
-    size = 32
-    large_size = size * scale
-
-    # 大きなサイズで描画
-    img = Image.new("RGBA", (large_size, large_size), (0, 0, 0, 0))
-    draw = ImageDraw.Draw(img)
-
-    # 背景円（メトリクスらしい青色）
-    margin = 2 * scale
-    draw.ellipse(
-        [margin, margin, large_size - margin, large_size - margin],
-        fill=(52, 152, 219, 255),
-        outline=(41, 128, 185, 255),
-        width=2 * scale,
-    )
-
-    # グラフっぽい線を描画（座標を4倍に拡大）
-    points = [
-        (8 * scale, 20 * scale),
-        (12 * scale, 16 * scale),
-        (16 * scale, 12 * scale),
-        (20 * scale, 14 * scale),
-        (24 * scale, 10 * scale),
-    ]
-
-    # 折れ線グラフ
-    for i in range(len(points) - 1):
-        draw.line([points[i], points[i + 1]], fill=(255, 255, 255, 255), width=2 * scale)
-
-    # データポイント
-    point_size = 1 * scale
-    for point in points:
-        draw.ellipse(
-            [point[0] - point_size, point[1] - point_size, point[0] + point_size, point[1] + point_size],
-            fill=(255, 255, 255, 255),
-        )
-
-    # 32x32に縮小してアンチエイリアス効果を得る
-    return img.resize((size, size), Image.LANCZOS)
-
-
-@blueprint.route("/favicon.ico", methods=["GET"])
+@blueprint.route("/favicon.png", methods=["GET"])
 def favicon():
-    """動的生成されたメトリクス用favicon.icoを返す"""
+    """react/public/favicon.pngを返す"""
     try:
-        # メトリクスアイコンを生成
-        img = generate_metrics_icon()
-
-        # ICO形式で出力
-        output = io.BytesIO()
-        img.save(output, format="ICO", sizes=[(32, 32)])
-        output.seek(0)
-
-        return flask.Response(
-            output.getvalue(),
-            mimetype="image/x-icon",
-            headers={
-                "Cache-Control": "public, max-age=3600",  # 1時間キャッシュ
-                "Content-Type": "image/x-icon",
-            },
+        # プロジェクトルートからの相対パスでfavicon.pngを取得
+        favicon_path = (
+            pathlib.Path(__file__).parent.parent.parent.parent.parent / "react" / "public" / "favicon.png"
         )
+
+        if favicon_path.exists():
+            return flask.send_file(
+                favicon_path,
+                mimetype="image/png",
+                as_attachment=False,
+                max_age=3600,  # 1時間キャッシュ
+            )
+        else:
+            # ファイルが見つからない場合は404を返す
+            return flask.Response("Favicon not found", status=404)
     except Exception:
-        logging.exception("favicon生成エラー")
+        logging.exception("favicon取得エラー")
         return flask.Response("", status=500)
 
 
@@ -181,7 +133,7 @@ def generate_metrics_html(  # noqa: PLR0913
     panel_trends_data_json = json.dumps(panel_trends)
 
     # URL_PREFIXを取得してfaviconパスを構築
-    favicon_path = f"{my_lib.webapp.config.URL_PREFIX}/favicon.ico"
+    favicon_path = f"{my_lib.webapp.config.URL_PREFIX}/favicon.png"
 
     html = (
         f"""
@@ -191,7 +143,8 @@ def generate_metrics_html(  # noqa: PLR0913
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>天気パネル メトリクス ダッシュボード</title>
-    <link rel="icon" type="image/x-icon" href="{favicon_path}">
+    <link rel="icon" type="image/png" href="{favicon_path}">
+    <link rel="apple-touch-icon" href="{favicon_path}">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bulma@0.9.4/css/bulma.min.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@sgratzl/chartjs-chart-boxplot"></script>
