@@ -4,22 +4,10 @@ import base64
 import logging
 import pathlib
 
-import pytest
 from playwright.sync_api import expect
 
 APP_URL_TMPL = "http://{host}:{port}/panel/"
 EVIDENCE_PATH = pathlib.Path(__file__).parent / "evidence"
-
-
-@pytest.fixture(scope="session", autouse=True)
-def env_mock():
-    with pytest.mock.patch.dict(
-        "os.environ",
-        {
-            "TEST": "true",
-        },
-    ) as fixture:
-        yield fixture
 
 
 def app_url(host, port):
