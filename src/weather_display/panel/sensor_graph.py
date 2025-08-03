@@ -27,6 +27,7 @@ import matplotlib.gridspec
 import matplotlib.offsetbox
 import matplotlib.pyplot  # noqa: ICN001
 import my_lib.panel_util
+import my_lib.plot_util
 import pandas.plotting
 import PIL.Image
 from my_lib.sensor_data import fetch_data, fetch_data_parallel
@@ -52,37 +53,14 @@ def get_shared_axis_config():
     }
 
 
-@functools.lru_cache(maxsize=32)
-def _get_font_properties(font_path_str, size):
-    """フォントプロパティをキャッシュ付きで取得"""
-    return matplotlib.font_manager.FontProperties(fname=font_path_str, size=size)
-
-
-def get_plot_font(config, font_type, size):
-    font_path = pathlib.Path(config["path"]).resolve() / config["map"][font_type]
-
-    # 初回アクセス時のみログ出力
-    cache_info = _get_font_properties.cache_info()
-
-    # キャッシュ統計を使って初回判定
-    result = _get_font_properties(str(font_path), size)
-    new_cache_info = _get_font_properties.cache_info()
-
-    # キャッシュミスが増えた場合は新しいフォントのロード
-    if new_cache_info.misses > cache_info.misses:
-        logging.info("Load font: %s (cached)", font_path)
-
-    return result
-
-
 def get_face_map(font_config):
     return {
-        "title": get_plot_font(font_config, "jp_bold", 34),
-        "value": get_plot_font(font_config, "en_cond", 65),
-        "value_small": get_plot_font(font_config, "en_cond", 55),
-        "value_unit": get_plot_font(font_config, "jp_regular", 18),
-        "yaxis": get_plot_font(font_config, "jp_regular", 20),
-        "xaxis": get_plot_font(font_config, "en_medium", 20),
+        "title": my_lib.plot_util.get_plot_font(font_config, "jp_bold", 34),
+        "value": my_lib.plot_util.get_plot_font(font_config, "en_cond", 65),
+        "value_small": my_lib.plot_util.get_plot_font(font_config, "en_cond", 55),
+        "value_unit": my_lib.plot_util.get_plot_font(font_config, "jp_regular", 18),
+        "yaxis": my_lib.plot_util.get_plot_font(font_config, "jp_regular", 20),
+        "xaxis": my_lib.plot_util.get_plot_font(font_config, "en_medium", 20),
     }
 
 

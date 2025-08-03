@@ -291,6 +291,7 @@ test-webapp:
     stage: test
     needs:
         - generate-tag
+        - build-image
         - test-prepare
         - job: test-demo
           artifacts: false
