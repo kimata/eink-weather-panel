@@ -13,15 +13,20 @@ import weather_display.metrics.collector
 
 from . import page_js
 
-blueprint = flask.Blueprint("metrics", __name__, url_prefix=my_lib.webapp.config.URL_PREFIX)
+blueprint = flask.Blueprint(
+    "metrics",
+    __name__,
+    url_prefix=my_lib.webapp.config.URL_PREFIX,
+    static_folder="static",
+    static_url_path="/static",
+)
 
 
 @blueprint.route("/api/metrics", methods=["GET"])
 @my_lib.flask_util.gzipped
 def metrics_view():
-    # NOTE: @gzipped をつけた場合、キャッシュ用のヘッダを付与しているので、
-    # 無効化する。
-    flask.g.disable_cache = True
+    # NOTE: メトリクスデータは3分間キャッシュする（パフォーマンス改善）
+    flask.g.cache_max_age = 180
 
     try:
         # 設定ファイルからデータベースパスを取得
@@ -73,6 +78,25 @@ def metrics_view():
     except Exception as e:
         logging.exception("メトリクス表示の生成エラー")
         return flask.Response(f"エラー: {e!s}", mimetype="text/plain", status=500)
+
+
+@blueprint.route("/static/<path:filename>", methods=["GET"])
+def static_files(filename):
+    """静的ファイル（JS/CSS）を提供する"""
+    try:
+        static_path = pathlib.Path(__file__).parent / "static" / filename
+        if static_path.exists() and static_path.is_file():
+            return flask.send_file(
+                static_path,
+                mimetype="application/javascript" if filename.endswith(".js") else "text/css",
+                as_attachment=False,
+                max_age=3600,  # 1時間キャッシュ
+            )
+        else:
+            return flask.Response("File not found", status=404)
+    except Exception:
+        logging.exception("静的ファイル取得エラー")
+        return flask.Response("", status=500)
 
 
 @blueprint.route("/favicon.png", methods=["GET"])
@@ -148,6 +172,8 @@ def generate_metrics_html(  # noqa: PLR0913
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bulma@0.9.4/css/bulma.min.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@sgratzl/chartjs-chart-boxplot"></script>
+    <script defer src="{my_lib.webapp.config.URL_PREFIX}/static/metrics.js"></script>
+    <script defer src="{my_lib.webapp.config.URL_PREFIX}/static/chart-functions.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         .metrics-card {{ margin-bottom: 1rem; }}
@@ -295,96 +321,33 @@ def generate_metrics_html(  # noqa: PLR0913
     </div>
 
     <script>
-        const hourlyData = """
+        // データをグローバル変数として設定
+        window.hourlyData = """
         + hourly_data_json
         + """;
-        const trendsData = """
+        window.trendsData = """
         + trends_data_json
         + """;
-        const anomaliesData = """
+        window.anomaliesData = """
         + anomalies_data_json
         + """;
-        const panelTrendsData = """
+        window.panelTrendsData = """
         + panel_trends_data_json
         + """;
 
-        // チャート生成
-        generateHourlyCharts();
-        generateDiffSecCharts();
-        generateBoxplotCharts();
-        generateTrendsCharts();
-        generatePanelTrendsCharts();
-        generatePanelTimeSeriesChart();
+        // チャート生成（外部JSファイルで実装）
+        document.addEventListener('DOMContentLoaded', function() {
+            generateHourlyCharts();
+            generateDiffSecCharts();
+            generateBoxplotCharts();
+            generateTrendsCharts();
+            generatePanelTrendsCharts();
+            generatePanelTimeSeriesChart();
+        });
 
         """
         + page_js.generate_chart_javascript()
         + """
-
-        // パーマリンク機能
-        function copyPermalink(elementId) {
-            const currentUrl = window.location.origin + window.location.pathname;
-            const permalink = currentUrl + '#' + elementId;
-
-            // クリップボードにコピー
-            navigator.clipboard.writeText(permalink).then(function() {
-                showCopyNotification('パーマリンクをコピーしました');
-
-                // URLを更新
-                history.pushState(null, null, '#' + elementId);
-            }).catch(function(err) {
-                // フォールバック方法
-                const textArea = document.createElement('textarea');
-                textArea.value = permalink;
-                document.body.appendChild(textArea);
-                textArea.select();
-                document.execCommand('copy');
-                document.body.removeChild(textArea);
-
-                showCopyNotification('パーマリンクをコピーしました');
-                history.pushState(null, null, '#' + elementId);
-            });
-        }
-
-        function showCopyNotification(message) {
-            // 既存の通知があれば削除
-            const existingNotification = document.querySelector('.copy-notification');
-            if (existingNotification) {
-                existingNotification.remove();
-            }
-
-            // 通知要素を作成
-            const notification = document.createElement('div');
-            notification.className = 'copy-notification';
-            notification.textContent = message;
-            document.body.appendChild(notification);
-
-            // アニメーション表示
-            setTimeout(() => {
-                notification.classList.add('show');
-            }, 10);
-
-            // 3秒後に非表示
-            setTimeout(() => {
-                notification.classList.remove('show');
-                setTimeout(() => {
-                    if (notification.parentNode) {
-                        notification.parentNode.removeChild(notification);
-                    }
-                }, 300);
-            }, 3000);
-        }
-
-        // ページ読み込み時にハッシュがあれば該当要素にスクロール
-        window.addEventListener('DOMContentLoaded', function() {
-            if (window.location.hash) {
-                const element = document.querySelector(window.location.hash);
-                if (element) {
-                    setTimeout(() => {
-                        element.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                    }, 500); // チャート描画完了後にスクロール
-                }
-            }
-        });
     </script>
 </html>
     """
