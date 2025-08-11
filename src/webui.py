@@ -18,6 +18,7 @@ import logging
 import os
 import pathlib
 import signal
+import sys
 
 import flask
 import flask_cors
@@ -38,7 +39,7 @@ def term():
 
     # プロセス終了
     logging.info("Graceful shutdown completed")
-    os._exit(0)
+    sys.exit(0)
 
 
 def sig_handler(num, frame):  # noqa: ARG001
