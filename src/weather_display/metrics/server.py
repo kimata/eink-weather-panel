@@ -54,7 +54,7 @@ def start(config, port):
         create_app(config),
         threaded=True,
     )
-    thread = threading.Thread(target=server.serve_forever)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
 
     logging.info("Start metrics server")
 
