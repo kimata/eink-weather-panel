@@ -71,7 +71,11 @@ def term(handle):
 
     handle["server"].shutdown()
     handle["server"].server_close()
-    handle["thread"].join()
+
+    # タイムアウト付きでスレッドの終了を待つ
+    handle["thread"].join(timeout=10)
+    if handle["thread"].is_alive():
+        logging.error("Metrics server thread did not stop within timeout")
 
 
 if __name__ == "__main__":
