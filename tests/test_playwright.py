@@ -25,7 +25,7 @@ def test_webapp(page, host, port):
         lambda message: logging.error(message) if message.type == "error" else logging.info(message),
     )
 
-    page.goto(app_url(host, port))
+    page.goto(app_url(host, port), wait_until="domcontentloaded")
 
     page.get_by_test_id("button").click()
     expect(page.get_by_test_id("button")).to_contain_text("生成中")
