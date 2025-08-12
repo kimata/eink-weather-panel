@@ -263,14 +263,19 @@ if __name__ == "__main__":
     logging.info("Active threads before cleanup: %d", threading.active_count())
     for thread in threading.enumerate():
         logging.info("  Thread: %s (daemon=%s, alive=%s)", thread.name, thread.daemon, thread.is_alive())
+        if thread.daemon and thread.is_alive() and thread.name != "MainThread":
+            logging.info("    Note: Daemon thread %s will be terminated on exit", thread.name)
 
     # 終了前にゾンビプロセスを回収
+    logging.info("Reaping zombie processes...")
     try:
         my_lib.proc_util.reap_zombie()
+        logging.info("Zombie processes reaped")
     except Exception as e:
         logging.warning("Failed to reap zombie processes: %s", e)
 
     # メトリクスワーカーをシャットダウン
+    logging.info("Shutting down metrics worker...")
     try:
         shutdown_worker()
         logging.info("Metrics worker shutdown completed")

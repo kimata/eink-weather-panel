@@ -67,7 +67,7 @@ def start(config, port):
 
 
 def term(handle):
-    logging.warning("Stop metrics server")
+    logging.info("Stop metrics server")
     logging.info(
         "Metrics server thread state: alive=%s, daemon=%s",
         handle["thread"].is_alive(),
