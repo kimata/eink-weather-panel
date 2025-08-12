@@ -14,12 +14,14 @@ Options:
   -D                : デバッグモードで動作します。
 """
 
+import faulthandler
 import logging
 import multiprocessing
 import os
 import pathlib
 import sys
 import textwrap
+import threading
 import time
 import traceback
 
@@ -238,6 +240,9 @@ if __name__ == "__main__":
 
     my_lib.logger.init("panel.e-ink.weather", level=logging.DEBUG if debug_mode else logging.INFO)
 
+    # faulthandlerを有効化（タイムアウト時にスレッドダンプを出力）
+    faulthandler.enable()
+
     config = my_lib.config.load(
         config_file, pathlib.Path(SCHEMA_CONFIG_SMALL if small_mode else SCHEMA_CONFIG)
     )
@@ -254,6 +259,11 @@ if __name__ == "__main__":
 
     logging.info("Finish.")
 
+    # アクティブなスレッドを確認
+    logging.info("Active threads before cleanup: %d", threading.active_count())
+    for thread in threading.enumerate():
+        logging.info("  Thread: %s (daemon=%s, alive=%s)", thread.name, thread.daemon, thread.is_alive())
+
     # 終了前にゾンビプロセスを回収
     try:
         my_lib.proc_util.reap_zombie()
@@ -266,5 +276,10 @@ if __name__ == "__main__":
         logging.info("Metrics worker shutdown completed")
     except Exception:
         logging.exception("Error during metrics worker shutdown")
+
+    # 最終的なスレッド状態を確認
+    logging.info("Active threads after cleanup: %d", threading.active_count())
+    for thread in threading.enumerate():
+        logging.info("  Thread: %s (daemon=%s, alive=%s)", thread.name, thread.daemon, thread.is_alive())
 
     sys.exit(status)

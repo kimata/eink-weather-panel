@@ -16,6 +16,7 @@ Options:
 """
 
 import datetime
+import faulthandler
 import logging
 import os
 import pathlib
@@ -54,8 +55,16 @@ def sig_handler(num, frame):  # noqa: ARG001
 
     logging.warning("receive signal %d", num)
 
+    # シグナル受信時のスレッド状態を記録
+    logging.info("Active threads at signal: %d", threading.active_count())
+    for thread in threading.enumerate():
+        logging.info("  Thread: %s (daemon=%s, alive=%s)", thread.name, thread.daemon, thread.is_alive())
+
     if num in (signal.SIGTERM, signal.SIGINT):
         should_terminate.set()
+    elif num == signal.SIGUSR1:
+        # SIGUSR1を受け取ったらスレッドダンプを出力
+        faulthandler.dump_traceback()
 
 
 def execute(  # noqa: PLR0913
@@ -191,6 +200,11 @@ def start(config, rasp_hostname, key_file_path, config_file, small_mode, test_mo
 
 
 def cleanup(handle):
+    # アクティブなスレッドを確認
+    logging.info("Active threads before cleanup: %d", threading.active_count())
+    for thread in threading.enumerate():
+        logging.info("  Thread: %s (daemon=%s, alive=%s)", thread.name, thread.daemon, thread.is_alive())
+
     # まずメトリクスワーカーを停止
     try:
         shutdown_worker()
@@ -210,6 +224,11 @@ def cleanup(handle):
 
     # 子プロセスを終了
     my_lib.proc_util.kill_child()
+
+    # 最終的なスレッド状態を確認
+    logging.info("Active threads after cleanup: %d", threading.active_count())
+    for thread in threading.enumerate():
+        logging.info("  Thread: %s (daemon=%s, alive=%s)", thread.name, thread.daemon, thread.is_alive())
 
     # プロセス終了
     logging.info("Graceful shutdown completed")
@@ -239,7 +258,7 @@ if __name__ == "__main__":
     )
 
     if rasp_hostname is None:
-        raise ValueError("HOSTNAME is required")  # noqa: TRY003, EM101
+        raise ValueError("HOSTNAME is required")
 
     config = my_lib.config.load(
         config_file, pathlib.Path(SCHEMA_CONFIG_SMALL if small_mode else SCHEMA_CONFIG)
@@ -248,6 +267,10 @@ if __name__ == "__main__":
     logging.info("Raspberry Pi hostname: %s", rasp_hostname)
 
     signal.signal(signal.SIGTERM, sig_handler)
+    signal.signal(signal.SIGUSR1, sig_handler)  # デバッグ用
+
+    # faulthandlerを有効化（タイムアウト時にスレッドダンプを出力）
+    faulthandler.enable()
 
     handle = weather_display.metrics.server.start(config, metrics_port)
 
