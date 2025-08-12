@@ -191,14 +191,15 @@ def start(config, rasp_hostname, key_file_path, config_file, small_mode, test_mo
 
 
 def cleanup(handle):
-    weather_display.metrics.server.term(handle)
-
-    # メトリクスワーカーをシャットダウン
+    # まずメトリクスワーカーを停止
     try:
         shutdown_worker()
         logging.info("Metrics worker shutdown completed")
     except Exception:
         logging.exception("Error during metrics worker shutdown")
+
+    # その後でメトリクスサーバーを停止
+    weather_display.metrics.server.term(handle)
 
     # ファイルシステムを同期
     try:
