@@ -213,17 +213,39 @@ def cleanup(handle):
         logging.exception("Error during metrics worker shutdown")
 
     # その後でメトリクスサーバーを停止
+    logging.info("Stopping metrics server...")
     weather_display.metrics.server.term(handle)
+    logging.info("Metrics server stopped")
 
-    # ファイルシステムを同期
+    # 残存スレッドの詳細を確認
+    logging.info("Active threads after server stop: %d", threading.active_count())
+    for thread in threading.enumerate():
+        logging.info("  Thread: %s (daemon=%s, alive=%s)", thread.name, thread.daemon, thread.is_alive())
+        if thread.daemon and thread.is_alive() and thread.name != "MainThread":
+            logging.info(
+                "    Note: Daemon thread %s is still alive but will be terminated on exit", thread.name
+            )
+
+    # ファイルシステムを同期（タイムアウト付き）
+    logging.info("Starting filesystem sync...")
     try:
-        os.sync()
-        logging.info("File system synced")
+        # os.sync()は場合によってはブロックする可能性があるため、別スレッドで実行
+        import concurrent.futures
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+            future = executor.submit(os.sync)
+            try:
+                future.result(timeout=5.0)  # 5秒でタイムアウト
+                logging.info("File system synced successfully")
+            except concurrent.futures.TimeoutError:
+                logging.warning("File system sync timed out after 5 seconds, skipping")
     except Exception:
         logging.exception("Failed to sync filesystem")
 
     # 子プロセスを終了
+    logging.info("Killing child processes...")
     my_lib.proc_util.kill_child()
+    logging.info("Child processes killed")
 
     # 最終的なスレッド状態を確認
     logging.info("Active threads after cleanup: %d", threading.active_count())
