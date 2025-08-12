@@ -226,22 +226,6 @@ def cleanup(handle):
                 "    Note: Daemon thread %s is still alive but will be terminated on exit", thread.name
             )
 
-    # ファイルシステムを同期（タイムアウト付き）
-    logging.info("Starting filesystem sync...")
-    try:
-        # os.sync()は場合によってはブロックする可能性があるため、別スレッドで実行
-        import concurrent.futures
-
-        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
-            future = executor.submit(os.sync)
-            try:
-                future.result(timeout=5.0)  # 5秒でタイムアウト
-                logging.info("File system synced successfully")
-            except concurrent.futures.TimeoutError:
-                logging.warning("File system sync timed out after 5 seconds, skipping")
-    except Exception:
-        logging.exception("Failed to sync filesystem")
-
     # 子プロセスを終了
     logging.info("Killing child processes...")
     my_lib.proc_util.kill_child()
