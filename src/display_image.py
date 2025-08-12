@@ -145,6 +145,76 @@ def execute(  # noqa: PLR0913
     return ssh, sleep_time, timing_controller
 
 
+def start(config, rasp_hostname, key_file_path, config_file, small_mode, test_mode, is_one_time):  # noqa: PLR0913
+    fail_count = 0
+    prev_ssh = None
+    timing_controller = None
+
+    logging.info("Start worker")
+
+    while True:
+        try:
+            prev_ssh, sleep_time, timing_controller = execute(
+                config,
+                rasp_hostname,
+                key_file_path,
+                config_file,
+                small_mode,
+                test_mode,
+                is_one_time,
+                prev_ssh,
+                timing_controller,
+            )
+            fail_count = 0
+
+            if is_one_time:
+                break
+
+            logging.info("sleep %.1f sec...", sleep_time)
+
+            should_terminate.wait(timeout=sleep_time)
+            if should_terminate.is_set():
+                logging.info("Terminate worker")
+                break
+        except Exception:
+            logging.exception("Failed to display image")
+            fail_count += 1
+            if is_one_time or (fail_count >= NOTIFY_THRESHOLD):
+                my_lib.panel_util.notify_error(config, traceback.format_exc())
+                logging.error("エラーが続いたので終了します。")  # noqa: TRY400
+                sys.stderr.flush()
+                time.sleep(1)
+                raise
+            time.sleep(10)
+
+    logging.info("Stop worker")
+
+
+def cleanup(handle):
+    weather_display.metrics.server.term(handle)
+
+    # メトリクスワーカーをシャットダウン
+    try:
+        shutdown_worker()
+        logging.info("Metrics worker shutdown completed")
+    except Exception:
+        logging.exception("Error during metrics worker shutdown")
+
+    # ファイルシステムを同期
+    try:
+        os.sync()
+        logging.info("File system synced")
+    except Exception:
+        logging.exception("Failed to sync filesystem")
+
+    # 子プロセスを終了
+    my_lib.proc_util.kill_child()
+
+    # プロセス終了
+    logging.info("Graceful shutdown completed")
+    sys.exit(0)
+
+
 if __name__ == "__main__":
     import docopt
     import my_lib.config
@@ -180,47 +250,6 @@ if __name__ == "__main__":
 
     handle = weather_display.metrics.server.start(config, metrics_port)
 
-    fail_count = 0
-    prev_ssh = None
-    timing_controller = None
+    start(config, rasp_hostname, key_file_path, config_file, small_mode, test_mode, is_one_time)
 
-    while True:
-        try:
-            prev_ssh, sleep_time, timing_controller = execute(
-                config,
-                rasp_hostname,
-                key_file_path,
-                config_file,
-                small_mode,
-                test_mode,
-                is_one_time,
-                prev_ssh,
-                timing_controller,
-            )
-            fail_count = 0
-
-            if is_one_time or should_terminate.is_set():
-                break
-
-            logging.info("sleep %.1f sec...", sleep_time)
-            time.sleep(sleep_time)
-        except Exception:
-            logging.exception("Failed to display image")
-            fail_count += 1
-            if is_one_time or (fail_count >= NOTIFY_THRESHOLD):
-                my_lib.panel_util.notify_error(config, traceback.format_exc())
-                logging.error("エラーが続いたので終了します。")  # noqa: TRY400
-                sys.stderr.flush()
-                time.sleep(1)
-                raise
-            else:
-                time.sleep(10)
-
-    weather_display.metrics.server.term(handle)
-
-    # メトリクスワーカーをシャットダウン
-    try:
-        shutdown_worker()
-        logging.info("Metrics worker shutdown completed")
-    except Exception:
-        logging.exception("Error during metrics worker shutdown")
+    cleanup(handle)
