@@ -68,6 +68,11 @@ def start(config, port):
 
 def term(handle):
     logging.warning("Stop metrics server")
+    logging.info(
+        "Metrics server thread state: alive=%s, daemon=%s",
+        handle["thread"].is_alive(),
+        handle["thread"].daemon,
+    )
 
     handle["server"].shutdown()
     handle["server"].server_close()
@@ -75,7 +80,11 @@ def term(handle):
     # タイムアウト付きでスレッドの終了を待つ
     handle["thread"].join(timeout=10)
     if handle["thread"].is_alive():
-        logging.error("Metrics server thread did not stop within timeout")
+        logging.error(
+            "Metrics server thread did not stop within timeout (thread name: %s)", handle["thread"].name
+        )
+    else:
+        logging.info("Metrics server thread stopped successfully")
 
 
 if __name__ == "__main__":

@@ -64,7 +64,12 @@ class MetricsWorker:
         if not self.running:
             return
 
-        logging.info("Stopping MetricsWorker...")
+        logging.info(
+            "Stopping MetricsWorker (thread: %s, alive: %s, daemon: %s)...",
+            self.worker_thread.name if self.worker_thread else "None",
+            self.worker_thread.is_alive() if self.worker_thread else False,
+            self.worker_thread.daemon if self.worker_thread else False,
+        )
         self.running = False
 
         # 終了シグナルをキューに送信
@@ -74,9 +79,16 @@ class MetricsWorker:
             logging.warning("Queue is full, force stopping")
 
         if self.worker_thread and self.worker_thread.is_alive():
+            logging.info("Waiting for MetricsWorker thread to stop (timeout=%s)...", timeout)
             self.worker_thread.join(timeout=timeout)
             if self.worker_thread.is_alive():
-                logging.error("MetricsWorker thread did not stop gracefully")
+                logging.error(
+                    "MetricsWorker thread did not stop gracefully (still alive after %s seconds)", timeout
+                )
+            else:
+                logging.info("MetricsWorker thread stopped successfully")
+        else:
+            logging.info("MetricsWorker thread was not alive")
 
         logging.info("MetricsWorker stopped")
 
