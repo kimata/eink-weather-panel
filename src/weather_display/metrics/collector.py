@@ -37,8 +37,7 @@ class MetricsCollector:
     def _init_database(self):
         """Initialize SQLite database with required tables."""
         # First time initialization: use my_lib.sqlite_util.connect for optimized settings
-        conn = my_lib.sqlite_util.connect(self.db_path, timeout=30)
-        try:
+        with my_lib.sqlite_util.connect(self.db_path, timeout=30) as conn:
             cursor = conn.cursor()
 
             # Create table for draw_panel metrics
@@ -105,25 +104,17 @@ class MetricsCollector:
             )
 
             conn.commit()
-        finally:
-            conn.close()
 
     @contextmanager
     def _get_connection(self):
         """Get database connection with proper error handling."""
-        conn = None
         try:
-            conn = my_lib.sqlite_util.connect(self.db_path, timeout=30)
-            conn.row_factory = sqlite3.Row
-            yield conn
+            with my_lib.sqlite_util.connect(self.db_path, timeout=30) as conn:
+                conn.row_factory = sqlite3.Row
+                yield conn
         except Exception:
-            if conn:
-                conn.rollback()
             logging.exception("Database error")
             raise
-        finally:
-            if conn:
-                conn.close()
 
     def log_draw_panel_metrics(  # noqa: PLR0913
         self,
@@ -301,17 +292,13 @@ class MetricsAnalyzer:
     @contextmanager
     def _get_connection(self):
         """Get database connection with proper error handling."""
-        conn = None
         try:
-            conn = my_lib.sqlite_util.connect(self.db_path, timeout=30)
-            conn.row_factory = sqlite3.Row
-            yield conn
+            with my_lib.sqlite_util.connect(self.db_path, timeout=30) as conn:
+                conn.row_factory = sqlite3.Row
+                yield conn
         except Exception:
             logging.exception("Database error")
             raise
-        finally:
-            if conn:
-                conn.close()
 
     def get_data_range(self) -> dict:
         """Get the actual data range available in the database."""
