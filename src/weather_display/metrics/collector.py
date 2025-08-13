@@ -36,8 +36,8 @@ class MetricsCollector:
 
     def _init_database(self):
         """Initialize SQLite database with required tables."""
-        # First time initialization: use my_lib.sqlite_util.create for optimized settings
-        conn = my_lib.sqlite_util.create(self.db_path, timeout=30)
+        # First time initialization: use my_lib.sqlite_util.connect for optimized settings
+        conn = my_lib.sqlite_util.connect(self.db_path, timeout=30)
         try:
             cursor = conn.cursor()
 
@@ -113,7 +113,7 @@ class MetricsCollector:
         """Get database connection with proper error handling."""
         conn = None
         try:
-            conn = sqlite3.connect(self.db_path, timeout=30)
+            conn = my_lib.sqlite_util.connect(self.db_path, timeout=30)
             conn.row_factory = sqlite3.Row
             yield conn
         except Exception:
@@ -303,7 +303,7 @@ class MetricsAnalyzer:
         """Get database connection with proper error handling."""
         conn = None
         try:
-            conn = sqlite3.connect(self.db_path, timeout=30)
+            conn = my_lib.sqlite_util.connect(self.db_path, timeout=30)
             conn.row_factory = sqlite3.Row
             yield conn
         except Exception:
