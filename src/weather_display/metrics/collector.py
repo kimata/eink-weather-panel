@@ -16,6 +16,7 @@ import sqlite3
 import zoneinfo
 from contextlib import contextmanager
 
+import my_lib.sqlite_util
 import numpy as np
 from sklearn.ensemble import IsolationForest
 from sklearn.preprocessing import StandardScaler
@@ -35,7 +36,9 @@ class MetricsCollector:
 
     def _init_database(self):
         """Initialize SQLite database with required tables."""
-        with self._get_connection() as conn:
+        # First time initialization: use my_lib.sqlite_util.create for optimized settings
+        conn = my_lib.sqlite_util.create(self.db_path, timeout=30)
+        try:
             cursor = conn.cursor()
 
             # Create table for draw_panel metrics
@@ -102,6 +105,8 @@ class MetricsCollector:
             )
 
             conn.commit()
+        finally:
+            conn.close()
 
     @contextmanager
     def _get_connection(self):
