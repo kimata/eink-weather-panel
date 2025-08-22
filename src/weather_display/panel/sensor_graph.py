@@ -32,8 +32,6 @@ import pandas.plotting
 import PIL.Image
 from my_lib.sensor_data import fetch_data, fetch_data_parallel
 
-from metrics_worker import get_worker
-
 matplotlib.use("Agg")
 
 pandas.plotting.register_matplotlib_converters()
@@ -279,16 +277,6 @@ def sensor_data(db_config, host_specify_list, param):
     return data
 
 
-def _record_metrics(metrics_worker, metric_name, tags, value):
-    """メトリクスを非同期で記録"""
-    if metrics_worker:
-        try:
-            metrics_worker.record("weather_panel_performance", tags, {metric_name: value})
-        except Exception:
-            # メトリクス記録のエラーはログのみ
-            logging.debug("Failed to record metrics", exc_info=True)
-
-
 def create_sensor_graph_impl(panel_config, font_config, db_config):  # noqa: C901, PLR0912, PLR0915
     face_map = get_face_map(font_config)
 
@@ -357,15 +345,6 @@ def create_sensor_graph_impl(panel_config, font_config, db_config):  # noqa: C90
     all_results = asyncio.run(fetch_data_parallel(db_config, all_requests))
     parallel_time = time.perf_counter() - parallel_start
     logging.info("Parallel fetch completed in %.2f seconds", parallel_time)
-
-    # メトリクスワーカーを取得して記録
-    metrics_worker = get_worker(db_config)
-    _record_metrics(
-        metrics_worker,
-        "fetch_time_seconds",
-        {"panel_type": "sensor_graph", "operation": "parallel_fetch"},
-        parallel_time,
-    )
 
     # センサーデータとエアコンデータを分離
     results = all_results[: len(fetch_requests)]
@@ -530,28 +509,10 @@ def create(config):
         img = create_sensor_graph_impl(panel_config, font_config, db_config)
         elapsed_time = time.perf_counter() - start
 
-        # メトリクスワーカーを取得して記録
-        metrics_worker = get_worker(db_config)
-        _record_metrics(
-            metrics_worker,
-            "panel_generation_seconds",
-            {"panel_type": "sensor_graph", "status": "success"},
-            elapsed_time,
-        )
-
         return (img, elapsed_time)
     except Exception:
         error_message = traceback.format_exc()
         elapsed_time = time.perf_counter() - start
-
-        # エラー時もメトリクスを記録
-        metrics_worker = get_worker(db_config)
-        _record_metrics(
-            metrics_worker,
-            "panel_generation_seconds",
-            {"panel_type": "sensor_graph", "status": "error"},
-            elapsed_time,
-        )
 
         return (
             my_lib.panel_util.create_error_image(panel_config, font_config, error_message),
