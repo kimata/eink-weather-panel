@@ -35,7 +35,6 @@ import weather_display.display
 import weather_display.metrics.collector
 import weather_display.metrics.server
 import weather_display.timing_filter
-from metrics_worker import shutdown_worker
 
 TIMEZONE = zoneinfo.ZoneInfo("Asia/Tokyo")
 
@@ -205,14 +204,7 @@ def cleanup(handle):
     for thread in threading.enumerate():
         logging.info("  Thread: %s (daemon=%s, alive=%s)", thread.name, thread.daemon, thread.is_alive())
 
-    # まずメトリクスワーカーを停止
-    try:
-        shutdown_worker()
-        logging.info("Metrics worker shutdown completed")
-    except Exception:
-        logging.exception("Error during metrics worker shutdown")
-
-    # その後でメトリクスサーバーを停止
+    # メトリクスサーバーを停止
     logging.info("Stopping metrics server...")
     weather_display.metrics.server.term(handle)
     logging.info("Metrics server stopped")
