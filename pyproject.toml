@@ -10,7 +10,7 @@ requires-python = ">= 3.10"
 
 dependencies = [
     "influxdb-client[ciso]>=1.44.0",
-    "my-lib @ git+https://github.com/kimata/my-py-lib@d81523518d7879de0611730381892e148679ec49",
+    "my-lib @ git+https://github.com/kimata/my-py-lib@b4f9fb0fc43153ca43db059d5ae09d33264bd23e",
     "opencv-contrib-python-headless>=4.10.0.84",
     "matplotlib>=3.9.2",
     "pandas>=2.2.2",

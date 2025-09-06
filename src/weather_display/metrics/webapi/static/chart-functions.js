@@ -320,7 +320,7 @@ function generateBoxplotCharts() {
 }
 
 function generateTrendsCharts() {
-    // 推移チャートの軽量化版
+    // 画像生成処理 - 日別推移
     const drawPanelTrendsCtx = document.getElementById("drawPanelTrendsChart");
     if (drawPanelTrendsCtx && window.trendsData?.draw_panel_boxplot) {
         const boxplotData = window.trendsData.draw_panel_boxplot.map((d) => ({
@@ -363,7 +363,95 @@ function generateTrendsCharts() {
         });
     }
 
-    // 他の推移チャートも同様に軽量化...
+    // 表示実行処理 - 日別推移
+    const displayImageTrendsCtx = document.getElementById("displayImageTrendsChart");
+    if (displayImageTrendsCtx && window.trendsData?.display_image_boxplot) {
+        const boxplotData = window.trendsData.display_image_boxplot.map((d) => ({
+            x: d.date,
+            y: d.elapsed_times,
+        }));
+
+        new Chart(displayImageTrendsCtx, {
+            type: "boxplot",
+            data: {
+                labels: boxplotData.map((d) => d.x),
+                datasets: [
+                    {
+                        label: "処理時間分布（秒）",
+                        data: boxplotData.map((d) => d.y),
+                        backgroundColor: "rgba(54, 162, 235, 0.6)",
+                        borderColor: "rgb(54, 162, 235)",
+                        borderWidth: 2,
+                        outlierColor: "rgb(239, 68, 68)",
+                        medianColor: "rgb(255, 193, 7)",
+                    },
+                ],
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: {
+                    x: {
+                        display: true,
+                        title: { display: true, text: "日付", font: { size: 12, weight: "bold" } },
+                        ticks: { maxRotation: 45, minRotation: 45 },
+                    },
+                    y: {
+                        display: true,
+                        title: { display: true, text: "時間（秒）", font: { size: 12, weight: "bold" } },
+                    },
+                },
+            },
+        });
+    }
+
+    // 表示タイミング - 日別推移
+    const diffSecTrendsCtx = document.getElementById("diffSecTrendsChart");
+    if (diffSecTrendsCtx && window.trendsData?.diff_sec_boxplot) {
+        const boxplotData = window.trendsData.diff_sec_boxplot.map((d) => ({
+            x: d.date,
+            y: d.diff_secs,
+        }));
+
+        new Chart(diffSecTrendsCtx, {
+            type: "boxplot",
+            data: {
+                labels: boxplotData.map((d) => d.x),
+                datasets: [
+                    {
+                        label: "タイミング差分布（秒）",
+                        data: boxplotData.map((d) => d.y),
+                        backgroundColor: "rgba(255, 159, 64, 0.6)",
+                        borderColor: "rgb(255, 159, 64)",
+                        borderWidth: 2,
+                        outlierColor: "rgb(239, 68, 68)",
+                        medianColor: "rgb(255, 193, 7)",
+                    },
+                ],
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: {
+                    x: {
+                        display: true,
+                        title: { display: true, text: "日付", font: { size: 12, weight: "bold" } },
+                        ticks: { maxRotation: 45, minRotation: 45 },
+                    },
+                    y: {
+                        display: true,
+                        title: {
+                            display: true,
+                            text: "タイミング差（秒）",
+                            font: { size: 12, weight: "bold" },
+                        },
+                    },
+                },
+            },
+        });
+    }
 }
 
 function generatePanelTrendsCharts() {
