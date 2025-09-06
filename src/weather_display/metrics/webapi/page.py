@@ -25,6 +25,16 @@ blueprint = flask.Blueprint(
 @blueprint.route("/api/metrics", methods=["GET"])
 @my_lib.flask_util.gzipped
 def metrics_view():
+    """メトリクスダッシュボードのHTMLページを返す（データなし）"""
+    # HTMLを生成（データは含まない）
+    html_content = generate_metrics_html_skeleton()
+    return flask.Response(html_content, mimetype="text/html")
+
+
+@blueprint.route("/api/metrics/data", methods=["GET"])
+@my_lib.flask_util.gzipped
+def metrics_data():
+    """メトリクスデータをJSONで返す"""
     # NOTE: メトリクスデータは3分間キャッシュする（パフォーマンス改善）
     flask.g.cache_max_age = 180
 
@@ -38,13 +48,13 @@ def metrics_view():
 
         # データベースファイルの存在確認
         if not pathlib.Path(db_path).exists():
-            return flask.Response(
-                f"<html><body><h1>メトリクスデータベースが見つかりません</h1>"
-                f"<p>データベースファイル: {db_path}</p>"
-                f"<p>システムが十分に動作してからメトリクスが生成されます。</p></body></html>",
-                mimetype="text/html",
-                status=503,
-            )
+            return flask.jsonify(
+                {
+                    "error": "database_not_found",
+                    "message": f"メトリクスデータベースが見つかりません: {db_path}",
+                    "details": "システムが十分に動作してからメトリクスが生成されます。",
+                }
+            ), 503
 
         # メトリクス分析器を初期化
         analyzer = weather_display.metrics.collector.MetricsAnalyzer(db_path)
@@ -61,23 +71,23 @@ def metrics_view():
         panel_trends = analyzer.get_panel_performance_trends()
         performance_stats = analyzer.get_performance_statistics()
 
-        # HTMLを生成
-        html_content = generate_metrics_html(
-            basic_stats,
-            hourly_patterns,
-            anomalies,
-            trends,
-            alerts,
-            panel_trends,
-            performance_stats,
-            data_range,
+        # JSONレスポンスを返す
+        return flask.jsonify(
+            {
+                "data_range": data_range,
+                "basic_stats": basic_stats,
+                "hourly_patterns": hourly_patterns,
+                "anomalies": anomalies,
+                "trends": trends,
+                "alerts": alerts,
+                "panel_trends": panel_trends,
+                "performance_stats": performance_stats,
+            }
         )
 
-        return flask.Response(html_content, mimetype="text/html")
-
     except Exception as e:
-        logging.exception("メトリクス表示の生成エラー")
-        return flask.Response(f"エラー: {e!s}", mimetype="text/plain", status=500)
+        logging.exception("メトリクスデータ取得エラー")
+        return flask.jsonify({"error": "internal_error", "message": str(e)}), 500
 
 
 @blueprint.route("/static/<path:filename>", methods=["GET"])
@@ -121,6 +131,237 @@ def favicon():
     except Exception:
         logging.exception("favicon取得エラー")
         return flask.Response("", status=500)
+
+
+def generate_metrics_html_skeleton():
+    """データを含まない軽量なHTMLスケルトンを生成。"""
+    # URL_PREFIXを取得してfaviconパスを構築
+    favicon_path = f"{my_lib.webapp.config.URL_PREFIX}/favicon.png"
+
+    return f"""
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>天気パネル メトリクス ダッシュボード</title>
+    <link rel="icon" type="image/png" href="{favicon_path}">
+    <link rel="apple-touch-icon" href="{favicon_path}">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bulma@0.9.4/css/bulma.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@sgratzl/chartjs-chart-boxplot"></script>
+    <script defer src="{my_lib.webapp.config.URL_PREFIX}/static/metrics.js"></script>
+    <script defer src="{my_lib.webapp.config.URL_PREFIX}/static/chart-functions.js"></script>
+    <script defer src="{my_lib.webapp.config.URL_PREFIX}/static/metrics-loader.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        .metrics-card {{ margin-bottom: 1rem; position: relative; }}
+        @media (max-width: 768px) {{
+            .metrics-card {{ margin-bottom: 0.75rem; }}
+        }}
+        .stat-number {{ font-size: 2rem; font-weight: bold; }}
+        .chart-container {{ position: relative; height: 350px; margin: 0.5rem 0; }}
+        @media (max-width: 768px) {{
+            .chart-container {{ height: 300px; margin: 0.25rem 0; }}
+            .container.is-fluid {{ padding: 0.25rem !important; }}
+            .section {{ padding: 0.5rem 0.25rem !important; }}
+            .card {{ margin-bottom: 1rem !important; }}
+            .columns {{ margin: 0 !important; }}
+            .column {{ padding: 0.25rem !important; }}
+        }}
+        .chart-legend {{ margin-bottom: 1rem; }}
+        .legend-item {{ display: inline-block; margin-right: 1rem; margin-bottom: 0.5rem; }}
+        .legend-color {{
+            display: inline-block; width: 20px; height: 3px;
+            margin-right: 0.5rem; vertical-align: middle;
+        }}
+        .legend-dashed {{ border-top: 3px dashed; height: 0; }}
+        .legend-dotted {{ border-top: 3px dotted; height: 0; }}
+        .anomaly-item {{
+            margin-bottom: 1rem;
+            padding: 0.75rem;
+            background-color: #fafafa;
+            border-radius: 6px;
+            border-left: 4px solid #ffdd57;
+        }}
+        .alert-item {{ margin-bottom: 1rem; }}
+        .hourly-grid {{
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+        }}
+        .japanese-font {{
+            font-family: "Hiragino Sans", "Hiragino Kaku Gothic ProN",
+                         "Noto Sans CJK JP", "Yu Gothic", sans-serif;
+        }}
+
+        /* ローディング表示 */
+        .loading-overlay {{
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(255, 255, 255, 0.9);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+            border-radius: 6px;
+        }}
+        .loading-spinner {{
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #3273dc;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+        }}
+        @keyframes spin {{
+            0% {{ transform: rotate(0deg); }}
+            100% {{ transform: rotate(360deg); }}
+        }}
+        .loading-text {{
+            margin-left: 1rem;
+            font-weight: 500;
+            color: #3273dc;
+        }}
+
+        /* パーマリンク機能のスタイル */
+        .permalink-container {{
+            position: relative;
+            display: inline-block;
+        }}
+        .permalink-icon {{
+            position: absolute;
+            right: -25px;
+            top: 50%;
+            transform: translateY(-50%);
+            opacity: 0;
+            transition: opacity 0.2s ease;
+            cursor: pointer;
+            color: #3273dc;
+            font-size: 0.8em;
+        }}
+        .permalink-container:hover .permalink-icon {{
+            opacity: 1;
+        }}
+        .permalink-icon:hover {{
+            color: #2366d1;
+        }}
+
+        /* カード用パーマリンク */
+        .card-permalink {{
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            opacity: 0;
+            transition: opacity 0.2s ease;
+            cursor: pointer;
+            color: #3273dc;
+            font-size: 0.9em;
+            z-index: 10;
+        }}
+        .card:hover .card-permalink {{
+            opacity: 1;
+        }}
+        .card-permalink:hover {{
+            color: #2366d1;
+        }}
+
+        /* セクション用パーマリンク調整 */
+        .section-header {{
+            position: relative;
+            padding-right: 30px;
+        }}
+
+        /* コピー成功通知 */
+        .copy-notification {{
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: #48c774;
+            color: white;
+            padding: 0.75rem 1rem;
+            border-radius: 4px;
+            opacity: 0;
+            transform: translateY(-20px);
+            transition: all 0.3s ease;
+            z-index: 1000;
+        }}
+        .copy-notification.show {{
+            opacity: 1;
+            transform: translateY(0);
+        }}
+
+        /* エラー表示 */
+        .error-message {{
+            padding: 2rem;
+            text-align: center;
+            color: #721c24;
+            background-color: #f8d7da;
+            border: 1px solid #f5c6cb;
+            border-radius: 6px;
+            margin: 1rem;
+        }}
+    </style>
+</head>
+<body class="japanese-font">
+    <div class="container is-fluid" style="padding: 0.5rem;">
+        <section class="section" style="padding: 1rem 0.5rem;">
+            <div class="container" style="max-width: 100%; padding: 0;">
+                <h1 class="title is-2 has-text-centered" id="dashboard">
+                    <div class="permalink-container">
+                        <span class="icon is-large"><i class="fas fa-chart-line"></i></span>
+                        天気パネル メトリクス ダッシュボード
+                        <i class="fas fa-link permalink-icon" onclick="copyPermalink('dashboard')"></i>
+                    </div>
+                </h1>
+                <p class="subtitle has-text-centered" id="subtitle">データを読み込み中...</p>
+
+                <!-- 初期ローディング表示 -->
+                <div id="initial-loading" class="has-text-centered" style="padding: 3rem;">
+                    <div style="display: inline-flex; align-items: center;">
+                        <div class="loading-spinner"></div>
+                        <span class="loading-text">メトリクスデータを取得中...</span>
+                    </div>
+                </div>
+
+                <!-- エラー表示エリア -->
+                <div id="error-container" style="display: none;"></div>
+
+                <!-- コンテンツコンテナ（初期状態では非表示） -->
+                <div id="metrics-content" style="display: none;">
+                    <!-- アラート -->
+                    <div id="alerts-container"></div>
+
+                    <!-- 基本統計 -->
+                    <div id="basic-stats-container"></div>
+
+                    <!-- 時間別パターン -->
+                    <div id="hourly-patterns-container"></div>
+
+                    <!-- 表示タイミング -->
+                    <div id="diff-sec-container"></div>
+
+                    <!-- パフォーマンス推移 -->
+                    <div id="trends-container"></div>
+
+                    <!-- パネル別処理時間推移 -->
+                    <div id="panel-trends-container"></div>
+
+                    <!-- 異常検知 -->
+                    <div id="anomalies-container"></div>
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <script>
+        // API URLの設定
+        window.metricsApiUrl = '{my_lib.webapp.config.URL_PREFIX}/api/metrics/data';
+    </script>
+</html>
+    """
 
 
 def generate_metrics_html(  # noqa: PLR0913
