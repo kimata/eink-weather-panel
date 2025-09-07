@@ -3,10 +3,48 @@
 // データ取得とレンダリングのメイン処理
 async function loadMetricsData() {
     try {
-        // データ取得開始
-        console.log("メトリクスデータの取得を開始...");
+        // 初期ローディング表示を非表示
+        document.getElementById("initial-loading").style.display = "none";
 
-        const response = await fetch(window.metricsApiUrl);
+        // コンテンツを表示
+        document.getElementById("metrics-content").style.display = "block";
+
+        // 各セクションを個別に読み込んで順次表示
+        await loadAndRenderSection("alerts", "/api/metrics/alerts", renderAlerts);
+        await loadAndRenderSection("basic-stats", "/api/metrics/basic-stats", renderBasicStats);
+        await loadAndRenderSection("hourly-patterns", "/api/metrics/hourly-patterns", renderHourlyPatterns);
+        await loadAndRenderSection("diff-sec", "/api/metrics/hourly-patterns", renderDiffSec); // 同じデータを使用
+        await loadAndRenderSection("trends", "/api/metrics/trends", renderTrends);
+        await loadAndRenderSection("panel-trends", "/api/metrics/panel-trends", renderPanelTrends);
+        await loadAndRenderSection("anomalies", "/api/metrics/anomalies", renderAnomalies, true); // 最後のセクション
+
+        console.log("全てのメトリクスデータの読み込み完了");
+    } catch (error) {
+        console.error("メトリクスデータの読み込みエラー:", error);
+        showError(error.message);
+    }
+}
+
+// 個別セクションの読み込みとレンダリング
+async function loadAndRenderSection(sectionId, apiUrl, renderFunc, isLast = false) {
+    const container = document.getElementById(`${sectionId}-container`);
+    if (!container) return;
+
+    // ローディング表示を追加（最後のセクション以外）
+    if (!isLast) {
+        const loadingHtml = `
+            <div class="loading-overlay" id="${sectionId}-loading">
+                <div class="loading-spinner"></div>
+                <span class="loading-text">${getSectionName(sectionId)}を読み込み中...</span>
+            </div>
+        `;
+        container.innerHTML = loadingHtml;
+    }
+
+    try {
+        console.log(`${sectionId}データの取得開始: ${apiUrl}`);
+
+        const response = await fetch(window.metricsApiBaseUrl + apiUrl);
 
         if (!response.ok) {
             const errorData = await response.json().catch(() => null);
@@ -21,34 +59,64 @@ async function loadMetricsData() {
         }
 
         const data = await response.json();
-        console.log("メトリクスデータの取得完了");
+        console.log(`${sectionId}データの取得完了`);
 
-        // グローバル変数に設定（既存のチャート生成関数用）
-        window.hourlyData = data.hourly_patterns;
-        window.trendsData = data.trends;
-        window.anomaliesData = data.anomalies;
-        window.panelTrendsData = data.panel_trends;
+        // データをグローバル変数に設定（既存のチャート生成関数用）
+        setGlobalData(sectionId, data);
 
-        // 初期ローディング表示を非表示
-        document.getElementById("initial-loading").style.display = "none";
+        // コンテンツをレンダリング
+        const content = await renderFunc(data);
+        container.innerHTML = content;
 
-        // コンテンツを表示
-        document.getElementById("metrics-content").style.display = "block";
-
-        // サブタイトルを更新
-        updateSubtitle(data.data_range);
-
-        // 各セクションをレンダリング（順次表示）
-        await renderSection("alerts", () => renderAlerts(data.alerts));
-        await renderSection("basic-stats", () => renderBasicStats(data.basic_stats));
-        await renderSection("hourly-patterns", () => renderHourlyPatterns());
-        await renderSection("diff-sec", () => renderDiffSec());
-        await renderSection("trends", () => renderTrends());
-        await renderSection("panel-trends", () => renderPanelTrends());
-        await renderSection("anomalies", () => renderAnomalies(data.anomalies, data.performance_stats), true); // 最後のセクションなのでローディング表示なし
+        // 少し遅延を入れて次のセクションを読み込む
+        await new Promise((resolve) => setTimeout(resolve, 200));
     } catch (error) {
-        console.error("メトリクスデータの読み込みエラー:", error);
-        showError(error.message);
+        console.error(`${sectionId}のレンダリングエラー:`, error);
+        container.innerHTML = `<div class="error-message">${getSectionName(sectionId)}の表示に失敗しました</div>`;
+    }
+}
+
+// セクション名を取得
+function getSectionName(sectionId) {
+    const names = {
+        alerts: "アラート",
+        "basic-stats": "基本統計",
+        "hourly-patterns": "時間別パターン",
+        "diff-sec": "表示タイミング",
+        trends: "パフォーマンス推移",
+        "panel-trends": "パネル別推移",
+        anomalies: "異常検知",
+    };
+    return names[sectionId] || sectionId;
+}
+
+// データをグローバル変数に設定
+function setGlobalData(sectionId, data) {
+    switch (sectionId) {
+        case "hourly-patterns":
+        case "diff-sec":
+            window.hourlyData = data.hourly_patterns;
+            // サブタイトルも更新（初回のみ）
+            if (!window.subtitleUpdated && data.data_range) {
+                updateSubtitle(data.data_range);
+                window.subtitleUpdated = true;
+            }
+            break;
+        case "trends":
+            window.trendsData = data.trends;
+            break;
+        case "panel-trends":
+            window.panelTrendsData = data.panel_trends;
+            break;
+        case "anomalies":
+            window.anomaliesData = data.anomalies;
+            window.performanceStats = data.performance_stats;
+            // サブタイトル更新（まだの場合）
+            if (!window.subtitleUpdated && data.data_range) {
+                updateSubtitle(data.data_range);
+                window.subtitleUpdated = true;
+            }
+            break;
     }
 }
 
@@ -126,7 +194,8 @@ function showError(message) {
 }
 
 // 各セクションのレンダリング関数
-function renderAlerts(alerts) {
+function renderAlerts(data) {
+    const alerts = data.alerts;
     if (!alerts || alerts.length === 0) {
         return `
             <div class="notification is-success" id="alerts">
@@ -168,7 +237,8 @@ function renderAlerts(alerts) {
     return alertsHtml;
 }
 
-function renderBasicStats(basicStats) {
+function renderBasicStats(data) {
+    const basicStats = data.basic_stats;
     const drawPanel = basicStats.draw_panel || {};
     const displayImage = basicStats.display_image || {};
 
@@ -529,7 +599,9 @@ function renderPanelTrends() {
     return html;
 }
 
-function renderAnomalies(anomalies, performanceStats) {
+function renderAnomalies(data) {
+    const anomalies = data.anomalies;
+    const performanceStats = data.performance_stats;
     // 既存のgenerate_anomalies_sectionの内容をJavaScript化
     // （長いので省略しますが、page.pyのgenerate_anomalies_sectionと同じロジック）
     return `
