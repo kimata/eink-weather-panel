@@ -720,7 +720,7 @@ class MetricsAnalyzer:
                 {"date": date, "elapsed_times": times} for date, times in display_image_boxplot.items()
             ]
             diff_sec_boxplot_list = [
-                {"date": date, "elapsed_times": times} for date, times in diff_sec_boxplot.items()
+                {"date": date, "diff_secs": times} for date, times in diff_sec_boxplot.items()
             ]
 
             return {
