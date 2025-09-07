@@ -32,9 +32,9 @@ def metrics_view():
 
 
 @blueprint.route("/api/metrics/data", methods=["GET"])
-@my_lib.flask_util.gzipped
+@my_lib.flask_util.gzipped(disable_cache=True)
 def metrics_data():
-    """メトリクスデータをJSONで返す"""
+    """メトリクスデータをJSONで返す（非推奨：個別エンドポイントを使用）"""
     # NOTE: メトリクスデータは3分間キャッシュする（パフォーマンス改善）
     flask.g.cache_max_age = 180
 
@@ -87,6 +87,146 @@ def metrics_data():
 
     except Exception as e:
         logging.exception("メトリクスデータ取得エラー")
+        return flask.jsonify({"error": "internal_error", "message": str(e)}), 500
+
+
+def _get_analyzer():
+    """メトリクス分析器を初期化する共通関数"""
+    config_file = flask.current_app.config.get("CONFIG_FILE_NORMAL", "config.yaml")
+    config = my_lib.config.load(config_file, pathlib.Path("config.schema"))
+    db_path = config.get("metrics", {}).get("data", "data/metrics.db")
+
+    if not pathlib.Path(db_path).exists():
+        return (
+            None,
+            flask.jsonify(
+                {
+                    "error": "database_not_found",
+                    "message": f"メトリクスデータベースが見つかりません: {db_path}",
+                    "details": "システムが十分に動作してからメトリクスが生成されます。",
+                }
+            ),
+            503,
+        )
+
+    return weather_display.metrics.collector.MetricsAnalyzer(db_path), None, None
+
+
+@blueprint.route("/api/metrics/basic-stats", methods=["GET"])
+@my_lib.flask_util.gzipped(disable_cache=True)
+def metrics_basic_stats():
+    """基本統計データをJSONで返す"""
+    flask.g.cache_max_age = 180
+
+    try:
+        analyzer, error_response, error_code = _get_analyzer()
+        if analyzer is None:
+            return error_response, error_code
+
+        basic_stats = analyzer.get_basic_statistics()
+        return flask.jsonify({"basic_stats": basic_stats})
+
+    except Exception as e:
+        logging.exception("基本統計データ取得エラー")
+        return flask.jsonify({"error": "internal_error", "message": str(e)}), 500
+
+
+@blueprint.route("/api/metrics/hourly-patterns", methods=["GET"])
+@my_lib.flask_util.gzipped(disable_cache=True)
+def metrics_hourly_patterns():
+    """時間別パターンデータをJSONで返す"""
+    flask.g.cache_max_age = 180
+
+    try:
+        analyzer, error_response, error_code = _get_analyzer()
+        if analyzer is None:
+            return error_response, error_code
+
+        hourly_patterns = analyzer.get_hourly_patterns()
+        return flask.jsonify({"hourly_patterns": hourly_patterns})
+
+    except Exception as e:
+        logging.exception("時間別パターンデータ取得エラー")
+        return flask.jsonify({"error": "internal_error", "message": str(e)}), 500
+
+
+@blueprint.route("/api/metrics/trends", methods=["GET"])
+@my_lib.flask_util.gzipped(disable_cache=True)
+def metrics_trends():
+    """パフォーマンス推移データをJSONで返す"""
+    flask.g.cache_max_age = 180
+
+    try:
+        analyzer, error_response, error_code = _get_analyzer()
+        if analyzer is None:
+            return error_response, error_code
+
+        trends = analyzer.get_performance_trends()
+        return flask.jsonify({"trends": trends})
+
+    except Exception as e:
+        logging.exception("パフォーマンス推移データ取得エラー")
+        return flask.jsonify({"error": "internal_error", "message": str(e)}), 500
+
+
+@blueprint.route("/api/metrics/panel-trends", methods=["GET"])
+@my_lib.flask_util.gzipped(disable_cache=True)
+def metrics_panel_trends():
+    """パネル別処理時間推移データをJSONで返す"""
+    flask.g.cache_max_age = 180
+
+    try:
+        analyzer, error_response, error_code = _get_analyzer()
+        if analyzer is None:
+            return error_response, error_code
+
+        panel_trends = analyzer.get_panel_performance_trends()
+        return flask.jsonify({"panel_trends": panel_trends})
+
+    except Exception as e:
+        logging.exception("パネル別処理時間推移データ取得エラー")
+        return flask.jsonify({"error": "internal_error", "message": str(e)}), 500
+
+
+@blueprint.route("/api/metrics/alerts", methods=["GET"])
+@my_lib.flask_util.gzipped(disable_cache=True)
+def metrics_alerts():
+    """アラートデータをJSONで返す"""
+    flask.g.cache_max_age = 180
+
+    try:
+        analyzer, error_response, error_code = _get_analyzer()
+        if analyzer is None:
+            return error_response, error_code
+
+        alerts = analyzer.check_performance_alerts()
+        return flask.jsonify({"alerts": alerts})
+
+    except Exception as e:
+        logging.exception("アラートデータ取得エラー")
+        return flask.jsonify({"error": "internal_error", "message": str(e)}), 500
+
+
+@blueprint.route("/api/metrics/anomalies", methods=["GET"])
+@my_lib.flask_util.gzipped(disable_cache=True)
+def metrics_anomalies():
+    """異常検知データをJSONで返す"""
+    flask.g.cache_max_age = 180
+
+    try:
+        analyzer, error_response, error_code = _get_analyzer()
+        if analyzer is None:
+            return error_response, error_code
+
+        anomalies = analyzer.detect_anomalies()
+        performance_stats = analyzer.get_performance_statistics()
+        data_range = analyzer.get_data_range()
+        return flask.jsonify(
+            {"anomalies": anomalies, "performance_stats": performance_stats, "data_range": data_range}
+        )
+
+    except Exception as e:
+        logging.exception("異常検知データ取得エラー")
         return flask.jsonify({"error": "internal_error", "message": str(e)}), 500
 
 
@@ -359,6 +499,7 @@ def generate_metrics_html_skeleton():
     <script>
         // API URLの設定
         window.metricsApiUrl = '{my_lib.webapp.config.URL_PREFIX}/api/metrics/data';
+        window.metricsApiBaseUrl = '{my_lib.webapp.config.URL_PREFIX}';
     </script>
 </html>
     """
