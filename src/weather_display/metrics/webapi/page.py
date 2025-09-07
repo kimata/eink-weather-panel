@@ -152,6 +152,7 @@ def generate_metrics_html_skeleton():
     <script src="https://cdn.jsdelivr.net/npm/@sgratzl/chartjs-chart-boxplot"></script>
     <script defer src="{my_lib.webapp.config.URL_PREFIX}/static/metrics.js"></script>
     <script defer src="{my_lib.webapp.config.URL_PREFIX}/static/chart-functions.js"></script>
+    <script defer src="{my_lib.webapp.config.URL_PREFIX}/static/metrics-loader.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         .metrics-card {{ margin-bottom: 1rem; position: relative; }}
