@@ -3,20 +3,76 @@
 // データ取得とレンダリングのメイン処理
 async function loadMetricsData() {
     try {
-        // 初期ローディング表示を非表示
-        document.getElementById("initial-loading").style.display = "none";
+        // 初期進捗表示を更新
+        updateInitialProgress(0, 6);
+
+        // 総セクション数を定義
+        const totalSections = 6; // alerts, basic-stats, hourly-patterns, trends, panel-trends, anomalies
+        let currentSection = 0;
 
         // コンテンツを表示
         document.getElementById("metrics-content").style.display = "block";
 
         // 各セクションを個別に読み込んで順次表示
-        await loadAndRenderSection("alerts", "/api/metrics/alerts", renderAlerts);
-        await loadAndRenderSection("basic-stats", "/api/metrics/basic-stats", renderBasicStats);
-        await loadAndRenderSection("hourly-patterns", "/api/metrics/hourly-patterns", renderHourlyPatterns);
-        await loadAndRenderSection("diff-sec", "/api/metrics/hourly-patterns", renderDiffSec); // 同じデータを使用
-        await loadAndRenderSection("trends", "/api/metrics/trends", renderTrends);
-        await loadAndRenderSection("panel-trends", "/api/metrics/panel-trends", renderPanelTrends);
-        await loadAndRenderSection("anomalies", "/api/metrics/anomalies", renderAnomalies, true); // 最後のセクション
+        await loadAndRenderSection(
+            "alerts",
+            "/api/metrics/alerts",
+            renderAlerts,
+            false,
+            ++currentSection,
+            totalSections,
+        );
+        await loadAndRenderSection(
+            "basic-stats",
+            "/api/metrics/basic-stats",
+            renderBasicStats,
+            false,
+            ++currentSection,
+            totalSections,
+        );
+        await loadAndRenderSection(
+            "hourly-patterns",
+            "/api/metrics/hourly-patterns",
+            renderHourlyPatterns,
+            false,
+            ++currentSection,
+            totalSections,
+        );
+        await loadAndRenderSection(
+            "diff-sec",
+            "/api/metrics/hourly-patterns",
+            renderDiffSec,
+            false,
+            ++currentSection,
+            totalSections,
+        ); // 同じデータを使用
+        await loadAndRenderSection(
+            "trends",
+            "/api/metrics/trends",
+            renderTrends,
+            false,
+            ++currentSection,
+            totalSections,
+        );
+        await loadAndRenderSection(
+            "panel-trends",
+            "/api/metrics/panel-trends",
+            renderPanelTrends,
+            false,
+            ++currentSection,
+            totalSections,
+        );
+        await loadAndRenderSection(
+            "anomalies",
+            "/api/metrics/anomalies",
+            renderAnomalies,
+            true,
+            ++currentSection,
+            totalSections,
+        ); // 最後のセクション
+
+        // 初期ローディング表示を非表示
+        document.getElementById("initial-loading").style.display = "none";
 
         console.log("全てのメトリクスデータの読み込み完了");
     } catch (error) {
@@ -26,17 +82,25 @@ async function loadMetricsData() {
 }
 
 // 個別セクションの読み込みとレンダリング
-async function loadAndRenderSection(sectionId, apiUrl, renderFunc, isLast = false) {
+async function loadAndRenderSection(
+    sectionId,
+    apiUrl,
+    renderFunc,
+    isLast = false,
+    currentStep = 0,
+    totalSteps = 0,
+) {
     const container = document.getElementById(`${sectionId}-container`);
     if (!container) return;
 
     // ローディング表示を追加（最後のセクション以外）
     if (!isLast) {
+        const progressText = totalSteps > 0 ? ` (${currentStep}/${totalSteps})` : "";
         const loadingHtml = `
             <div class="loading-placeholder">
                 <div class="loading-overlay" id="${sectionId}-loading">
                     <div class="loading-spinner"></div>
-                    <span class="loading-text">${getSectionName(sectionId)}を読み込み中...</span>
+                    <span class="loading-text">${getSectionName(sectionId)}を読み込み中...${progressText}</span>
                 </div>
             </div>
         `;
@@ -70,11 +134,28 @@ async function loadAndRenderSection(sectionId, apiUrl, renderFunc, isLast = fals
         const content = await renderFunc(data);
         container.innerHTML = content;
 
+        // 初期進捗表示を更新
+        if (currentStep > 0 && totalSteps > 0) {
+            updateInitialProgress(currentStep, totalSteps);
+        }
+
         // 少し遅延を入れて次のセクションを読み込む
         await new Promise((resolve) => setTimeout(resolve, 100));
     } catch (error) {
         console.error(`${sectionId}のレンダリングエラー:`, error);
         container.innerHTML = `<div class="loading-placeholder"><div class="error-message">${getSectionName(sectionId)}の表示に失敗しました</div></div>`;
+    }
+}
+
+// 初期進捗表示を更新
+function updateInitialProgress(current, total) {
+    const initialLoadingText = document.getElementById("initial-loading-text");
+    if (initialLoadingText) {
+        if (current === 0) {
+            initialLoadingText.textContent = `メトリクスデータを取得中... (0/${total})`;
+        } else {
+            initialLoadingText.textContent = `データを読み込み中... (${current}/${total})`;
+        }
     }
 }
 
