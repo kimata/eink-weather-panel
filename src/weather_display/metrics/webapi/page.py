@@ -512,7 +512,9 @@ def generate_metrics_html_skeleton():
                 <div id="initial-loading" class="has-text-centered" style="padding: 3rem;">
                     <div style="display: inline-flex; align-items: center;">
                         <div class="loading-spinner"></div>
-                        <span class="loading-text">メトリクスデータを取得中...</span>
+                        <span class="loading-text" id="initial-loading-text">
+                            メトリクスデータを取得中...
+                        </span>
                     </div>
                 </div>
 
