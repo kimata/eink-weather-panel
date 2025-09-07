@@ -3,8 +3,7 @@
 // データ取得とレンダリングのメイン処理
 async function loadMetricsData() {
     try {
-        // 初期ローディング表示を非表示にしてコンテンツを表示
-        document.getElementById("initial-loading").style.display = "none";
+        // コンテンツを表示
         document.getElementById("metrics-content").style.display = "block";
 
         // サブタイトルをデフォルト値に設定
@@ -75,6 +74,12 @@ async function loadMetricsData() {
             totalSections,
         ); // 最後のセクション
 
+        // 進捗表示を非表示
+        const progressDisplay = document.getElementById("progress-display");
+        if (progressDisplay) {
+            progressDisplay.style.display = "none";
+        }
+
         console.log("全てのメトリクスデータの読み込み完了");
     } catch (error) {
         console.error("メトリクスデータの読み込みエラー:", error);
@@ -94,19 +99,8 @@ async function loadAndRenderSection(
     const container = document.getElementById(`${sectionId}-container`);
     if (!container) return;
 
-    // ローディング表示を追加（最後のセクション以外）
-    if (!isLast) {
-        const progressText = totalSteps > 0 ? ` (${currentStep}/${totalSteps})` : "";
-        const loadingHtml = `
-            <div class="loading-placeholder">
-                <div class="loading-overlay" id="${sectionId}-loading">
-                    <div class="loading-spinner"></div>
-                    <span class="loading-text">${getSectionName(sectionId)}を読み込み中...${progressText}</span>
-                </div>
-            </div>
-        `;
-        container.innerHTML = loadingHtml;
-    }
+    // 統一進捗表示を更新
+    updateProgressDisplay(getSectionName(sectionId), currentStep, totalSteps);
 
     try {
         console.log(`${sectionId}データの取得開始: ${apiUrl}`);
@@ -139,7 +133,20 @@ async function loadAndRenderSection(
         await new Promise((resolve) => setTimeout(resolve, 100));
     } catch (error) {
         console.error(`${sectionId}のレンダリングエラー:`, error);
-        container.innerHTML = `<div class="loading-placeholder"><div class="error-message">${getSectionName(sectionId)}の表示に失敗しました</div></div>`;
+        container.innerHTML = `<div class="error-message">${getSectionName(sectionId)}の表示に失敗しました</div>`;
+        updateProgressDisplay(`${getSectionName(sectionId)}でエラーが発生しました`, currentStep, totalSteps);
+    }
+}
+
+// 統一進捗表示を更新
+function updateProgressDisplay(sectionName, currentStep, totalSteps) {
+    const progressText = document.getElementById("progress-text");
+    if (progressText) {
+        if (currentStep > 0 && totalSteps > 0) {
+            progressText.textContent = `${sectionName}を読み込み中... (${currentStep}/${totalSteps})`;
+        } else {
+            progressText.textContent = `${sectionName}を読み込み中...`;
+        }
     }
 }
 
