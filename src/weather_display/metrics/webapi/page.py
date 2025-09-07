@@ -443,6 +443,42 @@ def generate_metrics_html_skeleton():
             border-radius: 6px;
             margin: 1rem;
         }}
+
+        /* レイアウト安定化 - 各セクションに最小高さを設定 */
+        #alerts-container {{
+            min-height: 60px;
+        }}
+        #basic-stats-container {{
+            min-height: 400px;
+        }}
+        #hourly-patterns-container {{
+            min-height: 800px;
+        }}
+        #diff-sec-container {{
+            min-height: 400px;
+        }}
+        #trends-container {{
+            min-height: 600px;
+        }}
+        #panel-trends-container {{
+            min-height: 800px;
+        }}
+        #anomalies-container {{
+            min-height: 500px;
+        }}
+
+        /* レイアウトシフト防止 - コンテンツ更新時のスムーズな変更 */
+        .metrics-container > div {{
+            transition: all 0.3s ease-in-out;
+        }}
+
+        /* ローディング時の高さ確保 */
+        .loading-placeholder {{
+            min-height: 200px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }}
     </style>
 </head>
 <body class="japanese-font">
