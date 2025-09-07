@@ -33,9 +33,11 @@ async function loadAndRenderSection(sectionId, apiUrl, renderFunc, isLast = fals
     // ローディング表示を追加（最後のセクション以外）
     if (!isLast) {
         const loadingHtml = `
-            <div class="loading-overlay" id="${sectionId}-loading">
-                <div class="loading-spinner"></div>
-                <span class="loading-text">${getSectionName(sectionId)}を読み込み中...</span>
+            <div class="loading-placeholder">
+                <div class="loading-overlay" id="${sectionId}-loading">
+                    <div class="loading-spinner"></div>
+                    <span class="loading-text">${getSectionName(sectionId)}を読み込み中...</span>
+                </div>
             </div>
         `;
         container.innerHTML = loadingHtml;
@@ -69,10 +71,10 @@ async function loadAndRenderSection(sectionId, apiUrl, renderFunc, isLast = fals
         container.innerHTML = content;
 
         // 少し遅延を入れて次のセクションを読み込む
-        await new Promise((resolve) => setTimeout(resolve, 200));
+        await new Promise((resolve) => setTimeout(resolve, 100));
     } catch (error) {
         console.error(`${sectionId}のレンダリングエラー:`, error);
-        container.innerHTML = `<div class="error-message">${getSectionName(sectionId)}の表示に失敗しました</div>`;
+        container.innerHTML = `<div class="loading-placeholder"><div class="error-message">${getSectionName(sectionId)}の表示に失敗しました</div></div>`;
     }
 }
 
