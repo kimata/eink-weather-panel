@@ -508,15 +508,16 @@ def generate_metrics_html_skeleton():
                 </h1>
                 <p class="subtitle has-text-centered" id="subtitle">データを読み込み中...</p>
 
-                <!-- 初期ローディング表示 -->
-                <div id="initial-loading" class="has-text-centered" style="padding: 3rem;">
+                <!-- 統一進捗表示エリア -->
+                <div id="progress-display" class="has-text-centered" style="padding: 2rem; min-height: 80px;">
                     <div style="display: inline-flex; align-items: center;">
                         <div class="loading-spinner"></div>
-                        <span class="loading-text" id="initial-loading-text">
-                            メトリクスデータを取得中...
-                        </span>
+                        <span class="loading-text" id="progress-text">メトリクスデータを取得中...</span>
                     </div>
                 </div>
+
+                <!-- 初期ローディング表示（非表示） -->
+                <div id="initial-loading" style="display: none;"></div>
 
                 <!-- エラー表示エリア -->
                 <div id="error-container" style="display: none;"></div>
