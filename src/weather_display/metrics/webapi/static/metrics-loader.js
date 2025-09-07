@@ -3,15 +3,13 @@
 // データ取得とレンダリングのメイン処理
 async function loadMetricsData() {
     try {
-        // 初期進捗表示を更新
-        updateInitialProgress(0, 6);
+        // 初期ローディング表示を非表示にしてコンテンツを表示
+        document.getElementById("initial-loading").style.display = "none";
+        document.getElementById("metrics-content").style.display = "block";
 
         // 総セクション数を定義
         const totalSections = 6; // alerts, basic-stats, hourly-patterns, trends, panel-trends, anomalies
         let currentSection = 0;
-
-        // コンテンツを表示
-        document.getElementById("metrics-content").style.display = "block";
 
         // 各セクションを個別に読み込んで順次表示
         await loadAndRenderSection(
@@ -70,9 +68,6 @@ async function loadMetricsData() {
             ++currentSection,
             totalSections,
         ); // 最後のセクション
-
-        // 初期ローディング表示を非表示
-        document.getElementById("initial-loading").style.display = "none";
 
         console.log("全てのメトリクスデータの読み込み完了");
     } catch (error) {
@@ -134,28 +129,11 @@ async function loadAndRenderSection(
         const content = await renderFunc(data);
         container.innerHTML = content;
 
-        // 初期進捗表示を更新
-        if (currentStep > 0 && totalSteps > 0) {
-            updateInitialProgress(currentStep, totalSteps);
-        }
-
         // 少し遅延を入れて次のセクションを読み込む
         await new Promise((resolve) => setTimeout(resolve, 100));
     } catch (error) {
         console.error(`${sectionId}のレンダリングエラー:`, error);
         container.innerHTML = `<div class="loading-placeholder"><div class="error-message">${getSectionName(sectionId)}の表示に失敗しました</div></div>`;
-    }
-}
-
-// 初期進捗表示を更新
-function updateInitialProgress(current, total) {
-    const initialLoadingText = document.getElementById("initial-loading-text");
-    if (initialLoadingText) {
-        if (current === 0) {
-            initialLoadingText.textContent = `メトリクスデータを取得中... (0/${total})`;
-        } else {
-            initialLoadingText.textContent = `データを読み込み中... (${current}/${total})`;
-        }
     }
 }
 
