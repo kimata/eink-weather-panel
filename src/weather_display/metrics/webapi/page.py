@@ -32,7 +32,7 @@ def metrics_view():
 
 
 @blueprint.route("/api/metrics/data", methods=["GET"])
-@my_lib.flask_util.gzipped(disable_cache=True)
+@my_lib.flask_util.gzipped
 def metrics_data():
     """メトリクスデータをJSONで返す（非推奨：個別エンドポイントを使用）"""
     # NOTE: メトリクスデータは3分間キャッシュする（パフォーマンス改善）
@@ -113,7 +113,7 @@ def _get_analyzer():
 
 
 @blueprint.route("/api/metrics/basic-stats", methods=["GET"])
-@my_lib.flask_util.gzipped(disable_cache=True)
+@my_lib.flask_util.gzipped
 def metrics_basic_stats():
     """基本統計データをJSONで返す"""
     flask.g.cache_max_age = 180
@@ -132,7 +132,7 @@ def metrics_basic_stats():
 
 
 @blueprint.route("/api/metrics/hourly-patterns", methods=["GET"])
-@my_lib.flask_util.gzipped(disable_cache=True)
+@my_lib.flask_util.gzipped
 def metrics_hourly_patterns():
     """時間別パターンデータをJSONで返す"""
     flask.g.cache_max_age = 180
@@ -151,7 +151,7 @@ def metrics_hourly_patterns():
 
 
 @blueprint.route("/api/metrics/trends", methods=["GET"])
-@my_lib.flask_util.gzipped(disable_cache=True)
+@my_lib.flask_util.gzipped
 def metrics_trends():
     """パフォーマンス推移データをJSONで返す"""
     flask.g.cache_max_age = 180
@@ -170,7 +170,7 @@ def metrics_trends():
 
 
 @blueprint.route("/api/metrics/panel-trends", methods=["GET"])
-@my_lib.flask_util.gzipped(disable_cache=True)
+@my_lib.flask_util.gzipped
 def metrics_panel_trends():
     """パネル別処理時間推移データをJSONで返す"""
     flask.g.cache_max_age = 180
@@ -189,7 +189,7 @@ def metrics_panel_trends():
 
 
 @blueprint.route("/api/metrics/alerts", methods=["GET"])
-@my_lib.flask_util.gzipped(disable_cache=True)
+@my_lib.flask_util.gzipped
 def metrics_alerts():
     """アラートデータをJSONで返す"""
     flask.g.cache_max_age = 180
@@ -208,7 +208,7 @@ def metrics_alerts():
 
 
 @blueprint.route("/api/metrics/anomalies", methods=["GET"])
-@my_lib.flask_util.gzipped(disable_cache=True)
+@my_lib.flask_util.gzipped
 def metrics_anomalies():
     """異常検知データをJSONで返す"""
     flask.g.cache_max_age = 180
