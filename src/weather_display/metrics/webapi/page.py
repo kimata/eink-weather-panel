@@ -336,17 +336,15 @@ def generate_metrics_html_skeleton():
 
         /* ローディング表示 */
         .loading-overlay {{
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
+            position: static;
             background: rgba(255, 255, 255, 0.9);
             display: flex;
             align-items: center;
             justify-content: center;
-            z-index: 100;
             border-radius: 6px;
+            padding: 2rem;
+            width: 100%;
+            height: 100%;
         }}
         .loading-spinner {{
             border: 3px solid #f3f3f3;
@@ -447,24 +445,38 @@ def generate_metrics_html_skeleton():
         /* レイアウト安定化 - 各セクションに最小高さを設定 */
         #alerts-container {{
             min-height: 60px;
+            position: relative;
+            box-sizing: border-box;
         }}
         #basic-stats-container {{
             min-height: 400px;
+            position: relative;
+            box-sizing: border-box;
         }}
         #hourly-patterns-container {{
             min-height: 800px;
+            position: relative;
+            box-sizing: border-box;
         }}
         #diff-sec-container {{
             min-height: 400px;
+            position: relative;
+            box-sizing: border-box;
         }}
         #trends-container {{
             min-height: 600px;
+            position: relative;
+            box-sizing: border-box;
         }}
         #panel-trends-container {{
             min-height: 800px;
+            position: relative;
+            box-sizing: border-box;
         }}
         #anomalies-container {{
             min-height: 500px;
+            position: relative;
+            box-sizing: border-box;
         }}
 
         /* レイアウトシフト防止 - コンテンツ更新時のスムーズな変更 */
@@ -474,10 +486,12 @@ def generate_metrics_html_skeleton():
 
         /* ローディング時の高さ確保 */
         .loading-placeholder {{
-            min-height: 200px;
+            width: 100%;
+            height: 100%;
             display: flex;
             align-items: center;
             justify-content: center;
+            box-sizing: border-box;
         }}
     </style>
 </head>
