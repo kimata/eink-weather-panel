@@ -6,14 +6,14 @@ async function loadMetricsData() {
         // コンテンツを表示
         document.getElementById("metrics-content").style.display = "block";
 
-        // サブタイトルをデフォルト値に設定
+        // サブタイトルを非表示にする
         const subtitle = document.getElementById("subtitle");
         if (subtitle) {
-            subtitle.textContent = "パフォーマンス監視と異常検知";
+            subtitle.style.display = "none";
         }
 
         // 総セクション数を定義
-        const totalSections = 6; // alerts, basic-stats, hourly-patterns, trends, panel-trends, anomalies
+        const totalSections = 7; // alerts, basic-stats, hourly-patterns, diff-sec, trends, panel-trends, anomalies
         let currentSection = 0;
 
         // 各セクションを個別に読み込んで順次表示
@@ -78,6 +78,13 @@ async function loadMetricsData() {
         const progressDisplay = document.getElementById("progress-display");
         if (progressDisplay) {
             progressDisplay.style.display = "none";
+        }
+
+        // サブタイトルが表示されていない場合は表示
+        const subtitle = document.getElementById("subtitle");
+        if (subtitle && subtitle.style.display === "none") {
+            subtitle.style.display = "block";
+            subtitle.textContent = "パフォーマンス監視と異常検知";
         }
 
         console.log("全てのメトリクスデータの読み込み完了");
@@ -226,6 +233,12 @@ async function renderSection(sectionId, renderFunc, isLast = false) {
 // サブタイトルを更新
 function updateSubtitle(dataRange) {
     let subtitleText = "パフォーマンス監視と異常検知";
+
+    // サブタイトルを表示
+    const subtitle = document.getElementById("subtitle");
+    if (subtitle) {
+        subtitle.style.display = "block";
+    }
 
     if (dataRange && dataRange.overall && dataRange.overall.earliest) {
         try {
