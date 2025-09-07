@@ -7,6 +7,12 @@ async function loadMetricsData() {
         document.getElementById("initial-loading").style.display = "none";
         document.getElementById("metrics-content").style.display = "block";
 
+        // サブタイトルをデフォルト値に設定
+        const subtitle = document.getElementById("subtitle");
+        if (subtitle) {
+            subtitle.textContent = "パフォーマンス監視と異常検知";
+        }
+
         // 総セクション数を定義
         const totalSections = 6; // alerts, basic-stats, hourly-patterns, trends, panel-trends, anomalies
         let currentSection = 0;
