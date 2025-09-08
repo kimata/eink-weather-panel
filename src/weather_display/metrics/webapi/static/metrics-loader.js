@@ -6,11 +6,7 @@ async function loadMetricsData() {
         // コンテンツを表示
         document.getElementById("metrics-content").style.display = "block";
 
-        // サブタイトルを非表示にする
-        const subtitle = document.getElementById("subtitle");
-        if (subtitle) {
-            subtitle.style.display = "none";
-        }
+        // サブタイトルはそのまま表示（デフォルトテキストが既に設定済み）
 
         // 総セクション数を定義
         const totalSections = 7; // alerts, basic-stats, hourly-patterns, diff-sec, trends, panel-trends, anomalies
@@ -78,13 +74,6 @@ async function loadMetricsData() {
         const progressDisplay = document.getElementById("progress-display");
         if (progressDisplay) {
             progressDisplay.style.display = "none";
-        }
-
-        // サブタイトルが表示されていない場合は表示
-        const subtitleElement = document.getElementById("subtitle");
-        if (subtitleElement && subtitleElement.style.display === "none") {
-            subtitleElement.style.display = "block";
-            subtitleElement.textContent = "パフォーマンス監視と異常検知";
         }
 
         console.log("全てのメトリクスデータの読み込み完了");
@@ -233,12 +222,6 @@ async function renderSection(sectionId, renderFunc, isLast = false) {
 // サブタイトルを更新
 function updateSubtitle(dataRange) {
     let subtitleText = "パフォーマンス監視と異常検知";
-
-    // サブタイトルを表示
-    const subtitle = document.getElementById("subtitle");
-    if (subtitle) {
-        subtitle.style.display = "block";
-    }
 
     if (dataRange && dataRange.overall && dataRange.overall.earliest) {
         try {
