@@ -81,10 +81,10 @@ async function loadMetricsData() {
         }
 
         // サブタイトルが表示されていない場合は表示
-        const subtitle = document.getElementById("subtitle");
-        if (subtitle && subtitle.style.display === "none") {
-            subtitle.style.display = "block";
-            subtitle.textContent = "パフォーマンス監視と異常検知";
+        const subtitleElement = document.getElementById("subtitle");
+        if (subtitleElement && subtitleElement.style.display === "none") {
+            subtitleElement.style.display = "block";
+            subtitleElement.textContent = "パフォーマンス監視と異常検知";
         }
 
         console.log("全てのメトリクスデータの読み込み完了");
