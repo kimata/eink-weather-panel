@@ -347,11 +347,12 @@ def generate_metrics_html_skeleton():
             height: 100%;
         }}
         .loading-spinner {{
-            border: 3px solid #f3f3f3;
-            border-top: 3px solid #3273dc;
+            display: inline-block;
+            border: 2px solid #f3f3f3;
+            border-top: 2px solid #3273dc;
             border-radius: 50%;
-            width: 40px;
-            height: 40px;
+            width: 1.2em;
+            height: 1.2em;
             animation: spin 1s linear infinite;
         }}
         @keyframes spin {{
@@ -506,14 +507,19 @@ def generate_metrics_html_skeleton():
                         <i class="fas fa-link permalink-icon" onclick="copyPermalink('dashboard')"></i>
                     </div>
                 </h1>
-                <p class="subtitle has-text-centered" id="subtitle">データを読み込み中...</p>
+                <p class="subtitle has-text-centered" id="subtitle">パフォーマンス監視と異常検知</p>
 
-                <!-- 統一進捗表示エリア -->
-                <div id="progress-display" class="has-text-centered" style="padding: 2rem; min-height: 80px;">
-                    <div style="display: inline-flex; align-items: center;">
-                        <div class="loading-spinner"></div>
-                        <span class="loading-text" id="progress-text">メトリクスデータを取得中...</span>
-                    </div>
+                <!-- 統一進捗表示エリア（右下フローティング） -->
+                <div id="progress-display" style="
+                    position: fixed; bottom: 20px; right: 20px;
+                    background: rgba(255, 255, 255, 0.95);
+                    padding: 1rem 1.5rem; border-radius: 8px;
+                    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+                    z-index: 1000; display: flex; align-items: center;">
+                    <span class="loading-spinner" style="margin-right: 0.5rem;"></span>
+                    <span id="progress-text" style="font-size: 0.9rem; color: #363636;">
+                        メトリクスデータを取得中...
+                    </span>
                 </div>
 
                 <!-- 初期ローディング表示（非表示） -->
