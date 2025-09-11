@@ -445,7 +445,7 @@ def generate_metrics_html_skeleton():
 
         /* レイアウト安定化 - 各セクションに最小高さを設定 */
         #alerts-container {{
-            min-height: 60px;
+            min-height: 200px;
             position: relative;
             box-sizing: border-box;
         }}
@@ -478,6 +478,15 @@ def generate_metrics_html_skeleton():
             min-height: 500px;
             position: relative;
             box-sizing: border-box;
+        }}
+
+        /* セクション内のローディング表示スタイル */
+        .section-loading {{
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 200px;
+            color: #666;
         }}
 
         /* レイアウトシフト防止 - コンテンツ更新時のスムーズな変更 */
