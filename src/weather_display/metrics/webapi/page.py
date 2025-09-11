@@ -445,7 +445,7 @@ def generate_metrics_html_skeleton():
 
         /* レイアウト安定化 - 各セクションに最小高さを設定 */
         #alerts-container {{
-            min-height: 200px;
+            min-height: 60px;
             position: relative;
             box-sizing: border-box;
         }}

@@ -285,7 +285,7 @@ function renderAlerts(data) {
     const alerts = data.alerts;
     if (!alerts || alerts.length === 0) {
         return `
-            <div class="notification is-success" id="alerts">
+            <div class="notification is-success" id="alerts" style="margin-bottom: 1rem; padding: 0.75rem;">
                 <span class="icon"><i class="fas fa-check-circle"></i></span>
                 パフォーマンスアラートは検出されていません。
             </div>
