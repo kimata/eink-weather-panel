@@ -98,6 +98,16 @@ async function loadAndRenderSection(
     // 統一進捗表示を更新
     updateProgressDisplay(getSectionName(sectionId), currentStep, totalSteps);
 
+    // セクション内にローディング表示を追加
+    container.innerHTML = `
+        <div style="display: flex; align-items: center; justify-content: center; min-height: 200px; color: #666;">
+            <div style="display: flex; align-items: center;">
+                <span class="loading-spinner" style="margin-right: 0.8rem;"></span>
+                <span style="font-size: 1rem;">${getSectionName(sectionId)}を準備中...</span>
+            </div>
+        </div>
+    `;
+
     try {
         console.log(`${sectionId}データの取得開始: ${apiUrl}`);
 
@@ -129,7 +139,14 @@ async function loadAndRenderSection(
         await new Promise((resolve) => setTimeout(resolve, 100));
     } catch (error) {
         console.error(`${sectionId}のレンダリングエラー:`, error);
-        container.innerHTML = `<div class="error-message">${getSectionName(sectionId)}の表示に失敗しました</div>`;
+        container.innerHTML = `
+            <div style="display: flex; align-items: center; justify-content: center; min-height: 200px;">
+                <div class="error-message" style="padding: 2rem; text-align: center; color: #721c24; background-color: #f8d7da; border: 1px solid #f5c6cb; border-radius: 6px;">
+                    <i class="fas fa-exclamation-triangle" style="margin-right: 0.5rem; color: #721c24;"></i>
+                    ${getSectionName(sectionId)}の表示に失敗しました
+                </div>
+            </div>
+        `;
         updateProgressDisplay(`${getSectionName(sectionId)}でエラーが発生しました`, currentStep, totalSteps);
     }
 }
