@@ -26,7 +26,7 @@ generate-tag:
 build-react:
     stage: build
     needs: []
-    image: node:24.8
+    image: node:24.9
 
     before_script: []
 
