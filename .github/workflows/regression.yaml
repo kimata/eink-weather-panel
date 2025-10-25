@@ -41,7 +41,7 @@ jobs:
                   npm run build
               working-directory: ./react
             - name: Upload built file
-              uses: actions/upload-artifact@v4
+              uses: actions/upload-artifact@v5
               with:
                   name: react-dist
                   path: react/dist
@@ -60,7 +60,7 @@ jobs:
               with:
                   python-version: ${{ matrix.python-version }}
             - name: Download react built files
-              uses: actions/download-artifact@v4
+              uses: actions/download-artifact@v6
               with:
                   name: react-dist
                   path: react/dist
@@ -91,7 +91,7 @@ jobs:
                   path: tests/evidence/junit.xml
                   reporter: java-junit
             - name: Upload coverage file
-              uses: actions/upload-artifact@v4
+              uses: actions/upload-artifact@v5
               if: always()
               with:
                   name: pytest
