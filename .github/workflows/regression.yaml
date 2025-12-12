@@ -21,7 +21,7 @@ jobs:
                   node-version: ${{ matrix.node-version }}
             - name: Cache node modules
               id: cache-node-modules
-              uses: actions/cache@v4
+              uses: actions/cache@v5
               env:
                   cache-name: cache-node-modules
               with:
@@ -72,7 +72,7 @@ jobs:
               with:
                   version: "latest"
             - name: Cache uv
-              uses: actions/cache@v4
+              uses: actions/cache@v5
               with:
                   path: ~/.cache/uv
                   key: ${{ runner.os }}-uv-${{ hashFiles('pyproject.toml') }}
