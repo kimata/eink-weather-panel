@@ -296,6 +296,14 @@ webapp:
 slack:
     from: E-Ink Weather Panel
     bot_token: xoxb-XXXXXXXXXXXX-XXXXXXXXXXXXX-XXXXXXXXXXXXXXXXXXXXXXXX
+    info:
+        channel:
+            name: "#info"
+            id: XXXXXXXXXXX
+    captcha:
+        channel:
+            name: "#captcha"
+            id: XXXXXXXXXXX
     error:
         channel:
             name: "#error"
