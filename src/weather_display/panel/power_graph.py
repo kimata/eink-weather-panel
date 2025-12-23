@@ -260,7 +260,11 @@ def create(config):
     panel_config = config["power"]
     font_config = config["font"]
     db_config = config["influxdb"]
-    slack_config = config.get("slack")
+
+    # slack_config を SlackConfig オブジェクトに変換
+    slack_config = None
+    if "slack" in config:
+        slack_config = my_lib.notify.slack.parse_config(config["slack"])
 
     try:
         return (
@@ -275,12 +279,9 @@ def create(config):
             try:
                 slack_message = f"Power Graph Data Error: {e!s}\n\n詳細:\n{error_message}"
                 my_lib.notify.slack.error(
-                    slack_config["bot_token"],
-                    slack_config["error"]["channel"]["name"],
-                    slack_config["error"]["channel"]["id"],
-                    slack_config["from"],
+                    slack_config,
+                    "電力グラフデータエラー",
                     slack_message,
-                    interval_min=slack_config["error"]["interval_min"],
                 )
                 logging.info("Sent Slack notification for empty power data")
             except Exception as slack_error:

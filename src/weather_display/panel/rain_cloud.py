@@ -409,16 +409,13 @@ def create_rain_cloud_img(panel_config, sub_panel_config, face_map, slack_config
         if driver and (trial >= PATIENT_COUNT) and (slack_config is not None):
             try:
                 my_lib.notify.slack.error_with_image(
-                    slack_config["bot_token"],
-                    slack_config["error"]["channel"]["name"],
-                    slack_config["error"]["channel"]["id"],
-                    slack_config["from"],
+                    slack_config,
+                    "雨雲レーダー画像取得エラー",
                     traceback.format_exc(),
                     {
                         "data": PIL.Image.open(io.BytesIO(driver.get_screenshot_as_png())),
                         "text": "エラー時のスクリーンショット",
                     },
-                    interval_min=slack_config["error"]["interval_min"],
                 )
             except Exception as screenshot_error:
                 logging.warning("Failed to capture screenshot: %s", screenshot_error)
@@ -630,11 +627,16 @@ def create(config, is_side_by_side=True, is_threaded=True):
     except Exception as cleanup_error:
         logging.warning("Chrome cleanup failed: %s", cleanup_error)
 
+    # slack_config を SlackConfig オブジェクトに変換
+    slack_config = None
+    if "slack" in config:
+        slack_config = my_lib.notify.slack.parse_config(config["slack"])
+
     return my_lib.panel_util.draw_panel_patiently(
         create_rain_cloud_panel_impl,
         config["rain_cloud"],
         config["font"],
-        config.get("slack", None),
+        slack_config,
         is_side_by_side,
         is_threaded,
     )
