@@ -31,6 +31,7 @@ def env_mock():
         {
             "TEST": "true",
             "NO_COLORED_LOGS": "true",
+            "DUMMY_MODE": "true",
         },
     ) as fixture:
         yield fixture
@@ -82,8 +83,8 @@ def _clear(config):
 
     my_lib.footprint.clear(config["liveness"]["file"]["display"])
 
-    my_lib.notify.slack.interval_clear()
-    my_lib.notify.slack.hist_clear()
+    my_lib.notify.slack._interval_clear()
+    my_lib.notify.slack._hist_clear()
 
 
 @pytest.fixture
@@ -188,8 +189,8 @@ def gen_sensor_data(value=[30, 34, 25, 20], valid=True):  # noqa: B006
 def check_notify_slack(message, index=-1):
     import my_lib.notify.slack
 
-    # 並列実行時は自分のワーカーの履歴のみチェック（is_thread_local=True）
-    notify_hist = my_lib.notify.slack.hist_get(is_thread_local=True)
+    # NOTE: SingleThreadExecutor 内で通知が発生する場合があるため、グローバル履歴を参照
+    notify_hist = my_lib.notify.slack._hist_get(is_thread_local=False)
 
     if message is None:
         assert notify_hist == [], "正常なはずなのに、エラー通知がされています。"
