@@ -176,14 +176,15 @@ def mock_sensor_fetch_data(mocker):  # noqa: C901
 
 
 def gen_sensor_data(value=[30, 34, 25, 20], valid=True):  # noqa: B006
-    sensor_data = {"value": value, "time": [], "valid": valid}
+    from my_lib.sensor_data import SensorDataResult
 
+    time_list = []
     for i in range(len(value)):
-        sensor_data["time"].append(
+        time_list.append(
             datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(hours=i - len(value))
         )
 
-    return sensor_data
+    return SensorDataResult(value=value, time=time_list, valid=valid)
 
 
 def check_notify_slack(message, index=-1):

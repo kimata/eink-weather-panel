@@ -72,15 +72,15 @@ def get_face_map(font_config):
 
 
 def plot_item(ax, unit, data, ylim, fmt, face_map):  # noqa: PLR0913
-    x = data["time"]
-    y = data["value"]
+    x = data.time
+    y = data.value
 
     # デバッグログ: データの状態を確認
     logging.info(
         "plot_item debug: x length=%d, y length=%d, data_valid=%s",
         len(x),
         len(y),
-        data.get("valid", "unknown"),
+        data.valid,
     )
 
     # 空リストチェック
@@ -124,7 +124,7 @@ def plot_item(ax, unit, data, ylim, fmt, face_map):  # noqa: PLR0913
 
     ax.fill_between(x, y, 0, facecolor="#D0D0D0", alpha=0.5)
 
-    text = "?" if not data["valid"] else fmt.format(next((item for item in reversed(y) if item), None))
+    text = "?" if not data.valid else fmt.format(next((item for item in reversed(y) if item), None))
 
     ax.xaxis.set_minor_locator(matplotlib.dates.HourLocator(byhour=range(0, 24, 6)))
     ax.xaxis.set_minor_formatter(matplotlib.dates.DateFormatter("%-H"))
@@ -211,17 +211,17 @@ def create_power_graph_impl(panel_config, font_config, db_config):
     # デバッグログ: fetch_data結果
     logging.info(
         "Power data fetched: valid=%s, time_length=%d, value_length=%d",
-        data.get("valid", False),
-        len(data.get("time", [])),
-        len(data.get("value", [])),
+        data.valid,
+        len(data.time),
+        len(data.value),
     )
 
     # データが無効な場合の詳細ログ
-    if not data.get("valid", False) or not data.get("time", []) or not data.get("value", []):
+    if not data.valid or not data.time or not data.value:
         logging.warning("Invalid or empty power data: %s", data)
-        if not data.get("time", []):
+        if not data.time:
             logging.warning("time data is empty")
-        if not data.get("value", []):
+        if not data.value:
             logging.warning("value data is empty")
 
     ax = fig.add_subplot()

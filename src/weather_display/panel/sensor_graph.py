@@ -197,8 +197,8 @@ def get_aircon_power_from_results(results, aircon_map, col):
         return None
 
     data = results[aircon_map[col]]
-    if data["valid"]:
-        return data["value"][0]
+    if data.valid:
+        return data.value[0]
     else:
         return None
 
@@ -272,7 +272,7 @@ def sensor_data(db_config, host_specify_list, param):
             period_start,
             period_stop,
         )
-        if data["valid"]:
+        if data.valid:
             return data
     return data
 
@@ -361,7 +361,7 @@ def create_sensor_graph_impl(panel_config, font_config, db_config):  # noqa: C90
                     request_index = request_map[request_key]
                     candidate_data = results[request_index]
 
-                    if candidate_data["valid"]:
+                    if candidate_data.valid:
                         data = candidate_data
                         break
 
@@ -373,22 +373,27 @@ def create_sensor_graph_impl(panel_config, font_config, db_config):  # noqa: C90
                     request_index = request_map[request_key]
                     data = results[request_index]
 
-            data_cache[param["name"]][col] = data if data else {"valid": False, "time": [], "value": []}
+            # SensorDataResult を辞書に変換して time_numeric を追加できるようにする
+            if data:
+                data_dict = {"valid": data.valid, "time": data.time, "value": data.value}
+            else:
+                data_dict = {"valid": False, "time": [], "value": []}
+            data_cache[param["name"]][col] = data_dict
 
-            if data and data["valid"]:
+            if data_dict["valid"]:
                 # 日付を数値化（最適化）
-                if data["time"]:
-                    data["time_numeric"] = matplotlib.dates.date2num(data["time"])
+                if data_dict["time"]:
+                    data_dict["time_numeric"] = matplotlib.dates.date2num(data_dict["time"])
                 else:
-                    data["time_numeric"] = []
+                    data_dict["time_numeric"] = []
 
-                time_begin = min(time_begin, data["time"][0])
+                time_begin = min(time_begin, data_dict["time"][0])
 
                 if not cache["time"]:
                     cache = {
-                        "time": data["time"],
-                        "time_numeric": data.get("time_numeric", []),
-                        "value": [EMPTY_VALUE for x in range(len(data["time"]))],
+                        "time": data_dict["time"],
+                        "time_numeric": data_dict.get("time_numeric", []),
+                        "value": [EMPTY_VALUE for x in range(len(data_dict["time"]))],
                         "valid": False,
                     }
 

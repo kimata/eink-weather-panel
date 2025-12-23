@@ -93,7 +93,7 @@ def create_wbgt_panel_impl(panel_config, font_config, slack_config, is_side_by_s
         (255, 255, 255, 0),
     )
 
-    wbgt = get_wbgt(panel_config)["current"]
+    wbgt = get_wbgt(panel_config).current
 
     if wbgt is None:
         return img

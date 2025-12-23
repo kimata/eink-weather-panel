@@ -105,7 +105,7 @@ def get_image(weather_info):
     gamma = 0.24
 
     file_bytes = np.asarray(
-        bytearray(urllib.request.urlopen(weather_info["icon_url"]).read()),  # noqa: S310
+        bytearray(urllib.request.urlopen(weather_info.icon_url).read()),  # noqa: S310
         dtype=np.uint8,
     )
     img = cv2.imdecode(file_bytes, cv2.IMREAD_UNCHANGED)
@@ -118,9 +118,9 @@ def get_image(weather_info):
         pathlib.Path(__file__).parent
         / "img"
         / (
-            weather_info["text"]
+            weather_info.text
             + "_"
-            + pathlib.Path(urllib.parse.urlparse(weather_info["icon_url"]).path).name
+            + pathlib.Path(urllib.parse.urlparse(weather_info.icon_url).path).name
         )
     )
 
@@ -176,7 +176,7 @@ def draw_weather(img, weather, overlay, pos_x, pos_y, icon_margin, face_map):  #
     next_pos_y += icon.size[1] * 1.08
     next_pos_y = my_lib.pil_util.draw_text(
         img,
-        weather["text"],
+        weather.text,
         [pos_x + icon.size[0] / 2.0, next_pos_y],
         face_map["weather"]["value"],
         "center",
@@ -340,19 +340,19 @@ def draw_precip(img, precip, is_first, pos_x, pos_y, precip_icon, face):  # noqa
 def draw_wind(img, wind, is_first, pos_x, pos_y, icon, face):  # noqa: PLR0913
     pos_y += my_lib.pil_util.text_size(img, face["value"], "0")[1] * 0.2  # NOTE: 上にマージンを設ける
 
-    if wind["speed"] == 0:
+    if wind.speed == 0:
         color = "#eee"
         brightness = 8
-    elif wind["speed"] == 1:
+    elif wind.speed == 1:
         color = "#ddd"
         brightness = 7.5
-    elif wind["speed"] == 2:
+    elif wind.speed == 2:
         color = "#bbb"
         brightness = 6.5
-    elif wind["speed"] == 3:
+    elif wind.speed == 3:
         color = "#999"
         brightness = 5.5
-    elif wind["speed"] == 4:
+    elif wind.speed == 4:
         color = "#666"
         brightness = 3
     else:
@@ -360,10 +360,10 @@ def draw_wind(img, wind, is_first, pos_x, pos_y, icon, face):  # noqa: PLR0913
         brightness = 1
 
     icon_orig_height = icon["arrow"].size[1]
-    if ROTATION_MAP[wind["dir"]] is not None:
+    if ROTATION_MAP[wind.dir] is not None:
         arrow_icon = PIL.ImageEnhance.Brightness(icon["arrow"]).enhance(brightness)
         arrow_icon = arrow_icon.rotate(
-            ROTATION_MAP[wind["dir"]],
+            ROTATION_MAP[wind.dir],
             resample=PIL.Image.BICUBIC,
         )
 
@@ -380,7 +380,7 @@ def draw_wind(img, wind, is_first, pos_x, pos_y, icon, face):  # noqa: PLR0913
 
     next_pos_y = draw_text_info(
         img,
-        wind["speed"],
+        wind.speed,
         "m/s",
         is_first,
         pos_x,
@@ -402,7 +402,7 @@ def draw_wind(img, wind, is_first, pos_x, pos_y, icon, face):  # noqa: PLR0913
 
     return my_lib.pil_util.draw_text(
         img,
-        wind["dir"],
+        wind.dir,
         [
             pos_x + my_lib.pil_util.text_size(img, face["value"], "10")[0],
             next_pos_y,
@@ -471,11 +471,11 @@ def draw_weather_info(  # noqa: PLR0913
 ):
     next_pos_y = pos_y + my_lib.pil_util.text_size(img, face_map["hour"]["value"], "0")[1] * HOUR_CIRCLE_RATIO
     next_pos_x, next_pos_y = draw_weather(
-        img, info["weather"], overlay, pos_x, next_pos_y, ICON_MARGIN, face_map
+        img, info.weather, overlay, pos_x, next_pos_y, ICON_MARGIN, face_map
     )
     draw_hour(
         img,
-        info["hour"],
+        info.hour,
         is_today,
         pos_x + (next_pos_x - pos_x) / ((1 + ICON_MARGIN) * 2.0),
         pos_y,
@@ -484,7 +484,7 @@ def draw_weather_info(  # noqa: PLR0913
     next_pos_y += 30
     next_pos_y = draw_temp(
         img,
-        info["temp"],
+        info.temp,
         is_first,
         pos_x,
         next_pos_y,
@@ -494,7 +494,7 @@ def draw_weather_info(  # noqa: PLR0913
     next_pos_y += 20
     next_pos_y = draw_precip(
         img,
-        info["precip"],
+        info.precip,
         is_first,
         pos_x,
         next_pos_y,
@@ -504,7 +504,7 @@ def draw_weather_info(  # noqa: PLR0913
     next_pos_y += 10
     next_pos_y = draw_wind(
         img,
-        info["wind"],
+        info.wind,
         is_first,
         pos_x,
         next_pos_y,
@@ -523,7 +523,7 @@ def draw_weather_info(  # noqa: PLR0913
             face_map["temp_sens"],
         )
     else:
-        temp_sens = calc_misnar_formula(info["temp"], info["humi"], info["wind"]["speed"])
+        temp_sens = calc_misnar_formula(info.temp, info.humi, info.wind.speed)
         next_pos_y = draw_temp(
             img,
             temp_sens,
@@ -726,10 +726,10 @@ def draw_panel_weather(  # noqa: PLR0913
         img,
         pos_x,
         pos_y,
-        weather_info["today"]["data"],
-        clothing_info["today"]["data"],
-        sunset_info["today"],
-        wbgt_info["daily"]["today"],
+        weather_info.today.data,
+        clothing_info.today.data,
+        sunset_info.today,
+        wbgt_info.daily.today,
         True,
         img.copy(),
         icon,
@@ -744,10 +744,10 @@ def draw_panel_weather(  # noqa: PLR0913
         img,
         pos_x,
         pos_y,
-        weather_info["tomorrow"]["data"],
-        clothing_info["tomorrow"]["data"],
-        sunset_info["tomorrow"],
-        wbgt_info["daily"]["tomorrow"],
+        weather_info.tomorrow.data,
+        clothing_info.tomorrow.data,
+        sunset_info.tomorrow,
+        wbgt_info.daily.tomorrow,
         False,
         img.copy(),
         icon,
