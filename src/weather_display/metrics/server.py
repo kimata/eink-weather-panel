@@ -11,6 +11,8 @@ Options:
   -D                : デバッグモードで動作します。
 """
 
+from __future__ import annotations
+
 import logging
 import threading
 
@@ -18,8 +20,10 @@ import flask
 import flask_cors
 import werkzeug.serving
 
+from weather_display.config import AppConfig
 
-def create_app(config):
+
+def create_app(config: AppConfig) -> flask.Flask:
     import my_lib.webapp.config
 
     my_lib.webapp.config.URL_PREFIX = "/weather_panel"
@@ -46,7 +50,7 @@ def create_app(config):
     return app
 
 
-def start(config, port):
+def start(config: AppConfig, port: int) -> dict[str, object]:
     # NOTE: Flask は別のプロセスで実行
     server = werkzeug.serving.make_server(
         "0.0.0.0",  # noqa: S104
@@ -66,7 +70,7 @@ def start(config, port):
     }
 
 
-def term(handle):
+def term(handle: dict[str, object]) -> None:
     logging.info("Stop metrics server")
     logging.info(
         "Metrics server thread state: alive=%s, daemon=%s",

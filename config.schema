@@ -1144,7 +1144,6 @@
         "font",
         "influxdb",
         "liveness",
-        "metrics",
         "panel",
         "power",
         "rain_cloud",
@@ -1153,7 +1152,6 @@
         "sunset",
         "time",
         "wbgt",
-        "weather",
-        "webapp"
+        "weather"
     ]
 }

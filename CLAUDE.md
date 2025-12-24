@@ -8,23 +8,23 @@ E-Ink Weather Panel is a Python application that generates comprehensive weather
 
 ## Development Commands
 
-### Python Environment (Rye)
+### Python Environment (uv)
 
 ```bash
 # Install dependencies
-rye sync
+uv sync
 
 # Run main application locally
-env RASP_HOSTNAME="hostname" rye run python src/display_image.py
+env RASP_HOSTNAME="hostname" uv run python src/display_image.py
 
 # Run basic functionality tests
-rye run pytest --timeout=240 --numprocesses=auto --verbosity=1 tests/test_basic.py
+uv run pytest --timeout=240 --numprocesses=auto --verbosity=1 tests/test_basic.py
 
 # Run all tests with coverage
-rye run pytest --cov=src --cov-report=html tests/
+uv run pytest --cov=src --cov-report=html tests/
 
 # Run web interface tests (requires host IP)
-rye run pytest tests/test_playwright.py --host <host-ip>
+uv run pytest tests/test_playwright.py --host <host-ip>
 ```
 
 ### React Frontend
@@ -98,7 +98,7 @@ Coverage reports are generated in `tests/evidence/coverage/`.
 
 ## Deployment
 
-- **Local**: Direct Python execution with Rye
+- **Local**: Direct Python execution with uv
 - **Docker**: Multi-stage builds with frontend compilation
 - **Kubernetes**: Production deployment with persistent volumes
 - **CI/CD**: GitLab CI with comprehensive test matrix

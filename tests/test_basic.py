@@ -68,6 +68,14 @@ def app():
 
 @pytest.fixture
 def config():
+    import weather_display.config
+
+    return weather_display.config.load(CONFIG_FILE)
+
+
+@pytest.fixture
+def config_dict():
+    """互換性のために辞書形式の設定を返す"""
     import my_lib.config
 
     config_ = my_lib.config.load(CONFIG_FILE)
@@ -81,7 +89,7 @@ def _clear(config):
     import my_lib.footprint
     import my_lib.notify.slack
 
-    my_lib.footprint.clear(config["liveness"]["file"]["display"])
+    my_lib.footprint.clear(config.liveness.file.display)
 
     my_lib.notify.slack._interval_clear()
     my_lib.notify.slack._hist_clear()
@@ -212,26 +220,29 @@ def check_image(request, img, size, index=None):
     save_image(request, img, index)
 
     # NOTE: matplotlib で生成した画像の場合、期待値より 1pix 小さい場合がある
-    assert abs(img.size[0] - size["width"]) < 2
-    assert abs(img.size[1] - size["height"]) < 2, (
+    # size は PanelGeometry dataclass または dict を受け付ける
+    width = size.width if hasattr(size, "width") else size["width"]
+    height = size.height if hasattr(size, "height") else size["height"]
+    assert abs(img.size[0] - width) < 2
+    assert abs(img.size[1] - height) < 2, (
         "画像サイズが期待値と一致しません。"
-        f"""(期待値: {size["width"]} x {size["height"]}, 実際: {img.size[0]} x {img.size[1]})"""
+        f"(期待値: {width} x {height}, 実際: {img.size[0]} x {img.size[1]})"
     )
 
 
 def check_liveness(config, is_should_healthy):
     import healthz
+    from my_lib.healthz import HealthzTarget
 
-    liveness = healthz.check_liveness(
-        [
-            {
-                "name": name,
-                "liveness_file": pathlib.Path(config["liveness"]["file"][name]),
-                "interval": config["panel"]["update"]["interval"],
-            }
-            for name in ["display"]
-        ]
-    )
+    target_list = [
+        HealthzTarget(
+            name="display",
+            liveness_file=config.liveness.file.display,
+            interval=config.panel.update.interval,
+        )
+    ]
+
+    liveness = healthz.check_liveness(target_list)
 
     if is_should_healthy:
         assert liveness, "Liveness が更新されていません。"
@@ -248,12 +259,12 @@ def test_create_image(request, mocker, config):
     check_image(
         request,
         create_image.create_image(config, test_mode=True)[0],
-        config["panel"]["device"],
+        config.panel.device,
     )
     check_image(
         request,
         create_image.create_image(config)[0],
-        config["panel"]["device"],
+        config.panel.device,
     )
 
     check_notify_slack(None)
@@ -267,7 +278,7 @@ def test_create_image_small(request, config, mocker):
     check_image(
         request,
         create_image.create_image(config, test_mode=False)[0],
-        config["panel"]["device"],
+        config.panel.device,
     )
 
     check_notify_slack(None)
@@ -282,13 +293,13 @@ def test_create_image_error(request, config, mocker):
     check_image(
         request,
         create_image.create_image(config, small_mode=True, dummy_mode=True)[0],
-        config["panel"]["device"],
+        config.panel.device,
     )
 
     check_image(
         request,
         create_image.create_image(config)[0],
-        config["panel"]["device"],
+        config.panel.device,
     )
 
     check_notify_slack("Traceback")
@@ -305,7 +316,7 @@ def test_create_image_influx_error(request, config, mocker):
     check_image(
         request,
         create_image.create_image(config, small_mode=False, dummy_mode=True)[0],
-        config["panel"]["device"],
+        config.panel.device,
     )
 
     # NOTE: テスト結果を安定させるため、ウェイトを追加
@@ -325,7 +336,7 @@ def test_weather_panel(request, config):
     check_image(
         request,
         weather_display.panel.weather.create(config, False)[0],
-        config["weather"]["panel"],
+        config.weather.panel,
     )
 
     check_notify_slack(None)
@@ -372,7 +383,7 @@ def test_weather_panel_dummy(mocker, request, config):
     check_image(
         request,
         weather_display.panel.weather.create(config)[0],
-        config["weather"]["panel"],
+        config.weather.panel,
     )
 
     check_notify_slack(None)
@@ -385,7 +396,7 @@ def test_wbgt_panel(request, config):
     check_image(
         request,
         weather_display.panel.wbgt.create(config)[0],
-        config["wbgt"]["panel"],
+        config.wbgt.panel,
     )
 
     check_notify_slack(None)
@@ -401,7 +412,7 @@ def test_wbgt_panel_var(mocker, request, config):
         check_image(
             request,
             weather_display.panel.wbgt.create(config)[0],
-            config["wbgt"]["panel"],
+            config.wbgt.panel,
             i,
         )
 
@@ -417,7 +428,7 @@ def test_wbgt_panel_error_1(time_machine, mocker, request, config):
     mocker.patch("my_lib.weather.fetch_page", side_effect=RuntimeError())
 
     ret = weather_display.panel.wbgt.create(config)
-    check_image(request, ret[0], config["wbgt"]["panel"])
+    check_image(request, ret[0], config.wbgt.panel)
 
     assert len(ret) == 3
     assert "Traceback" in ret[2]
@@ -429,7 +440,7 @@ def test_wbgt_panel_error_2(mocker, request, config):
     mocker.patch("lxml.html.HtmlElement.xpath", return_value=[])
 
     ret = weather_display.panel.wbgt.create(config)
-    check_image(request, ret[0], config["wbgt"]["panel"])
+    check_image(request, ret[0], config.wbgt.panel)
 
     # NOTE: ページのフォーマットが期待値と異なるくらいではエラーにしない
     assert len(ret) == 2
@@ -442,7 +453,7 @@ def test_time_panel(request, config):
     check_image(
         request,
         weather_display.panel.time.create(config)[0],
-        config["time"]["panel"],
+        config.time.panel,
     )
 
     check_notify_slack(None)
@@ -457,7 +468,7 @@ def test_create_power_graph(mocker, request, config):
     check_image(
         request,
         weather_display.panel.power_graph.create(config)[0],
-        config["power"]["panel"],
+        config.power.panel,
         0,
     )
 
@@ -466,7 +477,7 @@ def test_create_power_graph(mocker, request, config):
     check_image(
         request,
         weather_display.panel.power_graph.create(config)[0],
-        config["power"]["panel"],
+        config.power.panel,
         1,
     )
 
@@ -483,7 +494,7 @@ def test_create_power_graph_invalid(mocker, request, config):
     check_image(
         request,
         weather_display.panel.power_graph.create(config)[0],
-        config["power"]["panel"],
+        config.power.panel,
     )
 
     check_notify_slack(None)
@@ -497,7 +508,7 @@ def test_create_power_graph_error(mocker, request, config):
     check_image(
         request,
         weather_display.panel.power_graph.create(config)[0],
-        config["power"]["panel"],
+        config.power.panel,
     )
 
     check_notify_slack(None)
@@ -514,7 +525,7 @@ def test_create_sensor_graph_1(time_machine, mocker, request, config):
     check_image(
         request,
         weather_display.panel.sensor_graph.create(config)[0],
-        config["sensor"]["panel"],
+        config.sensor.panel,
         0,
     )
 
@@ -523,7 +534,7 @@ def test_create_sensor_graph_1(time_machine, mocker, request, config):
     check_image(
         request,
         weather_display.panel.sensor_graph.create(config)[0],
-        config["sensor"]["panel"],
+        config.sensor.panel,
         1,
     )
 
@@ -568,7 +579,7 @@ def test_create_sensor_graph_2(time_machine, mocker, request, config):
     check_image(
         request,
         weather_display.panel.sensor_graph.create(config)[0],
-        config["sensor"]["panel"],
+        config.sensor.panel,
     )
 
     check_notify_slack(None)
@@ -586,7 +597,7 @@ def test_create_sensor_graph_dummy(time_machine, mocker, request, config):
     check_image(
         request,
         weather_display.panel.sensor_graph.create(config)[0],
-        config["sensor"]["panel"],
+        config.sensor.panel,
         0,
     )
 
@@ -595,7 +606,7 @@ def test_create_sensor_graph_dummy(time_machine, mocker, request, config):
     check_image(
         request,
         weather_display.panel.sensor_graph.create(config)[0],
-        config["sensor"]["panel"],
+        config.sensor.panel,
         1,
     )
 
@@ -621,7 +632,7 @@ def test_create_sensor_graph_invalid(mocker, request, config):
     check_image(
         request,
         weather_display.panel.sensor_graph.create(config)[0],
-        config["sensor"]["panel"],
+        config.sensor.panel,
     )
 
     check_notify_slack(None)
@@ -634,7 +645,7 @@ def test_create_sensor_graph_influx_error(mocker, request, config):
 
     ret = weather_display.panel.sensor_graph.create(config)
 
-    check_image(request, ret[0], config["sensor"]["panel"])
+    check_image(request, ret[0], config.sensor.panel)
 
     assert len(ret) == 3
     assert "Traceback" in ret[2]
@@ -647,14 +658,14 @@ def test_create_rain_cloud_panel(request, config):
     check_image(
         request,
         weather_display.panel.rain_cloud.create(config)[0],
-        config["rain_cloud"]["panel"],
+        config.rain_cloud.panel,
         0,
     )
 
     check_image(
         request,
         weather_display.panel.rain_cloud.create(config, is_side_by_side=False)[0],
-        config["rain_cloud"]["panel"],
+        config.rain_cloud.panel,
         1,
     )
 
@@ -684,7 +695,7 @@ def test_create_rain_cloud_panel_cache_and_error(mocker, request, config):
     check_image(
         request,
         weather_display.panel.rain_cloud.create(config, True, False)[0],
-        config["rain_cloud"]["panel"],
+        config.rain_cloud.panel,
         0,
     )
 
@@ -693,7 +704,7 @@ def test_create_rain_cloud_panel_cache_and_error(mocker, request, config):
     check_image(
         request,
         weather_display.panel.rain_cloud.create(config)[0],
-        config["rain_cloud"]["panel"],
+        config.rain_cloud.panel,
         1,
     )
 
@@ -720,7 +731,7 @@ def test_create_rain_cloud_panel_xpath_fail(mocker, request, config):
     check_image(
         request,
         weather_display.panel.rain_cloud.create(config)[0],
-        config["rain_cloud"]["panel"],
+        config.rain_cloud.panel,
     )
 
     # NOTE: エラー通知される可能性があるのでチェックは見送る
@@ -747,7 +758,7 @@ def test_create_rain_cloud_panel_selenium_error(mocker, request, config):
     check_image(
         request,
         weather_display.panel.rain_cloud.create(config)[0],
-        config["rain_cloud"]["panel"],
+        config.rain_cloud.panel,
     )
 
     # NOTE: CONFIG_SMALL_FILE には Slack の設定がないので、None になる
@@ -774,7 +785,7 @@ def test_create_rain_cloud_panel_xpath_error(mocker, request, config):
     check_image(
         request,
         weather_display.panel.rain_cloud.create(config)[0],
-        config["rain_cloud"]["panel"],
+        config.rain_cloud.panel,
     )
 
     # NOTE: CONFIG_SMALL_FILE には Slack の設定がないので、None になる
@@ -798,7 +809,7 @@ def test_slack_error(mocker, request, config):
     check_image(
         request,
         create_image.create_image(config, small_mode=True, dummy_mode=True)[0],
-        config["panel"]["device"],
+        config.panel.device,
     )
 
     check_notify_slack("Traceback")
@@ -826,7 +837,7 @@ def test_slack_error_with_image(mocker, request, config):
     check_image(
         request,
         weather_display.panel.rain_cloud.create(config, True, False)[0],
-        config["rain_cloud"]["panel"],
+        config.rain_cloud.panel,
     )
 
     check_notify_slack("Traceback")

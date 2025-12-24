@@ -11,67 +11,56 @@ Options:
   -D                : デバッグモードで動作します。
 """
 
+from __future__ import annotations
+
 import datetime
-import functools
 import io
 import logging
 import os
-import pathlib
 import time
 import traceback
 
 import matplotlib  # noqa: ICN001
+import matplotlib.ticker
 import my_lib.notify.slack
+import my_lib.plot_util
 import PIL.Image
 
 matplotlib.use("Agg")
 
 import matplotlib.dates
 import matplotlib.font_manager
-import matplotlib.pyplot  # noqa: ICN001
+import matplotlib.pyplot  # noqa: ICN001, E402
 import my_lib.panel_util
 import pandas.plotting
-from my_lib.sensor_data import fetch_data
+import my_lib.panel_config
+from my_lib.sensor_data import SensorDataResult, fetch_data
+
+from weather_display.config import AppConfig, InfluxDBConfig, PowerConfig
 
 pandas.plotting.register_matplotlib_converters()
 
 IMAGE_DPI = 100.0
 
 
-@functools.lru_cache(maxsize=32)
-def _get_font_properties(font_path_str, size):
-    """フォントプロパティをキャッシュ付きで取得"""
-    return matplotlib.font_manager.FontProperties(fname=font_path_str, size=size)
-
-
-def get_plot_font(config, font_type, size):
-    font_path = pathlib.Path(config["path"]).resolve() / config["map"][font_type]
-
-    # 初回アクセス時のみログ出力
-    cache_info = _get_font_properties.cache_info()
-
-    # キャッシュ統計を使って初回判定
-    result = _get_font_properties(str(font_path), size)
-    new_cache_info = _get_font_properties.cache_info()
-
-    # キャッシュミスが増えた場合は新しいフォントのロード
-    if new_cache_info.misses > cache_info.misses:
-        logging.info("Load font: %s (cached)", font_path)
-
-    return result
-
-
-def get_face_map(font_config):
+def get_face_map(font_config: my_lib.panel_config.FontConfigProtocol) -> dict[str, matplotlib.font_manager.FontProperties]:
     return {
-        "title": get_plot_font(font_config, "jp_bold", 60),
-        "value": get_plot_font(font_config, "en_cond_bold", 80),
-        "value_unit": get_plot_font(font_config, "jp_regular", 18),
-        "axis_minor": get_plot_font(font_config, "jp_regular", 26),
-        "axis_major": get_plot_font(font_config, "jp_regular", 32),
+        "title": my_lib.plot_util.get_plot_font(font_config, "jp_bold", 60),
+        "value": my_lib.plot_util.get_plot_font(font_config, "en_cond_bold", 80),
+        "value_unit": my_lib.plot_util.get_plot_font(font_config, "jp_regular", 18),
+        "axis_minor": my_lib.plot_util.get_plot_font(font_config, "jp_regular", 26),
+        "axis_major": my_lib.plot_util.get_plot_font(font_config, "jp_regular", 32),
     }
 
 
-def plot_item(ax, unit, data, ylim, fmt, face_map):  # noqa: PLR0913
+def plot_item(
+    ax: matplotlib.axes.Axes,
+    unit: str,
+    data: SensorDataResult,
+    ylim: list[int],
+    fmt: str,
+    face_map: dict[str, matplotlib.font_manager.FontProperties],
+) -> None:
     x = data.time
     y = data.value
 
@@ -170,11 +159,15 @@ def plot_item(ax, unit, data, ylim, fmt, face_map):  # noqa: PLR0913
     ax.label_outer()
 
 
-def create_power_graph_impl(panel_config, font_config, db_config):
+def create_power_graph_impl(
+    power_config: PowerConfig,
+    font_config: my_lib.panel_config.FontConfigProtocol,
+    db_config: InfluxDBConfig,
+) -> PIL.Image.Image:
     face_map = get_face_map(font_config)
 
-    width = panel_config["panel"]["width"]
-    height = panel_config["panel"]["height"]
+    width = power_config.panel.width
+    height = power_config.panel.height
 
     matplotlib.pyplot.style.use("grayscale")
 
@@ -192,18 +185,23 @@ def create_power_graph_impl(panel_config, font_config, db_config):
     # デバッグログ: fetch_data呼び出し前
     logging.info(
         "Fetching power data: measure=%s, hostname=%s, field=%s, period=%s to %s",
-        panel_config["data"]["sensor"]["measure"],
-        panel_config["data"]["sensor"]["hostname"],
-        panel_config["data"]["param"]["field"],
+        power_config.data.sensor.measure,
+        power_config.data.sensor.hostname,
+        power_config.data.param.field,
         period_start,
         period_stop,
     )
 
     data = fetch_data(
-        db_config,
-        panel_config["data"]["sensor"]["measure"],
-        panel_config["data"]["sensor"]["hostname"],
-        panel_config["data"]["param"]["field"],
+        {
+            "url": db_config.url,
+            "org": db_config.org,
+            "token": db_config.token,
+            "bucket": db_config.bucket,
+        },
+        power_config.data.sensor.measure,
+        power_config.data.sensor.hostname,
+        power_config.data.param.field,
         period_start,
         period_stop,
     )
@@ -227,10 +225,10 @@ def create_power_graph_impl(panel_config, font_config, db_config):
     ax = fig.add_subplot()
     plot_item(
         ax,
-        panel_config["data"]["param"]["unit"],
+        power_config.data.param.unit,
         data,
-        panel_config["data"]["param"]["range"],
-        panel_config["data"]["param"]["format"],
+        power_config.data.param.range,
+        power_config.data.param.format,
         face_map,
     )
 
@@ -252,34 +250,25 @@ def create_power_graph_impl(panel_config, font_config, db_config):
     return img
 
 
-def create(config):
+def create(config: AppConfig) -> tuple[PIL.Image.Image, float] | tuple[PIL.Image.Image, float, str]:
     logging.info("draw power graph")
 
     start = time.perf_counter()
 
-    panel_config = config["power"]
-    font_config = config["font"]
-    db_config = config["influxdb"]
-
-    # slack_config を SlackConfig オブジェクトに変換
-    slack_config = None
-    if "slack" in config:
-        slack_config = my_lib.notify.slack.parse_config(config["slack"])
-
     try:
         return (
-            create_power_graph_impl(panel_config, font_config, db_config),
+            create_power_graph_impl(config.power, config.font, config.influxdb),
             time.perf_counter() - start,
         )
     except Exception as e:
         error_message = traceback.format_exc()
 
         # 空データエラーの場合はSlack通知
-        if "Empty data in power_graph" in str(e) and slack_config is not None:
+        if "Empty data in power_graph" in str(e):
             try:
                 slack_message = f"Power Graph Data Error: {e!s}\n\n詳細:\n{error_message}"
                 my_lib.notify.slack.error(
-                    slack_config,
+                    config.slack,
                     "電力グラフデータエラー",
                     slack_message,
                 )
@@ -288,7 +277,7 @@ def create(config):
                 logging.warning("Failed to send Slack notification: %s", slack_error)
 
         return (
-            my_lib.panel_util.create_error_image(panel_config, font_config, error_message),
+            my_lib.panel_util.create_error_image(config.power, config.font, error_message),
             time.perf_counter() - start,
             error_message,
         )
@@ -297,9 +286,10 @@ def create(config):
 if __name__ == "__main__":
     # TEST Code
     import docopt
-    import my_lib.config
     import my_lib.logger
     import my_lib.pil_util
+
+    from weather_display.config import load
 
     args = docopt.docopt(__doc__)
 
@@ -309,7 +299,7 @@ if __name__ == "__main__":
 
     my_lib.logger.init("test", level=logging.DEBUG if debug_mode else logging.INFO)
 
-    config = my_lib.config.load(config_file)
+    config = load(config_file)
     result = create(config)
 
     if len(result) > 2:

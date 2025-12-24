@@ -11,6 +11,8 @@ Options:
   -D                : デバッグモードで動作します。
 """
 
+from __future__ import annotations
+
 import concurrent.futures
 import datetime
 import locale
@@ -20,6 +22,7 @@ import pathlib
 import urllib
 import urllib.parse
 import zoneinfo
+from dataclasses import dataclass
 
 import cv2
 import my_lib.panel_util
@@ -30,7 +33,11 @@ import PIL.Image
 import PIL.ImageDraw
 import PIL.ImageEnhance
 import PIL.ImageFont
+import my_lib.notify.slack
+import my_lib.panel_config
 from my_lib.weather import get_clothing_yahoo, get_wbgt, get_weather_yahoo
+
+from weather_display.config import AppConfig, IconConfig, SunsetConfig, WbgtConfig, WeatherConfig
 
 TIMEZONE = zoneinfo.ZoneInfo("Asia/Tokyo")
 
@@ -61,7 +68,15 @@ ROTATION_MAP = {
 }
 
 
-def get_face_map(font_config):
+@dataclass
+class OptConfig:
+    """オプション設定"""
+
+    sunset: SunsetConfig
+    wbgt: WbgtConfig
+
+
+def get_face_map(font_config: my_lib.panel_config.FontConfigProtocol) -> dict[str, dict[str, PIL.ImageFont.FreeTypeFont]]:
     return {
         "date": {
             "month": my_lib.pil_util.get_font(font_config, "en_cond_bold", 60),
@@ -100,7 +115,7 @@ def get_face_map(font_config):
     }
 
 
-def get_image(weather_info):
+def get_image(weather_info: object) -> PIL.Image.Image:
     tone = 32
     gamma = 0.24
 
@@ -160,12 +175,20 @@ def get_image(weather_info):
 
 
 # NOTE: 体感温度の計算 (Gregorczuk, 1972)
-def calc_misnar_formula(temp, humi, wind):
+def calc_misnar_formula(temp: float, humi: float, wind: float) -> float:
     a = 1.76 + 1.4 * (wind**0.75)
     return 37 - (37 - temp) / (0.68 - 0.0014 * humi + 1 / a) - 0.29 * temp * (1 - humi / 100)
 
 
-def draw_weather(img, weather, overlay, pos_x, pos_y, icon_margin, face_map):  # noqa: PLR0913
+def draw_weather(  # noqa: PLR0913
+    img: PIL.Image.Image,
+    weather: object,
+    overlay: PIL.Image.Image,
+    pos_x: float,
+    pos_y: float,
+    icon_margin: float,
+    face_map: dict[str, dict[str, PIL.ImageFont.FreeTypeFont]],
+) -> list[float]:
     icon = get_image(weather)
 
     canvas = overlay.copy()
@@ -186,18 +209,18 @@ def draw_weather(img, weather, overlay, pos_x, pos_y, icon_margin, face_map):  #
 
 
 def draw_text_info(  # noqa: PLR0913
-    img,
-    value,
-    unit,
-    is_first,
-    pos_x,
-    pos_y,
-    icon,
-    face,
-    color="#000",
-    underline=False,
-    margin_top_ratio=0.3,
-):
+    img: PIL.Image.Image,
+    value: float,
+    unit: str,
+    is_first: bool,
+    pos_x: float,
+    pos_y: float,
+    icon: PIL.Image.Image,
+    face: dict[str, PIL.ImageFont.FreeTypeFont],
+    color: str = "#000",
+    underline: bool = False,
+    margin_top_ratio: float = 0.3,
+) -> float:
     pos_y += my_lib.pil_util.text_size(img, face["value"], "0")[1] * margin_top_ratio
 
     if is_first:
@@ -288,7 +311,15 @@ def draw_text_info(  # noqa: PLR0913
     return next_pos_y
 
 
-def draw_temp(img, temp, is_first, pos_x, pos_y, icon, face):  # noqa: PLR0913
+def draw_temp(  # noqa: PLR0913
+    img: PIL.Image.Image,
+    temp: float,
+    is_first: bool,
+    pos_x: float,
+    pos_y: float,
+    icon: PIL.Image.Image,
+    face: dict[str, PIL.ImageFont.FreeTypeFont],
+) -> float:
     return draw_text_info(
         img,
         int(temp),
@@ -303,7 +334,15 @@ def draw_temp(img, temp, is_first, pos_x, pos_y, icon, face):  # noqa: PLR0913
     )
 
 
-def draw_precip(img, precip, is_first, pos_x, pos_y, precip_icon, face):  # noqa: PLR0913
+def draw_precip(  # noqa: PLR0913
+    img: PIL.Image.Image,
+    precip: float,
+    is_first: bool,
+    pos_x: float,
+    pos_y: float,
+    precip_icon: PIL.Image.Image,
+    face: dict[str, PIL.ImageFont.FreeTypeFont],
+) -> float:
     if precip <= 0.01:
         color = "#eee"
         underline = False
@@ -337,7 +376,15 @@ def draw_precip(img, precip, is_first, pos_x, pos_y, precip_icon, face):  # noqa
     )
 
 
-def draw_wind(img, wind, is_first, pos_x, pos_y, icon, face):  # noqa: PLR0913
+def draw_wind(  # noqa: PLR0913
+    img: PIL.Image.Image,
+    wind: object,
+    is_first: bool,
+    pos_x: float,
+    pos_y: float,
+    icon: dict[str, PIL.Image.Image],
+    face: dict[str, PIL.ImageFont.FreeTypeFont],
+) -> float:
     pos_y += my_lib.pil_util.text_size(img, face["value"], "0")[1] * 0.2  # NOTE: 上にマージンを設ける
 
     if wind.speed == 0:
@@ -413,7 +460,14 @@ def draw_wind(img, wind, is_first, pos_x, pos_y, icon, face):  # noqa: PLR0913
     )[1]
 
 
-def draw_hour(img, hour, is_today, pos_x, pos_y, face_map):  # noqa: PLR0913
+def draw_hour(  # noqa: PLR0913
+    img: PIL.Image.Image,
+    hour: int,
+    is_today: bool,
+    pos_x: float,
+    pos_y: float,
+    face_map: dict[str, dict[str, PIL.ImageFont.FreeTypeFont]],
+) -> float:
     face = face_map["hour"]
 
     now = datetime.datetime.now(TIMEZONE)
@@ -457,18 +511,18 @@ def draw_hour(img, hour, is_today, pos_x, pos_y, face_map):  # noqa: PLR0913
 
 
 def draw_weather_info(  # noqa: PLR0913
-    img,
-    info,
-    wbgt,
-    is_wbgt_exist,
-    is_today,
-    is_first,
-    pos_x,
-    pos_y,
-    overlay,
-    icon,
-    face_map,
-):
+    img: PIL.Image.Image,
+    info: object,
+    wbgt: float | None,
+    is_wbgt_exist: bool,
+    is_today: bool,
+    is_first: bool,
+    pos_x: float,
+    pos_y: float,
+    overlay: PIL.Image.Image,
+    icon: dict[str, PIL.Image.Image],
+    face_map: dict[str, dict[str, PIL.ImageFont.FreeTypeFont]],
+) -> float:
     next_pos_y = pos_y + my_lib.pil_util.text_size(img, face_map["hour"]["value"], "0")[1] * HOUR_CIRCLE_RATIO
     next_pos_x, next_pos_y = draw_weather(
         img, info.weather, overlay, pos_x, next_pos_y, ICON_MARGIN, face_map
@@ -537,7 +591,17 @@ def draw_weather_info(  # noqa: PLR0913
     return pos_x + (next_pos_x - pos_x) * 1.0
 
 
-def draw_day_weather(img, info, wbgt_info, is_today, pos_x, pos_y, overlay, icon, face_map):  # noqa: PLR0913
+def draw_day_weather(  # noqa: PLR0913
+    img: PIL.Image.Image,
+    info: list[object],
+    wbgt_info: list[float | None] | None,
+    is_today: bool,
+    pos_x: float,
+    pos_y: float,
+    overlay: PIL.Image.Image,
+    icon: dict[str, PIL.Image.Image],
+    face_map: dict[str, dict[str, PIL.ImageFont.FreeTypeFont]],
+) -> None:
     next_pos_x = pos_x
     for hour_index in range(2, 8):
         next_pos_x = draw_weather_info(
@@ -555,7 +619,13 @@ def draw_day_weather(img, info, wbgt_info, is_today, pos_x, pos_y, overlay, icon
         )
 
 
-def draw_date(img, pos_x, pos_y, date, face_map):
+def draw_date(
+    img: PIL.Image.Image,
+    pos_x: float,
+    pos_y: float,
+    date: datetime.datetime,
+    face_map: dict[str, dict[str, PIL.ImageFont.FreeTypeFont]],
+) -> tuple[float, float, float]:
     face = face_map["date"]
 
     next_pos_x = pos_x + my_lib.pil_util.text_size(img, face["day"], "31")[0]
@@ -594,7 +664,14 @@ def draw_date(img, pos_x, pos_y, date, face_map):
     return (next_pos_x, next_pos_y, text_pos_x)
 
 
-def draw_sunset(img, pos_x, pos_y, sunset_info, icon, face_map):  # noqa: PLR0913
+def draw_sunset(  # noqa: PLR0913
+    img: PIL.Image.Image,
+    pos_x: float,
+    pos_y: float,
+    sunset_info: str,
+    icon: dict[str, PIL.Image.Image],
+    face_map: dict[str, dict[str, PIL.ImageFont.FreeTypeFont]],
+) -> float:
     OFFSET = 10
     face = face_map["sunset"]
 
@@ -618,7 +695,13 @@ def draw_sunset(img, pos_x, pos_y, sunset_info, icon, face_map):  # noqa: PLR091
     )[1]
 
 
-def draw_clothing(img, pos_x, pos_y, clothing_info, icon):
+def draw_clothing(
+    img: PIL.Image.Image,
+    pos_x: float,
+    pos_y: float,
+    clothing_info: int,
+    icon: dict[str, PIL.Image.Image],
+) -> None:
     icon_index = math.ceil(clothing_info / 20)
     if icon_index == 0:
         icon_index += 1
@@ -653,18 +736,18 @@ def draw_clothing(img, pos_x, pos_y, clothing_info, icon):
 
 
 def draw_panel_weather_day(  # noqa: PLR0913
-    img,
-    pos_x,
-    pos_y,
-    weather_day_info,
-    clothing_info,
-    sunset_info,
-    wbgt_info,
-    is_today,
-    overlay,
-    icon,
-    face_map,
-):
+    img: PIL.Image.Image,
+    pos_x: float,
+    pos_y: float,
+    weather_day_info: list[object],
+    clothing_info: int,
+    sunset_info: str,
+    wbgt_info: list[float | None] | None,
+    is_today: bool,
+    overlay: PIL.Image.Image,
+    icon: dict[str, PIL.Image.Image],
+    face_map: dict[str, dict[str, PIL.ImageFont.FreeTypeFont]],
+) -> None:
     date = datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=+9), "JST"))
     if not is_today:
         date += datetime.timedelta(days=1)
@@ -686,16 +769,16 @@ def draw_panel_weather_day(  # noqa: PLR0913
 
 
 def draw_panel_weather(  # noqa: PLR0913
-    img,
-    panel_config,
-    font_config,
-    weather_info,
-    clothing_info,
-    sunset_info,
-    wbgt_info,
-    is_side_by_side,
-):
-    icon = {}
+    img: PIL.Image.Image,
+    weather_config: WeatherConfig,
+    font_config: my_lib.panel_config.FontConfigProtocol,
+    weather_info: object,
+    clothing_info: object,
+    sunset_info: object,
+    wbgt_info: object,
+    is_side_by_side: bool,
+) -> None:
+    icon: dict[str, PIL.Image.Image] = {}
     for name in [
         "sunset",
         "thermo",
@@ -715,12 +798,12 @@ def draw_panel_weather(  # noqa: PLR0913
         "clothing-half-4",
         "clothing-half-5",
     ]:
-        icon[name] = my_lib.pil_util.load_image(panel_config["icon"][name])
+        icon[name] = my_lib.pil_util.load_image(weather_config.icon[name])
 
     face_map = get_face_map(font_config)
 
-    pos_x = 10
-    pos_y = 20
+    pos_x = 10.0
+    pos_y = 20.0
 
     draw_panel_weather_day(
         img,
@@ -736,9 +819,9 @@ def draw_panel_weather(  # noqa: PLR0913
         face_map,
     )
     if is_side_by_side:
-        pos_x += panel_config["panel"]["width"] / 2.0
+        pos_x += weather_config.panel.width / 2.0
     else:
-        pos_y += panel_config["panel"]["height"] / 2.0
+        pos_y += weather_config.panel.height / 2.0
 
     draw_panel_weather_day(
         img,
@@ -755,13 +838,24 @@ def draw_panel_weather(  # noqa: PLR0913
     )
 
 
-def create_weather_panel_impl(panel_config, font_config, slack_config, is_side_by_side, trial, opt_config):  # noqa: ARG001, PLR0913
+def create_weather_panel_impl(
+    panel_config: my_lib.panel_config.PanelConfigProtocol,
+    font_config: my_lib.panel_config.FontConfigProtocol,
+    slack_config: my_lib.notify.slack.SlackEmptyConfig,  # noqa: ARG001
+    is_side_by_side: bool,
+    trial: int,  # noqa: ARG001
+    opt_config: object,
+) -> PIL.Image.Image:
+    # panel_config is WeatherConfig
+    weather_config: WeatherConfig = panel_config  # type: ignore[assignment]
+    opt: OptConfig = opt_config  # type: ignore[assignment]
+
     # NOTE: APIコールを並列化して高速化
     with concurrent.futures.ThreadPoolExecutor(max_workers=4) as executor:
-        weather_future = executor.submit(get_weather_yahoo, panel_config["data"]["yahoo"])
-        clothing_future = executor.submit(get_clothing_yahoo, panel_config["data"]["yahoo"])
-        sunset_future = executor.submit(my_lib.weather.get_sunset_nao, opt_config["sunset"])
-        wbgt_future = executor.submit(get_wbgt, opt_config["wbgt"])
+        weather_future = executor.submit(get_weather_yahoo, weather_config.data.yahoo.url)
+        clothing_future = executor.submit(get_clothing_yahoo, weather_config.data.yahoo.url)
+        sunset_future = executor.submit(my_lib.weather.get_sunset_nao, opt.sunset.data.nao.pref)
+        wbgt_future = executor.submit(get_wbgt, opt.wbgt.data.env_go.url)
 
         # すべての結果を取得
         weather_info = weather_future.result()
@@ -771,13 +865,13 @@ def create_weather_panel_impl(panel_config, font_config, slack_config, is_side_b
 
     img = PIL.Image.new(
         "RGBA",
-        (panel_config["panel"]["width"], panel_config["panel"]["height"]),
+        (weather_config.panel.width, weather_config.panel.height),
         (255, 255, 255, 0),
     )
 
     draw_panel_weather(
         img,
-        panel_config,
+        weather_config,
         font_config,
         weather_info,
         clothing_info,
@@ -789,24 +883,29 @@ def create_weather_panel_impl(panel_config, font_config, slack_config, is_side_b
     return img
 
 
-def create(config, is_side_by_side=True):
+def create(
+    config: AppConfig, is_side_by_side: bool = True
+) -> tuple[PIL.Image.Image, float] | tuple[PIL.Image.Image, float, str]:
     logging.info("draw weather panel")
+
+    opt_config = OptConfig(sunset=config.sunset, wbgt=config.wbgt)
 
     return my_lib.panel_util.draw_panel_patiently(
         create_weather_panel_impl,
-        config["weather"],
-        config["font"],
-        None,
+        config.weather,
+        config.font,
+        my_lib.notify.slack.SlackEmptyConfig(),
         is_side_by_side,
-        {"sunset": config["sunset"], "wbgt": config["wbgt"]},
+        opt_config,
     )
 
 
 if __name__ == "__main__":
     # TEST Code
     import docopt
-    import my_lib.config
     import my_lib.logger
+
+    from weather_display.config import load
 
     args = docopt.docopt(__doc__)
 
@@ -816,16 +915,17 @@ if __name__ == "__main__":
 
     my_lib.logger.init("test", level=logging.DEBUG if debug_mode else logging.INFO)
 
-    config = my_lib.config.load(config_file)
-    out_file = args["-o"]
+    config = load(config_file)
+
+    opt_config = OptConfig(sunset=config.sunset, wbgt=config.wbgt)
 
     img = create_weather_panel_impl(
-        config["weather"],
-        config["font"],
-        None,
+        config.weather,
+        config.font,
+        my_lib.notify.slack.SlackEmptyConfig(),
         True,
         1,
-        {"sunset": config["sunset"], "wbgt": config["wbgt"]},
+        opt_config,
     )
 
     logging.info("Save %s.", out_file)

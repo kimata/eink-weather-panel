@@ -15,6 +15,8 @@ Options:
   -D                : デバッグモードで動作します。
 """
 
+from __future__ import annotations
+
 import datetime
 import faulthandler
 import logging
@@ -31,10 +33,12 @@ import my_lib.footprint
 import my_lib.panel_util
 import my_lib.proc_util
 
+import weather_display.config
 import weather_display.display
 import weather_display.metrics.collector
 import weather_display.metrics.server
 import weather_display.timing_filter
+from weather_display.config import AppConfig
 
 TIMEZONE = zoneinfo.ZoneInfo("Asia/Tokyo")
 
@@ -44,12 +48,12 @@ SCHEMA_CONFIG_SMALL = "config-small.schema"
 
 NOTIFY_THRESHOLD = 2
 
-elapsed_list = []
+elapsed_list: list[float] = []
 
 should_terminate = threading.Event()
 
 
-def sig_handler(num, frame):  # noqa: ARG001
+def sig_handler(num: int, frame: object) -> None:  # noqa: ARG001
     global should_terminate
 
     logging.warning("receive signal %d", num)
@@ -67,21 +71,22 @@ def sig_handler(num, frame):  # noqa: ARG001
 
 
 def execute(  # noqa: PLR0913
-    config,
-    rasp_hostname,
-    key_file_path,
-    config_file,
-    small_mode,
-    test_mode,
-    is_one_time,
-    prev_ssh=None,
-    timing_controller=None,
-):
+    config: AppConfig,
+    rasp_hostname: str,
+    key_file_path: pathlib.Path | str,
+    config_file: str,
+    small_mode: bool,
+    test_mode: bool,
+    is_one_time: bool,
+    prev_ssh: object = None,
+    timing_controller: weather_display.timing_filter.TimingController | None = None,
+) -> tuple[object, float, weather_display.timing_filter.TimingController | None]:
     start_time = datetime.datetime.now(TIMEZONE)
     start = time.perf_counter()
     success = True
-    error_message = None
-    sleep_time = 60
+    error_message: str | None = None
+    sleep_time = 60.0
+    diff_sec = 0.0
 
     try:
         weather_display.display.ssh_kill_and_close(prev_ssh, "fbi")
@@ -103,7 +108,7 @@ def execute(  # noqa: PLR0913
             # カルマンフィルタを使用したタイミング制御
             if timing_controller is None:
                 timing_controller = weather_display.timing_filter.TimingController(
-                    update_interval=config["panel"]["update"]["interval"], target_second=0
+                    update_interval=config.panel.update.interval, target_second=0
                 )
 
             sleep_time, diff_sec = timing_controller.calculate_sleep_time(
@@ -129,11 +134,7 @@ def execute(  # noqa: PLR0913
         # Log metrics to database
         elapsed_time = time.perf_counter() - start
         try:
-            db_path = (
-                pathlib.Path(config["metrics"]["data"])
-                if "metrics" in config and "data" in config["metrics"]
-                else None
-            )
+            db_path = config.metrics.data if config.metrics is not None else None
             weather_display.metrics.collector.collect_display_image_metrics(
                 elapsed_time=elapsed_time,
                 is_small_mode=small_mode,
@@ -153,10 +154,18 @@ def execute(  # noqa: PLR0913
     return ssh, sleep_time, timing_controller
 
 
-def start(config, rasp_hostname, key_file_path, config_file, small_mode, test_mode, is_one_time):  # noqa: PLR0913
+def start(
+    config: AppConfig,
+    rasp_hostname: str,
+    key_file_path: pathlib.Path | str,
+    config_file: str,
+    small_mode: bool,
+    test_mode: bool,
+    is_one_time: bool,
+) -> None:
     fail_count = 0
-    prev_ssh = None
-    timing_controller = None
+    prev_ssh: object = None
+    timing_controller: weather_display.timing_filter.TimingController | None = None
 
     logging.info("Start worker")
 
@@ -188,7 +197,11 @@ def start(config, rasp_hostname, key_file_path, config_file, small_mode, test_mo
             logging.exception("Failed to display image")
             fail_count += 1
             if is_one_time or (fail_count >= NOTIFY_THRESHOLD):
-                my_lib.panel_util.notify_error(config, traceback.format_exc())
+                my_lib.panel_util.notify_error(
+                    config.slack,
+                    "weather_panel",
+                    traceback.format_exc(),
+                )
                 logging.error("エラーが続いたので終了します。")  # noqa: TRY400
                 sys.stderr.flush()
                 time.sleep(1)
@@ -198,7 +211,7 @@ def start(config, rasp_hostname, key_file_path, config_file, small_mode, test_mo
     logging.info("Stop worker")
 
 
-def cleanup(handle):
+def cleanup(handle: object) -> None:
     # アクティブなスレッドを確認
     logging.info("Active threads before cleanup: %d", threading.active_count())
     for thread in threading.enumerate():
@@ -235,7 +248,6 @@ def cleanup(handle):
 
 if __name__ == "__main__":
     import docopt
-    import my_lib.config
     import my_lib.logger
 
     args = docopt.docopt(__doc__)
@@ -258,7 +270,7 @@ if __name__ == "__main__":
     if rasp_hostname is None:
         raise ValueError("HOSTNAME is required")
 
-    config = my_lib.config.load(
+    config = weather_display.config.load(
         config_file, pathlib.Path(SCHEMA_CONFIG_SMALL if small_mode else SCHEMA_CONFIG)
     )
 
