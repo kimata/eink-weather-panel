@@ -11,26 +11,40 @@ Options:
   -D                : デバッグモードで動作します。
 """
 
+from __future__ import annotations
+
 import datetime
 import logging
 import time
 
+import my_lib.font_util
+import my_lib.panel_config
 import my_lib.pil_util
 import PIL.Image
 import PIL.ImageDraw
 import PIL.ImageEnhance
 import PIL.ImageFont
 
-
-def get_face_map(font_config):
-    return {
-        "time": {
-            "value": my_lib.pil_util.get_font(font_config, "en_bold", 130),
-        },
-    }
+from weather_display.config import AppConfig, TimeConfig
 
 
-def draw_time(img, pos_x, pos_y, face):
+FONT_SPEC_NESTED: dict[str, dict[str, my_lib.font_util.FontSpec]] = {
+    "time": {
+        "value": ("en_bold", 130),
+    },
+}
+
+
+def get_face_map(font_config: my_lib.panel_config.FontConfigProtocol) -> dict[str, dict[str, PIL.ImageFont.FreeTypeFont]]:
+    return my_lib.font_util.build_pil_face_map_nested(font_config, FONT_SPEC_NESTED)
+
+
+def draw_time(
+    img: PIL.Image.Image,
+    pos_x: int,
+    pos_y: int,
+    face: dict[str, PIL.ImageFont.FreeTypeFont],
+) -> None:
     time_text = (
         datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=9), "JST"))
         + datetime.timedelta(minutes=1)
@@ -51,32 +65,33 @@ def draw_time(img, pos_x, pos_y, face):
     )
 
 
-def draw_panel_time(img, config):
-    panel_config = config["time"]
-    font_config = config["font"]
-
+def draw_panel_time(
+    img: PIL.Image.Image,
+    time_config: TimeConfig,
+    font_config: my_lib.panel_config.FontConfigProtocol,
+) -> None:
     face_map = get_face_map(font_config)
 
     # 右下に描画する
     draw_time(
         img,
-        panel_config["panel"]["width"] - 10,
-        panel_config["panel"]["height"] - 10,
+        time_config.panel.width - 10,
+        time_config.panel.height - 10,
         face_map["time"],
     )
 
 
-def create(config):
+def create(config: AppConfig) -> tuple[PIL.Image.Image, float]:
     logging.info("draw time panel")
     start = time.perf_counter()
 
     img = PIL.Image.new(
         "RGBA",
-        (config["time"]["panel"]["width"], config["time"]["panel"]["height"]),
+        (config.time.panel.width, config.time.panel.height),
         (255, 255, 255, 0),
     )
 
-    draw_panel_time(img, config)
+    draw_panel_time(img, config.time, config.font)
 
     return (img, time.perf_counter() - start)
 
@@ -84,8 +99,9 @@ def create(config):
 if __name__ == "__main__":
     # TEST Code
     import docopt
-    import my_lib.config
     import my_lib.logger
+
+    from weather_display.config import load
 
     args = docopt.docopt(__doc__)
 
@@ -95,7 +111,7 @@ if __name__ == "__main__":
 
     my_lib.logger.init("test", level=logging.DEBUG if debug_mode else logging.INFO)
 
-    config = my_lib.config.load(config_file)
+    config = load(config_file)
     img = create(config)[0]
 
     logging.info("Save %s.", out_file)

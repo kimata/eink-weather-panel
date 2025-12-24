@@ -11,6 +11,8 @@ Options:
   -D                : デバッグモードで動作します。
 """
 
+from __future__ import annotations
+
 import concurrent
 import io
 import logging
@@ -21,7 +23,9 @@ import traceback
 
 import cv2
 import my_lib.chrome_util
+import my_lib.font_util
 import my_lib.notify.slack
+import my_lib.panel_config
 import my_lib.panel_util
 import my_lib.pil_util
 import my_lib.serializer
@@ -29,10 +33,13 @@ import my_lib.thread_util
 import numpy  # noqa: ICN001
 import PIL.Image
 import PIL.ImageDraw
+import PIL.ImageFont
 import selenium.webdriver.common.by
 import selenium.webdriver.support
 import selenium.webdriver.support.wait
 from my_lib.selenium_util import click_xpath  # NOTE: テスト時に mock する
+
+from weather_display.config import AppConfig, RainCloudConfig
 
 PATIENT_COUNT = 3
 
@@ -61,15 +68,18 @@ RAINFALL_INTENSITY_LEVEL = [
 ]
 
 
-def get_face_map(font_config):
-    return {
-        "title": my_lib.pil_util.get_font(font_config, "jp_medium", 50),
-        "legend": my_lib.pil_util.get_font(font_config, "en_medium", 30),
-        "legend_unit": my_lib.pil_util.get_font(font_config, "en_medium", 18),
-    }
+FONT_SPEC: dict[str, my_lib.font_util.FontSpec] = {
+    "title": ("jp_medium", 50),
+    "legend": ("en_medium", 30),
+    "legend_unit": ("en_medium", 18),
+}
 
 
-def hide_label_and_icon(driver, wait):
+def get_face_map(font_config: my_lib.panel_config.FontConfigProtocol) -> dict[str, PIL.ImageFont.FreeTypeFont]:
+    return my_lib.font_util.build_pil_face_map(font_config, FONT_SPEC)
+
+
+def hide_label_and_icon(driver: object, wait: object) -> None:
     PARTS_LIST = [
         {"class": "jmatile-map-title", "mode": "none"},
         {"class": "leaflet-bar", "mode": "none"},
@@ -99,11 +109,7 @@ var elements = document.getElementsByClassName("{class_name}")
         )
 
 
-def change_setting(driver, wait):
-    # driver.find_element(
-    #     selenium.webdriver.common.by.By.XPATH, '//a[contains(@aria-label, "地形を表示")]'
-    # ).click()
-
+def change_setting(driver: object, wait: object) -> None:
     click_xpath(
         driver,
         '//a[contains(@aria-label, "色の濃さ")]',
@@ -130,7 +136,13 @@ def change_setting(driver, wait):
     )
 
 
-def shape_cloud_display(driver, wait, width, height, is_future):  # noqa: ARG001
+def shape_cloud_display(
+    driver: object,
+    wait: object,
+    width: int,  # noqa: ARG001
+    height: int,  # noqa: ARG001
+    is_future: bool,
+) -> None:
     if is_future:
         click_xpath(
             driver,
@@ -143,7 +155,7 @@ def shape_cloud_display(driver, wait, width, height, is_future):  # noqa: ARG001
     hide_label_and_icon(driver, wait)
 
 
-def change_window_size_fallback(driver, width, height):
+def change_window_size_fallback(driver: object, width: int, height: int) -> dict[str, int]:
     """従来のウィンドウサイズ調整ロジック（フォールバック用）"""
     logging.info("Using fallback window size adjustment")
 
@@ -200,7 +212,7 @@ def change_window_size_fallback(driver, width, height):
     return final_window_size
 
 
-def change_window_size(driver, width, height):
+def change_window_size(driver: object, width: int, height: int) -> dict[str, int]:
     """最適化されたウィンドウサイズ調整（キャッシュ使用+フォールバック）"""
     logging.info("target: %d x %d", width, height)
 
@@ -249,7 +261,14 @@ def change_window_size(driver, width, height):
     return final_window_size
 
 
-def fetch_cloud_image(driver, wait, url, width, height, is_future=False):  # noqa: PLR0913
+def fetch_cloud_image(  # noqa: PLR0913
+    driver: object,
+    wait: object,
+    url: str,
+    width: int,
+    height: int,
+    is_future: bool = False,
+) -> bytes:
     logging.info("fetch cloud image")
 
     driver.get(url)
@@ -269,7 +288,10 @@ def fetch_cloud_image(driver, wait, url, width, height, is_future=False):  # noq
     return driver.find_element(selenium.webdriver.common.by.By.XPATH, CLOUD_IMAGE_XPATH).screenshot_as_png
 
 
-def retouch_cloud_image(png_data, panel_config):
+def retouch_cloud_image(
+    png_data: bytes,
+    rain_cloud_config: RainCloudConfig,
+) -> tuple[PIL.Image.Image, PIL.Image.Image]:
     logging.info("retouch image")
 
     # より効率的なデコード
@@ -281,7 +303,7 @@ def retouch_cloud_image(png_data, panel_config):
     h, s, v = cv2.split(img_hsv)
 
     # 事前計算で高速化
-    gamma = panel_config["legend"]["gamma"]
+    gamma = rain_cloud_config.legend.gamma
     level_count = len(RAINFALL_INTENSITY_LEVEL)
 
     # NOTE: 降雨強度の色をグレースケール用に変換
@@ -311,7 +333,7 @@ def retouch_cloud_image(png_data, panel_config):
     )
 
 
-def draw_equidistant_circle(img):
+def draw_equidistant_circle(img: PIL.Image.Image) -> PIL.Image.Image:
     logging.info("draw equidistant_circle")
     draw = PIL.ImageDraw.Draw(img)
     center_x = img.size[0] // 2
@@ -332,7 +354,11 @@ def draw_equidistant_circle(img):
     return img
 
 
-def draw_caption(img, title, face_map):
+def draw_caption(
+    img: PIL.Image.Image,
+    title: str,
+    face_map: dict[str, PIL.ImageFont.FreeTypeFont],
+) -> PIL.Image.Image:
     logging.info("draw caption")
     caption_size = my_lib.pil_util.text_size(img, face_map["title"], title)
     caption_size = (caption_size[0] + 5, caption_size[1])  # NOTE: 横方向を少し広げる
@@ -373,7 +399,7 @@ def draw_caption(img, title, face_map):
     return img
 
 
-def get_driver_profile_name(is_future):
+def get_driver_profile_name(is_future: bool) -> str:
     name = "rain_cloud" + ("_future" if is_future else "")
     suffix = os.environ.get("PYTEST_XDIST_WORKER", None)
 
@@ -383,7 +409,13 @@ def get_driver_profile_name(is_future):
         return f"{name}_{suffix}"
 
 
-def create_rain_cloud_img(panel_config, sub_panel_config, face_map, slack_config, trial):
+def create_rain_cloud_img(
+    rain_cloud_config: RainCloudConfig,
+    sub_panel_config: dict[str, object],
+    face_map: dict[str, PIL.ImageFont.FreeTypeFont],
+    slack_config: my_lib.notify.slack.SlackConfigTypes,
+    trial: int,
+) -> tuple[PIL.Image.Image, PIL.Image.Image]:
     logging.info("create rain cloud image (%s)", "future" if sub_panel_config["is_future"] else "current")
 
     driver = None
@@ -400,25 +432,22 @@ def create_rain_cloud_img(panel_config, sub_panel_config, face_map, slack_config
         img = fetch_cloud_image(
             driver,
             wait,
-            panel_config["data"]["jma"]["url"],
+            rain_cloud_config.data.jma.url,
             sub_panel_config["width"],
             sub_panel_config["height"],
             sub_panel_config["is_future"],
         )
     except Exception:
-        if driver and (trial >= PATIENT_COUNT) and (slack_config is not None):
+        if driver and (trial >= PATIENT_COUNT):
             try:
                 my_lib.notify.slack.error_with_image(
-                    slack_config["bot_token"],
-                    slack_config["error"]["channel"]["name"],
-                    slack_config["error"]["channel"]["id"],
-                    slack_config["from"],
+                    slack_config,
+                    "雨雲レーダー画像取得エラー",
                     traceback.format_exc(),
                     {
                         "data": PIL.Image.open(io.BytesIO(driver.get_screenshot_as_png())),
                         "text": "エラー時のスクリーンショット",
                     },
-                    interval_min=slack_config["error"]["interval_min"],
                 )
             except Exception as screenshot_error:
                 logging.warning("Failed to capture screenshot: %s", screenshot_error)
@@ -434,17 +463,22 @@ def create_rain_cloud_img(panel_config, sub_panel_config, face_map, slack_config
             except Exception as cleanup_error:
                 logging.warning("Failed to cleanup driver: %s", cleanup_error)
 
-    img, bar = retouch_cloud_image(img, panel_config)
+    img, bar = retouch_cloud_image(img, rain_cloud_config)
     img = draw_equidistant_circle(img)
     img = draw_caption(img, sub_panel_config["title"], face_map)
 
     return (img, bar)
 
 
-def draw_legend(img, bar, panel_config, face_map):
+def draw_legend(
+    img: PIL.Image.Image,
+    bar: PIL.Image.Image,
+    rain_cloud_config: RainCloudConfig,
+    face_map: dict[str, PIL.ImageFont.FreeTypeFont],
+) -> PIL.Image.Image:
     PADDING = 20
 
-    bar_size = panel_config["legend"]["bar_size"]
+    bar_size = rain_cloud_config.legend.bar_size
     bar = bar.resize(
         (
             bar.size[0] * bar_size,
@@ -513,30 +547,30 @@ def draw_legend(img, bar, panel_config, face_map):
     my_lib.pil_util.alpha_paste(
         img,
         legend,
-        (panel_config["legend"]["offset_x"], panel_config["legend"]["offset_y"] - 80),
+        (rain_cloud_config.legend.offset_x, rain_cloud_config.legend.offset_y - 80),
     )
 
     return img
 
 
-def create_rain_cloud_panel_impl(  # noqa: PLR0913
-    panel_config,
-    font_config,
-    slack_config,
-    is_side_by_side,
-    trial,
-    is_threaded=True,
-):
-    if is_side_by_side:
-        sub_width = int(panel_config["panel"]["width"] / 2)
-        sub_height = panel_config["panel"]["height"]
-        offset_x = int(panel_config["panel"]["width"] / 2)
+def create_rain_cloud_panel_impl(
+    panel_config: my_lib.panel_config.PanelConfigProtocol,
+    context: my_lib.panel_config.NormalPanelContext,
+    is_threaded: object = True,
+) -> PIL.Image.Image:
+    # panel_config is RainCloudConfig
+    rain_cloud_config: RainCloudConfig = panel_config  # type: ignore[assignment]
+
+    if context.is_side_by_side:
+        sub_width = int(rain_cloud_config.panel.width / 2)
+        sub_height = rain_cloud_config.panel.height
+        offset_x = int(rain_cloud_config.panel.width / 2)
         offset_y = 0
     else:
-        sub_width = panel_config["panel"]["width"]
-        sub_height = int(panel_config["panel"]["height"] / 2)
+        sub_width = rain_cloud_config.panel.width
+        sub_height = int(rain_cloud_config.panel.height / 2)
         offset_x = 0
-        offset_y = int(panel_config["panel"]["height"] / 2)
+        offset_y = int(rain_cloud_config.panel.height / 2)
 
     SUB_PANEL_CONFIG_LIST = [
         {
@@ -559,10 +593,10 @@ def create_rain_cloud_panel_impl(  # noqa: PLR0913
 
     img = PIL.Image.new(
         "RGBA",
-        (panel_config["panel"]["width"], panel_config["panel"]["height"]),
+        (rain_cloud_config.panel.width, rain_cloud_config.panel.height),
         (255, 255, 255, 255),
     )
-    face_map = get_face_map(font_config)
+    face_map = get_face_map(context.font_config)
 
     executor = (
         concurrent.futures.ThreadPoolExecutor(len(SUB_PANEL_CONFIG_LIST))
@@ -573,11 +607,11 @@ def create_rain_cloud_panel_impl(  # noqa: PLR0913
     task_list = [
         executor.submit(
             create_rain_cloud_img,
-            panel_config,
+            rain_cloud_config,
             sub_panel_config,
             face_map,
-            slack_config,
-            trial,
+            context.slack_config,
+            context.trial,
         )
         for sub_panel_config in SUB_PANEL_CONFIG_LIST
     ]
@@ -588,10 +622,12 @@ def create_rain_cloud_panel_impl(  # noqa: PLR0913
 
     executor.shutdown(True)
 
-    return draw_legend(img, bar, panel_config, face_map)
+    return draw_legend(img, bar, rain_cloud_config, face_map)
 
 
-def create(config, is_side_by_side=True, is_threaded=True):
+def create(
+    config: AppConfig, is_side_by_side: bool = True, is_threaded: bool = True
+) -> tuple[PIL.Image.Image, float] | tuple[PIL.Image.Image, float, str]:
     logging.info("draw rain cloud panel")
 
     # ダミーモードの場合は簡単な画像を返す
@@ -599,17 +635,15 @@ def create(config, is_side_by_side=True, is_threaded=True):
         logging.info("Running in dummy mode, returning placeholder image")
 
         # 設定からサイズを取得
-        panel_config = config["rain_cloud"]
-        width = panel_config["panel"]["width"]
-        height = panel_config["panel"]["height"]
+        width = config.rain_cloud.panel.width
+        height = config.rain_cloud.panel.height
 
         # ダミー画像を作成
         img = PIL.Image.new("RGBA", (width, height), (200, 200, 200, 255))
 
         # 中央にテキストを描画
-        font_config = config["font"]
         try:
-            font = my_lib.pil_util.get_font(font_config, "jp_medium", 40)
+            font = my_lib.pil_util.get_font(config.font, "jp_medium", 40)
         except Exception:
             font = None
 
@@ -630,12 +664,16 @@ def create(config, is_side_by_side=True, is_threaded=True):
     except Exception as cleanup_error:
         logging.warning("Chrome cleanup failed: %s", cleanup_error)
 
+    context = my_lib.panel_config.NormalPanelContext(
+        font_config=config.font,
+        slack_config=config.slack,
+        is_side_by_side=is_side_by_side,
+    )
+
     return my_lib.panel_util.draw_panel_patiently(
         create_rain_cloud_panel_impl,
-        config["rain_cloud"],
-        config["font"],
-        config.get("slack", None),
-        is_side_by_side,
+        config.rain_cloud,
+        context,
         is_threaded,
     )
 
@@ -643,8 +681,9 @@ def create(config, is_side_by_side=True, is_threaded=True):
 if __name__ == "__main__":
     # TEST Code
     import docopt
-    import my_lib.config
     import my_lib.logger
+
+    from weather_display.config import load
 
     args = docopt.docopt(__doc__)
 
@@ -654,8 +693,14 @@ if __name__ == "__main__":
 
     my_lib.logger.init("test", level=logging.DEBUG if debug_mode else logging.INFO)
 
-    config = my_lib.config.load(config_file)
-    img = create_rain_cloud_panel_impl(config["rain_cloud"], config["font"], None, True, 1)
+    config = load(config_file)
+    context = my_lib.panel_config.NormalPanelContext(
+        font_config=config.font,
+        slack_config=my_lib.notify.slack.SlackEmptyConfig(),
+        is_side_by_side=True,
+        trial=1,
+    )
+    img = create_rain_cloud_panel_impl(config.rain_cloud, context)
 
     logging.info("Save %s.", out_file)
     my_lib.pil_util.convert_to_gray(img).save(out_file, "PNG")

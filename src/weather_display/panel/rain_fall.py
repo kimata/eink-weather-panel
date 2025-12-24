@@ -11,19 +11,26 @@ Options:
   -D                : デバッグモードで動作します。
 """
 
+from __future__ import annotations
+
 import datetime
 import logging
 import pathlib
 import time
 import traceback
 
+import my_lib.font_util
 import my_lib.notify.slack
+import my_lib.panel_config
 import my_lib.panel_util
 import my_lib.pil_util
 import my_lib.sensor_data
 import PIL.Image
 import PIL.ImageDraw
+import PIL.ImageFont
 import pytz
+
+from weather_display.config import AppConfig, IconConfig, RainFallConfig
 
 DATA_PATH = pathlib.Path("data")
 WINDOW_SIZE_CACHE = DATA_PATH / "window_size.cache"
@@ -32,50 +39,74 @@ CACHE_EXPIRE_HOUR = 1
 CLOUD_IMAGE_XPATH = '//div[contains(@id, "jmatile_map_")]'
 
 
-def get_face_map(font_config):
-    return {
-        "value": my_lib.pil_util.get_font(font_config, "en_bold", 80),
-        "unit": my_lib.pil_util.get_font(font_config, "en_bold", 30),
-        "start": my_lib.pil_util.get_font(font_config, "jp_medium", 40),
-    }
+FONT_SPEC: dict[str, my_lib.font_util.FontSpec] = {
+    "value": ("en_bold", 80),
+    "unit": ("en_bold", 30),
+    "start": ("jp_medium", 40),
+}
 
 
-def get_rainfall_status(panel_config, db_config):
+def get_face_map(font_config: my_lib.panel_config.FontConfigProtocol) -> dict[str, PIL.ImageFont.FreeTypeFont]:
+    return my_lib.font_util.build_pil_face_map(font_config, FONT_SPEC)
+
+
+def get_rainfall_status(
+    rain_fall_config: RainFallConfig,
+    db_config: my_lib.panel_config.DatabaseConfigProtocol,
+) -> dict[str, object] | None:
     START = "-3m"
 
     data = my_lib.sensor_data.fetch_data(
-        db_config,
-        panel_config["sensor"]["measure"],
-        panel_config["sensor"]["hostname"],
+        {
+            "url": db_config.url,
+            "org": db_config.org,
+            "token": db_config.token,
+            "bucket": db_config.bucket,
+        },
+        rain_fall_config.sensor.measure,
+        rain_fall_config.sensor.hostname,
         "rain",
         start=START,
         window_min=1,
     )
 
-    if not data["valid"]:
+    if not data.valid:
         return None
 
     # NOTE:過去二分間の平均にする
-    amount = (data["value"][-1] + data["value"][-2]) / 2.0 if len(data["value"]) > 1 else data["value"][-1]
+    amount = (data.value[-1] + data.value[-2]) / 2.0 if len(data.value) > 1 else data.value[-1]
 
     # NOTE: 1分あたりの降水量なので、時間あたりに直す
     amount *= 60
 
     data = my_lib.sensor_data.fetch_data(
-        db_config,
-        panel_config["sensor"]["measure"],
-        panel_config["sensor"]["hostname"],
+        {
+            "url": db_config.url,
+            "org": db_config.org,
+            "token": db_config.token,
+            "bucket": db_config.bucket,
+        },
+        rain_fall_config.sensor.measure,
+        rain_fall_config.sensor.hostname,
         "raining",
         start=START,
         window_min=0,
         last=True,
     )
 
-    raining_status = data["value"][0]
+    raining_status = data.value[0]
 
     if raining_status:
         raining_start = my_lib.sensor_data.get_last_event(
-            db_config, panel_config["sensor"]["measure"], panel_config["sensor"]["hostname"], "raining"
+            {
+                "url": db_config.url,
+                "org": db_config.org,
+                "token": db_config.token,
+                "bucket": db_config.bucket,
+            },
+            rain_fall_config.sensor.measure,
+            rain_fall_config.sensor.hostname,
+            "raining",
         )
     else:
         raining_start = None
@@ -89,7 +120,7 @@ def get_rainfall_status(panel_config, db_config):
     }
 
 
-def gen_amount_text(amount):
+def gen_amount_text(amount: float) -> str:
     if amount >= 10:
         return str(int(amount))
     elif (amount < 1) and (int(amount * 100) % 10 != 0):
@@ -98,7 +129,7 @@ def gen_amount_text(amount):
         return f"{amount:.1f}"
 
 
-def gen_start_text(start_time):
+def gen_start_text(start_time: datetime.datetime) -> str:
     delta = datetime.datetime.now(pytz.utc) - start_time.astimezone(pytz.utc)
     total_minutes = delta.total_seconds() // 60
 
@@ -111,8 +142,17 @@ def gen_start_text(start_time):
         return f"({int(total_hours)}時間前〜)"
 
 
-def draw_rainfall(img, rainfall_status, icon_config, face_map):
-    if not rainfall_status["raining"]["status"]:
+def draw_rainfall(
+    img: PIL.Image.Image,
+    rainfall_status: dict[str, object],
+    icon_config: IconConfig,
+    face_map: dict[str, PIL.ImageFont.FreeTypeFont],
+) -> PIL.Image.Image:
+    raining = rainfall_status["raining"]
+    if not isinstance(raining, dict):
+        return img
+
+    if not raining["status"]:
         return img
 
     pos_x = 10
@@ -126,11 +166,17 @@ def draw_rainfall(img, rainfall_status, icon_config, face_map):
         (pos_x, pos_y),
     )
 
-    if rainfall_status["amount"] < 0.01:
+    amount = rainfall_status["amount"]
+    if not isinstance(amount, (int, float)) or amount < 0.01:
         return img
 
-    amount_text = gen_amount_text(rainfall_status["amount"])
-    start_text = gen_start_text(rainfall_status["raining"]["start"])
+    amount_text = gen_amount_text(amount)
+
+    start = raining["start"]
+    if not isinstance(start, datetime.datetime):
+        return img
+
+    start_text = gen_start_text(start)
 
     line_height = my_lib.pil_util.text_size(img, face_map["value"], "0")[1]
 
@@ -160,7 +206,7 @@ def draw_rainfall(img, rainfall_status, icon_config, face_map):
     next_pos_x += my_lib.pil_util.text_size(img, face_map["start"], " ")[0]
 
     pos_y = int(pos_y + line_height * 1.2)
-    next_pos_x = my_lib.pil_util.draw_text(
+    my_lib.pil_util.draw_text(
         img,
         start_text,
         (pos_x, pos_y),
@@ -169,43 +215,47 @@ def draw_rainfall(img, rainfall_status, icon_config, face_map):
         "#333",
         stroke_width=10,
         stroke_fill=(255, 255, 255, 200),
-    )[0]
+    )
 
     return img
 
 
-def create_rain_fall_panel_impl(panel_config, font_config, db_config):
-    face_map = get_face_map(font_config)
+def create_rain_fall_panel_impl(
+    rain_fall_config: RainFallConfig,
+    context: my_lib.panel_config.DatabasePanelContext,
+) -> PIL.Image.Image:
+    face_map = get_face_map(context.font_config)
 
     img = PIL.Image.new(
         "RGBA",
-        (panel_config["panel"]["width"], panel_config["panel"]["height"]),
+        (rain_fall_config.panel.width, rain_fall_config.panel.height),
         (255, 255, 255, 0),
     )
 
-    status = get_rainfall_status(panel_config, db_config)
+    status = get_rainfall_status(rain_fall_config, context.db_config)
 
     if status is None:
         logging.warning("Unable to fetch rainfall status")
         return img
 
-    draw_rainfall(img, status, panel_config["icon"], face_map)
+    draw_rainfall(img, status, rain_fall_config.icon, face_map)
 
     return img
 
 
-def create(config):
+def create(config: AppConfig) -> tuple[PIL.Image.Image, float] | tuple[PIL.Image.Image, float, str]:
     logging.info("draw rain cloud panel")
 
     start = time.perf_counter()
 
-    panel_config = config["rain_fall"]
-    font_config = config["font"]
-    db_config = config["influxdb"]
+    context = my_lib.panel_config.DatabasePanelContext(
+        font_config=config.font,
+        db_config=config.influxdb,
+    )
 
     try:
         return (
-            create_rain_fall_panel_impl(panel_config, font_config, db_config),
+            create_rain_fall_panel_impl(config.rain_fall, context),
             time.perf_counter() - start,
         )
     except Exception:
@@ -213,7 +263,7 @@ def create(config):
 
         error_message = traceback.format_exc()
         return (
-            my_lib.panel_util.create_error_image(panel_config, font_config, error_message),
+            my_lib.panel_util.create_error_image(config.rain_fall, context.font_config, error_message),
             time.perf_counter() - start,
             error_message,
         )
@@ -222,8 +272,9 @@ def create(config):
 if __name__ == "__main__":
     # TEST Code
     import docopt
-    import my_lib.config
     import my_lib.logger
+
+    from weather_display.config import load
 
     args = docopt.docopt(__doc__)
 
@@ -233,8 +284,7 @@ if __name__ == "__main__":
 
     my_lib.logger.init("test", level=logging.DEBUG if debug_mode else logging.INFO)
 
-    config = my_lib.config.load(config_file)
-    out_file = args["-o"]
+    config = load(config_file)
 
     img = create(config)[0]
 
