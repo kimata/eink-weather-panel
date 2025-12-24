@@ -10,26 +10,27 @@ Options:
   -D                : デバッグモードで動作します。
 """
 
+from __future__ import annotations
+
 import logging
 import pathlib
 import sys
 
 import my_lib.healthz
+from my_lib.healthz import HealthzTarget
+
+import weather_display.config
 
 SCHEMA_CONFIG = "config.schema"
 
 
-def check_liveness(target_list):
-    for target in target_list:
-        if not my_lib.healthz.check_liveness(target["name"], target["liveness_file"], target["interval"]):
-            return False
-
-    return True
+def check_liveness(target_list: list[HealthzTarget]) -> bool:
+    failed = my_lib.healthz.check_liveness_all(target_list)
+    return len(failed) == 0
 
 
 if __name__ == "__main__":
     import docopt
-    import my_lib.config
     import my_lib.logger
 
     args = docopt.docopt(__doc__)
@@ -39,15 +40,14 @@ if __name__ == "__main__":
 
     my_lib.logger.init("panel.e-ink.weather", level=logging.DEBUG if debug_mode else logging.INFO)
 
-    config = my_lib.config.load(config_file, pathlib.Path(SCHEMA_CONFIG))
+    config = weather_display.config.load(config_file, pathlib.Path(SCHEMA_CONFIG))
 
     target_list = [
-        {
-            "name": name,
-            "liveness_file": pathlib.Path(config["liveness"]["file"][name]),
-            "interval": config["panel"]["update"]["interval"],
-        }
-        for name in ["display"]
+        HealthzTarget(
+            name="display",
+            liveness_file=config.liveness.file.display,
+            interval=config.panel.update.interval,
+        )
     ]
 
     if check_liveness(target_list):

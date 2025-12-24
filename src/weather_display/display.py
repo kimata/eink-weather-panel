@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import contextlib
 import logging
 import os
@@ -14,6 +16,7 @@ import my_lib.proc_util
 import paramiko
 
 import create_image
+from weather_display.config import AppConfig
 
 RETRY_COUNT = 3
 RETRY_WAIT = 2
@@ -113,7 +116,13 @@ def terminate_session_processes(session_id):
         logging.warning("Error terminating session processes: %s", e)
 
 
-def execute(ssh, config, config_file, small_mode, test_mode):
+def execute(
+    ssh: object,
+    config: AppConfig,
+    config_file: str,
+    small_mode: bool,
+    test_mode: bool,
+) -> None:
     ssh_stdin, ssh_stdout, ssh_stderr = exec_patiently(
         ssh.exec_command,
         (
@@ -164,12 +173,12 @@ def execute(ssh, config, config_file, small_mode, test_mode):
     # NOTE: -24 は create_image.py の異常時の終了コードに合わせる。
     if (fbi_status == 0) and (proc.returncode == 0):
         logging.info("Succeeded.")
-        my_lib.footprint.update(pathlib.Path(config["liveness"]["file"]["display"]))
+        my_lib.footprint.update(config.liveness.file.display)
     elif proc.returncode == create_image.ERROR_CODE_MAJOR:
         logging.warning("Failed to create image at all. (code: %d)", proc.returncode)
     elif proc.returncode == create_image.ERROR_CODE_MINOR:
         logging.warning("Failed to create image partially. (code: %d)", proc.returncode)
-        my_lib.footprint.update(pathlib.Path(config["liveness"]["file"]["display"]))
+        my_lib.footprint.update(config.liveness.file.display)
     elif fbi_status != 0:
         logging.warning("Failed to display image. (code: %d)", fbi_status)
         logging.warning("[stdout] %s", ssh_stdout.read().decode("utf-8"))
