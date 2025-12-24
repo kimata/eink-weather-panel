@@ -163,15 +163,15 @@ def mock_sensor_fetch_data(mocker):  # noqa: C901
         for request in requests:
             result = fetch_data_mock(
                 db_config,
-                request.get("measure"),
-                request.get("hostname"),
-                request.get("field"),
-                request.get("start", "-30h"),
-                request.get("stop", "now()"),
-                request.get("every_min", 1),
-                request.get("window_min", 3),
-                request.get("create_empty", True),
-                request.get("last", False),
+                request.measure,
+                request.hostname,
+                request.field,
+                request.start,
+                request.stop,
+                request.every_min,
+                request.window_min,
+                request.create_empty,
+                request.last,
             )
             results.append(result)
         return results

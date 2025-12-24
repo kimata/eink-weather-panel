@@ -549,18 +549,15 @@ def draw_legend(
     return img
 
 
-def create_rain_cloud_panel_impl(  # noqa: PLR0913
+def create_rain_cloud_panel_impl(
     panel_config: my_lib.panel_config.PanelConfigProtocol,
-    font_config: my_lib.panel_config.FontConfigProtocol,
-    slack_config: my_lib.notify.slack.SlackConfigTypes,
-    is_side_by_side: bool,
-    trial: int,
+    context: my_lib.panel_config.NormalPanelContext,
     is_threaded: object = True,
 ) -> PIL.Image.Image:
     # panel_config is RainCloudConfig
     rain_cloud_config: RainCloudConfig = panel_config  # type: ignore[assignment]
 
-    if is_side_by_side:
+    if context.is_side_by_side:
         sub_width = int(rain_cloud_config.panel.width / 2)
         sub_height = rain_cloud_config.panel.height
         offset_x = int(rain_cloud_config.panel.width / 2)
@@ -595,7 +592,7 @@ def create_rain_cloud_panel_impl(  # noqa: PLR0913
         (rain_cloud_config.panel.width, rain_cloud_config.panel.height),
         (255, 255, 255, 255),
     )
-    face_map = get_face_map(font_config)
+    face_map = get_face_map(context.font_config)
 
     executor = (
         concurrent.futures.ThreadPoolExecutor(len(SUB_PANEL_CONFIG_LIST))
@@ -609,8 +606,8 @@ def create_rain_cloud_panel_impl(  # noqa: PLR0913
             rain_cloud_config,
             sub_panel_config,
             face_map,
-            slack_config,
-            trial,
+            context.slack_config,
+            context.trial,
         )
         for sub_panel_config in SUB_PANEL_CONFIG_LIST
     ]
@@ -663,12 +660,16 @@ def create(
     except Exception as cleanup_error:
         logging.warning("Chrome cleanup failed: %s", cleanup_error)
 
+    context = my_lib.panel_config.NormalPanelContext(
+        font_config=config.font,
+        slack_config=config.slack,
+        is_side_by_side=is_side_by_side,
+    )
+
     return my_lib.panel_util.draw_panel_patiently(
         create_rain_cloud_panel_impl,
         config.rain_cloud,
-        config.font,
-        config.slack,
-        is_side_by_side,
+        context,
         is_threaded,
     )
 
@@ -689,9 +690,13 @@ if __name__ == "__main__":
     my_lib.logger.init("test", level=logging.DEBUG if debug_mode else logging.INFO)
 
     config = load(config_file)
-    img = create_rain_cloud_panel_impl(
-        config.rain_cloud, config.font, my_lib.notify.slack.SlackEmptyConfig(), True, 1
+    context = my_lib.panel_config.NormalPanelContext(
+        font_config=config.font,
+        slack_config=my_lib.notify.slack.SlackEmptyConfig(),
+        is_side_by_side=True,
+        trial=1,
     )
+    img = create_rain_cloud_panel_impl(config.rain_cloud, context)
 
     logging.info("Save %s.", out_file)
     my_lib.pil_util.convert_to_gray(img).save(out_file, "PNG")

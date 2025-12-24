@@ -38,7 +38,6 @@ from my_lib.sensor_data import DataRequest, fetch_data, fetch_data_parallel
 
 from weather_display.config import (
     AppConfig,
-    InfluxDBConfig,
     RoomConfig,
     SensorConfig,
     SensorIconConfig,
@@ -286,10 +285,9 @@ def draw_light_icon(
 
 def create_sensor_graph_impl(  # noqa: C901, PLR0912, PLR0915
     sensor_config: SensorConfig,
-    font_config: my_lib.panel_config.FontConfigProtocol,
-    db_config: InfluxDBConfig,
+    context: my_lib.panel_config.DatabasePanelContext,
 ) -> PIL.Image.Image:
-    face_map = get_face_map(font_config)
+    face_map = get_face_map(context.font_config)
 
     room_list = sensor_config.room_list
     width = sensor_config.panel.width
@@ -317,10 +315,10 @@ def create_sensor_graph_impl(  # noqa: C901, PLR0912, PLR0915
     request_map: dict[tuple[str, int, str, str], int] = {}  # (param_name, col, measure, hostname) -> request_index
 
     db_config_dict = {
-        "url": db_config.url,
-        "org": db_config.org,
-        "token": db_config.token,
-        "bucket": db_config.bucket,
+        "url": context.db_config.url,
+        "org": context.db_config.org,
+        "token": context.db_config.token,
+        "bucket": context.db_config.bucket,
     }
 
     for param in sensor_config.param_list:
@@ -520,8 +518,13 @@ def create(config: AppConfig) -> tuple[PIL.Image.Image, float] | tuple[PIL.Image
     logging.info("draw sensor graph")
     start = time.perf_counter()
 
+    context = my_lib.panel_config.DatabasePanelContext(
+        font_config=config.font,
+        db_config=config.influxdb,
+    )
+
     try:
-        img = create_sensor_graph_impl(config.sensor, config.font, config.influxdb)
+        img = create_sensor_graph_impl(config.sensor, context)
         elapsed_time = time.perf_counter() - start
 
         return (img, elapsed_time)
@@ -530,7 +533,7 @@ def create(config: AppConfig) -> tuple[PIL.Image.Image, float] | tuple[PIL.Image
         elapsed_time = time.perf_counter() - start
 
         return (
-            my_lib.panel_util.create_error_image(config.sensor, config.font, error_message),
+            my_lib.panel_util.create_error_image(config.sensor, context.font_config, error_message),
             elapsed_time,
             error_message,
         )

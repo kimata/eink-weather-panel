@@ -36,7 +36,7 @@ import pandas.plotting
 import my_lib.panel_config
 from my_lib.sensor_data import SensorDataResult, fetch_data
 
-from weather_display.config import AppConfig, InfluxDBConfig, PowerConfig
+from weather_display.config import AppConfig, PowerConfig
 
 pandas.plotting.register_matplotlib_converters()
 
@@ -161,10 +161,9 @@ def plot_item(
 
 def create_power_graph_impl(
     power_config: PowerConfig,
-    font_config: my_lib.panel_config.FontConfigProtocol,
-    db_config: InfluxDBConfig,
+    context: my_lib.panel_config.DatabasePanelContext,
 ) -> PIL.Image.Image:
-    face_map = get_face_map(font_config)
+    face_map = get_face_map(context.font_config)
 
     width = power_config.panel.width
     height = power_config.panel.height
@@ -194,10 +193,10 @@ def create_power_graph_impl(
 
     data = fetch_data(
         {
-            "url": db_config.url,
-            "org": db_config.org,
-            "token": db_config.token,
-            "bucket": db_config.bucket,
+            "url": context.db_config.url,
+            "org": context.db_config.org,
+            "token": context.db_config.token,
+            "bucket": context.db_config.bucket,
         },
         power_config.data.sensor.measure,
         power_config.data.sensor.hostname,
@@ -255,9 +254,14 @@ def create(config: AppConfig) -> tuple[PIL.Image.Image, float] | tuple[PIL.Image
 
     start = time.perf_counter()
 
+    context = my_lib.panel_config.DatabasePanelContext(
+        font_config=config.font,
+        db_config=config.influxdb,
+    )
+
     try:
         return (
-            create_power_graph_impl(config.power, config.font, config.influxdb),
+            create_power_graph_impl(config.power, context),
             time.perf_counter() - start,
         )
     except Exception as e:
@@ -277,7 +281,7 @@ def create(config: AppConfig) -> tuple[PIL.Image.Image, float] | tuple[PIL.Image
                 logging.warning("Failed to send Slack notification: %s", slack_error)
 
         return (
-            my_lib.panel_util.create_error_image(config.power, config.font, error_message),
+            my_lib.panel_util.create_error_image(config.power, context.font_config, error_message),
             time.perf_counter() - start,
             error_message,
         )

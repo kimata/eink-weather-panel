@@ -98,16 +98,13 @@ def draw_wbgt(
 
 def create_wbgt_panel_impl(
     panel_config: my_lib.panel_config.PanelConfigProtocol,
-    font_config: my_lib.panel_config.FontConfigProtocol,
-    slack_config: my_lib.notify.slack.SlackEmptyConfig,  # noqa: ARG001
-    is_side_by_side: bool,  # noqa: ARG001
-    trial: int,  # noqa: ARG001
+    context: my_lib.panel_config.NormalPanelContext,
     opt_config: object = None,  # noqa: ARG001
 ) -> PIL.Image.Image:
     # panel_config is WbgtConfig
     wbgt_config: WbgtConfig = panel_config  # type: ignore[assignment]
 
-    face_map = get_face_map(font_config)
+    face_map = get_face_map(context.font_config)
 
     img = PIL.Image.new(
         "RGBA",
@@ -128,8 +125,14 @@ def create_wbgt_panel_impl(
 def create(config: AppConfig, is_side_by_side: bool = True) -> tuple[PIL.Image.Image, float] | tuple[PIL.Image.Image, float, str]:
     logging.info("draw WBGT panel")
 
+    context = my_lib.panel_config.NormalPanelContext(
+        font_config=config.font,
+        slack_config=my_lib.notify.slack.SlackEmptyConfig(),
+        is_side_by_side=is_side_by_side,
+    )
+
     return my_lib.panel_util.draw_panel_patiently(
-        create_wbgt_panel_impl, config.wbgt, config.font, my_lib.notify.slack.SlackEmptyConfig(), is_side_by_side, error_image=False
+        create_wbgt_panel_impl, config.wbgt, context, error_image=False
     )
 
 

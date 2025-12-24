@@ -840,10 +840,7 @@ def draw_panel_weather(  # noqa: PLR0913
 
 def create_weather_panel_impl(
     panel_config: my_lib.panel_config.PanelConfigProtocol,
-    font_config: my_lib.panel_config.FontConfigProtocol,
-    slack_config: my_lib.notify.slack.SlackEmptyConfig,  # noqa: ARG001
-    is_side_by_side: bool,
-    trial: int,  # noqa: ARG001
+    context: my_lib.panel_config.NormalPanelContext,
     opt_config: object,
 ) -> PIL.Image.Image:
     # panel_config is WeatherConfig
@@ -872,12 +869,12 @@ def create_weather_panel_impl(
     draw_panel_weather(
         img,
         weather_config,
-        font_config,
+        context.font_config,
         weather_info,
         clothing_info,
         sunset_info,
         wbgt_info,
-        is_side_by_side,
+        context.is_side_by_side,
     )
 
     return img
@@ -889,13 +886,16 @@ def create(
     logging.info("draw weather panel")
 
     opt_config = OptConfig(sunset=config.sunset, wbgt=config.wbgt)
+    context = my_lib.panel_config.NormalPanelContext(
+        font_config=config.font,
+        slack_config=my_lib.notify.slack.SlackEmptyConfig(),
+        is_side_by_side=is_side_by_side,
+    )
 
     return my_lib.panel_util.draw_panel_patiently(
         create_weather_panel_impl,
         config.weather,
-        config.font,
-        my_lib.notify.slack.SlackEmptyConfig(),
-        is_side_by_side,
+        context,
         opt_config,
     )
 
@@ -918,13 +918,16 @@ if __name__ == "__main__":
     config = load(config_file)
 
     opt_config = OptConfig(sunset=config.sunset, wbgt=config.wbgt)
+    context = my_lib.panel_config.NormalPanelContext(
+        font_config=config.font,
+        slack_config=my_lib.notify.slack.SlackEmptyConfig(),
+        is_side_by_side=True,
+        trial=1,
+    )
 
     img = create_weather_panel_impl(
         config.weather,
-        config.font,
-        my_lib.notify.slack.SlackEmptyConfig(),
-        True,
-        1,
+        context,
         opt_config,
     )
 

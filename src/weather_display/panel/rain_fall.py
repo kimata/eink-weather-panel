@@ -29,7 +29,7 @@ import PIL.ImageFont
 import pytz
 import my_lib.panel_config
 
-from weather_display.config import AppConfig, IconConfig, InfluxDBConfig, RainFallConfig
+from weather_display.config import AppConfig, IconConfig, RainFallConfig
 
 DATA_PATH = pathlib.Path("data")
 WINDOW_SIZE_CACHE = DATA_PATH / "window_size.cache"
@@ -48,7 +48,7 @@ def get_face_map(font_config: my_lib.panel_config.FontConfigProtocol) -> dict[st
 
 def get_rainfall_status(
     rain_fall_config: RainFallConfig,
-    db_config: InfluxDBConfig,
+    db_config: my_lib.panel_config.DatabaseConfigProtocol,
 ) -> dict[str, object] | None:
     START = "-3m"
 
@@ -218,10 +218,9 @@ def draw_rainfall(
 
 def create_rain_fall_panel_impl(
     rain_fall_config: RainFallConfig,
-    font_config: my_lib.panel_config.FontConfigProtocol,
-    db_config: InfluxDBConfig,
+    context: my_lib.panel_config.DatabasePanelContext,
 ) -> PIL.Image.Image:
-    face_map = get_face_map(font_config)
+    face_map = get_face_map(context.font_config)
 
     img = PIL.Image.new(
         "RGBA",
@@ -229,7 +228,7 @@ def create_rain_fall_panel_impl(
         (255, 255, 255, 0),
     )
 
-    status = get_rainfall_status(rain_fall_config, db_config)
+    status = get_rainfall_status(rain_fall_config, context.db_config)
 
     if status is None:
         logging.warning("Unable to fetch rainfall status")
@@ -245,9 +244,14 @@ def create(config: AppConfig) -> tuple[PIL.Image.Image, float] | tuple[PIL.Image
 
     start = time.perf_counter()
 
+    context = my_lib.panel_config.DatabasePanelContext(
+        font_config=config.font,
+        db_config=config.influxdb,
+    )
+
     try:
         return (
-            create_rain_fall_panel_impl(config.rain_fall, config.font, config.influxdb),
+            create_rain_fall_panel_impl(config.rain_fall, context),
             time.perf_counter() - start,
         )
     except Exception:
@@ -255,7 +259,7 @@ def create(config: AppConfig) -> tuple[PIL.Image.Image, float] | tuple[PIL.Image
 
         error_message = traceback.format_exc()
         return (
-            my_lib.panel_util.create_error_image(config.rain_fall, config.font, error_message),
+            my_lib.panel_util.create_error_image(config.rain_fall, context.font_config, error_message),
             time.perf_counter() - start,
             error_message,
         )
