@@ -14,6 +14,8 @@ Options:
   -D                : デバッグモードで動作します。
 """
 
+from __future__ import annotations
+
 import faulthandler
 import logging
 import multiprocessing
@@ -30,6 +32,7 @@ import my_lib.pil_util
 import my_lib.proc_util
 import PIL.Image
 
+import weather_display.config
 import weather_display.metrics.collector
 import weather_display.panel.power_graph
 import weather_display.panel.rain_cloud
@@ -38,6 +41,7 @@ import weather_display.panel.sensor_graph
 import weather_display.panel.time
 import weather_display.panel.wbgt
 import weather_display.panel.weather
+from weather_display.config import AppConfig
 
 SCHEMA_CONFIG = "config.schema"
 SCHEMA_CONFIG_SMALL = "config-small.schema"
@@ -48,18 +52,22 @@ ERROR_CODE_MINOR = 220
 ERROR_CODE_MAJOR = 222
 
 
-def draw_wall(config, img):
-    if "wall" not in config:
-        return
-    for wall_config in config["wall"]["image"]:
+def draw_wall(config: AppConfig, img: PIL.Image.Image) -> None:
+    for wall_image in config.wall.image:
         my_lib.pil_util.alpha_paste(
             img,
-            my_lib.pil_util.load_image(wall_config),
-            (wall_config["offset_x"], wall_config["offset_y"]),
+            my_lib.pil_util.load_image(wall_image),
+            (wall_image.offset_x, wall_image.offset_y),
         )
 
 
-def draw_panel(config, img, is_small_mode=False, is_test_mode=False, is_dummy_mode=False):
+def draw_panel(
+    config: AppConfig,
+    img: PIL.Image.Image,
+    is_small_mode: bool = False,
+    is_test_mode: bool = False,
+    is_dummy_mode: bool = False,
+) -> int:
     if is_small_mode:
         panel_list = [
             {"name": "rain_cloud", "func": weather_display.panel.rain_cloud.create, "arg": (True,)},
@@ -78,8 +86,8 @@ def draw_panel(config, img, is_small_mode=False, is_test_mode=False, is_dummy_mo
             {"name": "time", "func": weather_display.panel.time.create},
         ]
 
-    panel_map = {}
-    panel_metrics = []
+    panel_map: dict[str, PIL.Image.Image] = {}
+    panel_metrics: list[dict[str, object]] = []
 
     # NOTE: 並列処理 (matplotlib はマルチスレッド対応していないので、マルチプロセス処理する)
     start = time.perf_counter()
@@ -102,17 +110,12 @@ def draw_panel(config, img, is_small_mode=False, is_test_mode=False, is_dummy_mo
         error_message = result[2] if has_error else None
 
         if has_error:
-            my_lib.panel_util.notify_error(config, result[2])
-            ret = ERROR_CODE_MINOR
-
-        if "SCALE" in config[panel["name"]]["panel"]:
-            panel_img = panel_img.resize(
-                (
-                    int(panel_img.size[0] * config[panel["name"]]["panel"]["scale"]),
-                    int(panel_img.size[1] * config[panel["name"]]["panel"]["scale"]),
-                ),
-                PIL.Image.LANCZOS,
+            my_lib.panel_util.notify_error(
+                config.slack,
+                "weather_panel",
+                error_message,
             )
+            ret = ERROR_CODE_MINOR
 
         panel_map[panel["name"]] = panel_img
         panel_metrics.append(
@@ -131,11 +134,7 @@ def draw_panel(config, img, is_small_mode=False, is_test_mode=False, is_dummy_mo
 
     # Log metrics to database
     try:
-        db_path = (
-            pathlib.Path(config["metrics"]["data"])
-            if "metrics" in config and "data" in config["metrics"]
-            else None
-        )
+        db_path = config.metrics.data if config.metrics is not None else None
         weather_display.metrics.collector.collect_draw_panel_metrics(
             total_elapsed_time=total_elapsed_time,
             panel_metrics=panel_metrics,
@@ -150,23 +149,40 @@ def draw_panel(config, img, is_small_mode=False, is_test_mode=False, is_dummy_mo
 
     draw_wall(config, img)
 
+    # パネル配置順序とオフセット取得用マッピング
+    panel_configs: dict[str, my_lib.panel_util.PanelGeometry] = {
+        "power": config.power.panel,
+        "weather": config.weather.panel,
+        "rain_cloud": config.rain_cloud.panel,
+        "wbgt": config.wbgt.panel,
+        "time": config.time.panel,
+    }
+    # オプショナルなパネル設定を追加
+    if config.sensor is not None:
+        panel_configs["sensor"] = config.sensor.panel
+    if config.rain_fall is not None:
+        panel_configs["rain_fall"] = config.rain_fall.panel
+
     for name in ["power", "weather", "sensor", "rain_cloud", "wbgt", "rain_fall", "time"]:
-        if name not in panel_map:
+        if name not in panel_map or name not in panel_configs:
             continue
 
+        panel_cfg = panel_configs[name]
         my_lib.pil_util.alpha_paste(
             img,
             panel_map[name],
-            (
-                config[name]["panel"]["offset_x"],
-                config[name]["panel"]["offset_y"],
-            ),
+            (panel_cfg.offset_x, panel_cfg.offset_y),
         )
 
     return ret
 
 
-def create_image(config, small_mode=False, dummy_mode=False, test_mode=False):
+def create_image(
+    config: AppConfig,
+    small_mode: bool = False,
+    dummy_mode: bool = False,
+    test_mode: bool = False,
+) -> tuple[PIL.Image.Image, int]:
     # NOTE: オプションでダミーモードが指定された場合、環境変数もそれに揃えておく
     if dummy_mode:
         logging.warning("Set dummy mode")
@@ -179,7 +195,7 @@ def create_image(config, small_mode=False, dummy_mode=False, test_mode=False):
 
     img = PIL.Image.new(
         "RGBA",
-        (config["panel"]["device"]["width"], config["panel"]["device"]["height"]),
+        (config.panel.device.width, config.panel.device.height),
         (255, 255, 255, 255),
     )
     if test_mode:
@@ -195,8 +211,8 @@ def create_image(config, small_mode=False, dummy_mode=False, test_mode=False):
             (
                 0,
                 0,
-                config["panel"]["device"]["width"],
-                config["panel"]["device"]["height"],
+                config.panel.device.width,
+                config.panel.device.height,
             ),
             fill=(255, 255, 255, 255),
         )
@@ -205,7 +221,7 @@ def create_image(config, small_mode=False, dummy_mode=False, test_mode=False):
             img,
             "ERROR",
             (10, 10),
-            my_lib.pil_util.get_font(config["font"], "en_bold", 160),
+            my_lib.pil_util.get_font(config.font, "en_bold", 160),
             "left",
             "#666",
         )
@@ -214,18 +230,21 @@ def create_image(config, small_mode=False, dummy_mode=False, test_mode=False):
             img,
             "\n".join(textwrap.wrap(traceback.format_exc(), 100)),
             (20, 200),
-            my_lib.pil_util.get_font(config["font"], "en_medium", 40),
+            my_lib.pil_util.get_font(config.font, "en_medium", 40),
             "left",
             "#333",
         )
-        my_lib.panel_util.notify_error(config, traceback.format_exc())
+        my_lib.panel_util.notify_error(
+            config.slack,
+            "weather_panel",
+            traceback.format_exc(),
+        )
 
         return (img, ERROR_CODE_MAJOR)
 
 
 if __name__ == "__main__":
     import docopt
-    import my_lib.config
     import my_lib.logger
 
     args = docopt.docopt(__doc__)
@@ -242,7 +261,7 @@ if __name__ == "__main__":
     # faulthandlerを有効化（タイムアウト時にスレッドダンプを出力）
     faulthandler.enable()
 
-    config = my_lib.config.load(
+    config = weather_display.config.load(
         config_file, pathlib.Path(SCHEMA_CONFIG_SMALL if small_mode else SCHEMA_CONFIG)
     )
 
