@@ -57,12 +57,7 @@ def get_rainfall_status(
     START = "-3m"
 
     data = my_lib.sensor_data.fetch_data(
-        {
-            "url": db_config.url,
-            "org": db_config.org,
-            "token": db_config.token,
-            "bucket": db_config.bucket,
-        },
+        db_config,
         rain_fall_config.sensor.measure,
         rain_fall_config.sensor.hostname,
         "rain",
@@ -80,12 +75,7 @@ def get_rainfall_status(
     amount *= 60
 
     data = my_lib.sensor_data.fetch_data(
-        {
-            "url": db_config.url,
-            "org": db_config.org,
-            "token": db_config.token,
-            "bucket": db_config.bucket,
-        },
+        db_config,
         rain_fall_config.sensor.measure,
         rain_fall_config.sensor.hostname,
         "raining",
@@ -98,12 +88,7 @@ def get_rainfall_status(
 
     if raining_status:
         raining_start = my_lib.sensor_data.get_last_event(
-            {
-                "url": db_config.url,
-                "org": db_config.org,
-                "token": db_config.token,
-                "bucket": db_config.bucket,
-            },
+            db_config,
             rain_fall_config.sensor.measure,
             rain_fall_config.sensor.hostname,
             "raining",

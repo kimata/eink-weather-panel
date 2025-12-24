@@ -212,13 +212,6 @@ def create_sensor_graph_impl(  # noqa: C901, PLR0912, PLR0915
     fetch_requests: list[DataRequest] = []
     request_map: dict[tuple[str, int, str, str], int] = {}  # (param_name, col, measure, hostname) -> request_index
 
-    db_config_dict = {
-        "url": context.db_config.url,
-        "org": context.db_config.org,
-        "token": context.db_config.token,
-        "bucket": context.db_config.bucket,
-    }
-
     for param in sensor_config.param_list:
         data_cache[param.name] = {}
         for col, room in enumerate(room_list):
@@ -254,7 +247,7 @@ def create_sensor_graph_impl(  # noqa: C901, PLR0912, PLR0915
         "Fetching sensor data in parallel (%d requests, %d aircon)", len(fetch_requests), len(aircon_requests)
     )
     parallel_start = time.perf_counter()
-    all_results = asyncio.run(fetch_data_parallel(db_config_dict, all_requests))
+    all_results = asyncio.run(fetch_data_parallel(context.db_config, all_requests))
     parallel_time = time.perf_counter() - parallel_start
     logging.info("Parallel fetch completed in %.2f seconds", parallel_time)
 

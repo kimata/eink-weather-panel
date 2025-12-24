@@ -196,12 +196,7 @@ def create_power_graph_impl(
     )
 
     data = fetch_data(
-        {
-            "url": context.db_config.url,
-            "org": context.db_config.org,
-            "token": context.db_config.token,
-            "bucket": context.db_config.bucket,
-        },
+        context.db_config,
         power_config.data.sensor.measure,
         power_config.data.sensor.hostname,
         power_config.data.param.field,
