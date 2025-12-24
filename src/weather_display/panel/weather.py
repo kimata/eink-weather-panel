@@ -25,6 +25,9 @@ import zoneinfo
 from dataclasses import dataclass
 
 import cv2
+import my_lib.font_util
+import my_lib.notify.slack
+import my_lib.panel_config
 import my_lib.panel_util
 import my_lib.pil_util
 import my_lib.weather
@@ -33,8 +36,6 @@ import PIL.Image
 import PIL.ImageDraw
 import PIL.ImageEnhance
 import PIL.ImageFont
-import my_lib.notify.slack
-import my_lib.panel_config
 from my_lib.weather import get_clothing_yahoo, get_wbgt, get_weather_yahoo
 
 from weather_display.config import AppConfig, IconConfig, SunsetConfig, WbgtConfig, WeatherConfig
@@ -76,43 +77,46 @@ class OptConfig:
     wbgt: WbgtConfig
 
 
+FONT_SPEC_NESTED: dict[str, dict[str, my_lib.font_util.FontSpec]] = {
+    "date": {
+        "month": ("en_cond_bold", 60),
+        "day": ("en_bold", 160),
+        "wday": ("jp_bold", 80),
+        "time": ("en_cond_bold", 40),
+    },
+    "sunset": {
+        "value": ("en_cond", 70),
+    },
+    "hour": {
+        "value": ("en_medium", 60),
+    },
+    "temp": {
+        "value": ("en_bold", 120),
+        "zero": ("en_bold", 80),
+        "unit": ("jp_regular", 30),
+    },
+    "temp_sens": {
+        "value": ("en_bold", 120),
+        "unit": ("jp_regular", 30),
+    },
+    "precip": {
+        "value": ("en_bold", 120),
+        "zero": ("en_bold", 80),
+        "unit": ("jp_regular", 30),
+    },
+    "wind": {
+        "value": ("en_bold", 120),
+        "unit": ("jp_regular", 30),
+        "dir": ("jp_regular", 30),
+    },
+    "weather": {
+        "value": ("jp_regular", 30),
+    },
+}
+
+
 def get_face_map(font_config: my_lib.panel_config.FontConfigProtocol) -> dict[str, dict[str, PIL.ImageFont.FreeTypeFont]]:
-    return {
-        "date": {
-            "month": my_lib.pil_util.get_font(font_config, "en_cond_bold", 60),
-            "day": my_lib.pil_util.get_font(font_config, "en_bold", 160),
-            "wday": my_lib.pil_util.get_font(font_config, "jp_bold", 80),
-            "time": my_lib.pil_util.get_font(font_config, "en_cond_bold", 40),
-        },
-        "sunset": {
-            "value": my_lib.pil_util.get_font(font_config, "en_cond", 70),
-        },
-        "hour": {
-            "value": my_lib.pil_util.get_font(font_config, "en_medium", 60),
-        },
-        "temp": {
-            "value": my_lib.pil_util.get_font(font_config, "en_bold", 120),
-            "zero": my_lib.pil_util.get_font(font_config, "en_bold", 80),
-            "unit": my_lib.pil_util.get_font(font_config, "jp_regular", 30),
-        },
-        "temp_sens": {
-            "value": my_lib.pil_util.get_font(font_config, "en_bold", 120),
-            "unit": my_lib.pil_util.get_font(font_config, "jp_regular", 30),
-        },
-        "precip": {
-            "value": my_lib.pil_util.get_font(font_config, "en_bold", 120),
-            "zero": my_lib.pil_util.get_font(font_config, "en_bold", 80),
-            "unit": my_lib.pil_util.get_font(font_config, "jp_regular", 30),
-        },
-        "wind": {
-            "value": my_lib.pil_util.get_font(font_config, "en_bold", 120),
-            "unit": my_lib.pil_util.get_font(font_config, "jp_regular", 30),
-            "dir": my_lib.pil_util.get_font(font_config, "jp_regular", 30),
-        },
-        "weather": {
-            "value": my_lib.pil_util.get_font(font_config, "jp_regular", 30),
-        },
-    }
+    return my_lib.font_util.build_pil_face_map_nested(font_config, FONT_SPEC_NESTED)
 
 
 def get_image(weather_info: object) -> PIL.Image.Image:

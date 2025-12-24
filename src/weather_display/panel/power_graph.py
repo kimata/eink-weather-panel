@@ -31,9 +31,10 @@ matplotlib.use("Agg")
 import matplotlib.dates
 import matplotlib.font_manager
 import matplotlib.pyplot  # noqa: ICN001, E402
+import my_lib.font_util
+import my_lib.panel_config
 import my_lib.panel_util
 import pandas.plotting
-import my_lib.panel_config
 from my_lib.sensor_data import SensorDataResult, fetch_data
 
 from weather_display.config import AppConfig, PowerConfig
@@ -43,14 +44,17 @@ pandas.plotting.register_matplotlib_converters()
 IMAGE_DPI = 100.0
 
 
+FONT_SPEC: dict[str, my_lib.font_util.FontSpec] = {
+    "title": ("jp_bold", 60),
+    "value": ("en_cond_bold", 80),
+    "value_unit": ("jp_regular", 18),
+    "axis_minor": ("jp_regular", 26),
+    "axis_major": ("jp_regular", 32),
+}
+
+
 def get_face_map(font_config: my_lib.panel_config.FontConfigProtocol) -> dict[str, matplotlib.font_manager.FontProperties]:
-    return {
-        "title": my_lib.plot_util.get_plot_font(font_config, "jp_bold", 60),
-        "value": my_lib.plot_util.get_plot_font(font_config, "en_cond_bold", 80),
-        "value_unit": my_lib.plot_util.get_plot_font(font_config, "jp_regular", 18),
-        "axis_minor": my_lib.plot_util.get_plot_font(font_config, "jp_regular", 26),
-        "axis_major": my_lib.plot_util.get_plot_font(font_config, "jp_regular", 32),
-    }
+    return my_lib.font_util.build_plot_face_map(font_config, FONT_SPEC)
 
 
 def plot_item(

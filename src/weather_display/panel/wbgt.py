@@ -15,6 +15,9 @@ from __future__ import annotations
 
 import logging
 
+import my_lib.font_util
+import my_lib.notify.slack
+import my_lib.panel_config
 import my_lib.panel_util
 import my_lib.pil_util
 import my_lib.weather
@@ -22,19 +25,20 @@ import PIL.Image
 import PIL.ImageDraw
 import PIL.ImageEnhance
 import PIL.ImageFont
-import my_lib.notify.slack
-import my_lib.panel_config
 from my_lib.weather import get_wbgt
 
 from weather_display.config import AppConfig, WbgtConfig, WbgtIconConfig
 
 
+FONT_SPEC: dict[str, my_lib.font_util.FontSpec] = {
+    "wbgt": ("en_bold", 80),
+    "wbgt_symbol": ("jp_bold", 120),
+    "wbgt_title": ("jp_medium", 30),
+}
+
+
 def get_face_map(font_config: my_lib.panel_config.FontConfigProtocol) -> dict[str, PIL.ImageFont.FreeTypeFont]:
-    return {
-        "wbgt": my_lib.pil_util.get_font(font_config, "en_bold", 80),
-        "wbgt_symbol": my_lib.pil_util.get_font(font_config, "jp_bold", 120),
-        "wbgt_title": my_lib.pil_util.get_font(font_config, "jp_medium", 30),
-    }
+    return my_lib.font_util.build_pil_face_map(font_config, FONT_SPEC)
 
 
 def draw_wbgt(

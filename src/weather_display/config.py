@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import pathlib
 from dataclasses import dataclass, field
-from typing import Literal
+from typing import Any, Literal
 
 import my_lib.config
 from my_lib.notify.slack import SlackConfigTypes, SlackEmptyConfig
@@ -382,7 +382,7 @@ def _parse_panel_geometry(data: dict[str, int]) -> PanelGeometry:
 
 def _parse_icon(data: dict[str, str | float]) -> IconConfig:
     return IconConfig(
-        path=pathlib.Path(str(data["path"])),
+        path=pathlib.Path(data["path"]),  # type: ignore[arg-type]
         scale=float(data.get("scale", 1.0)),
         brightness=float(data.get("brightness", 1.0)),
     )
@@ -425,7 +425,7 @@ def _parse_wall(data: dict[str, list[dict[str, str | float | int]]]) -> WallConf
     for img_data in data["image"]:
         images.append(
             WallImageConfig(
-                path=pathlib.Path(str(img_data["path"])),
+                path=pathlib.Path(img_data["path"]),  # type: ignore[arg-type]
                 scale=float(img_data.get("scale", 1.0)),
                 brightness=float(img_data.get("brightness", 1.0)),
                 offset_x=int(img_data.get("offset_x", 0)),
@@ -439,67 +439,30 @@ def _parse_time(data: dict[str, dict[str, int]]) -> TimeConfig:
     return TimeConfig(panel=_parse_panel_geometry(data["panel"]))
 
 
-def _parse_weather(data: dict[str, object]) -> WeatherConfig:
-    icon_data = data["icon"]
-    if not isinstance(icon_data, dict):
-        msg = "weather icon must be a dict"
-        raise TypeError(msg)
-
-    icon_map = {}
-    for name, icon_item in icon_data.items():
-        if isinstance(icon_item, dict):
-            icon_map[name] = _parse_icon(icon_item)
-
-    data_section = data["data"]
-    if not isinstance(data_section, dict):
-        msg = "weather data must be a dict"
-        raise TypeError(msg)
-
-    yahoo_data = data_section["yahoo"]
-    if not isinstance(yahoo_data, dict):
-        msg = "yahoo data must be a dict"
-        raise TypeError(msg)
-
-    panel_data = data["panel"]
-    if not isinstance(panel_data, dict):
-        msg = "panel must be a dict"
-        raise TypeError(msg)
+def _parse_weather(data: dict[str, Any]) -> WeatherConfig:
+    icon_map = {name: _parse_icon(item) for name, item in data["icon"].items()}
 
     return WeatherConfig(
-        panel=_parse_panel_geometry(panel_data),
+        panel=_parse_panel_geometry(data["panel"]),
         data=WeatherDataConfig(
-            yahoo=YahooDataConfig(url=str(yahoo_data["url"])),
+            yahoo=YahooDataConfig(url=data["data"]["yahoo"]["url"]),
         ),
         icon=icon_map,
     )
 
 
-def _parse_power(data: dict[str, object]) -> PowerConfig:
-    panel_data = data["panel"]
-    if not isinstance(panel_data, dict):
-        msg = "panel must be a dict"
-        raise TypeError(msg)
-
-    data_section = data["data"]
-    if not isinstance(data_section, dict):
-        msg = "data must be a dict"
-        raise TypeError(msg)
-
-    sensor_data = data_section["sensor"]
-    param_data = data_section["param"]
-    if not isinstance(sensor_data, dict) or not isinstance(param_data, dict):
-        msg = "sensor and param must be dicts"
-        raise TypeError(msg)
+def _parse_power(data: dict[str, Any]) -> PowerConfig:
+    param_data = data["data"]["param"]
 
     return PowerConfig(
-        panel=_parse_panel_geometry(panel_data),
+        panel=_parse_panel_geometry(data["panel"]),
         data=PowerDataConfig(
-            sensor=_parse_sensor_spec(sensor_data),
+            sensor=_parse_sensor_spec(data["data"]["sensor"]),
             param=PowerParamConfig(
-                field=str(param_data["field"]),
-                format=str(param_data["format"]),
-                unit=str(param_data["unit"]),
-                range=list(param_data["range"]),
+                field=param_data["field"],
+                format=param_data["format"],
+                unit=param_data["unit"],
+                range=param_data["range"],
             ),
         ),
     )
@@ -514,31 +477,20 @@ def _parse_aircon(data: dict[str, str] | None) -> AirconConfig | None:
     )
 
 
-def _parse_room(data: dict[str, object]) -> RoomConfig:
-    sensor_list = data["sensor"]
-    if not isinstance(sensor_list, list):
-        msg = "sensor must be a list"
-        raise TypeError(msg)
-
-    sensors = [_parse_sensor_spec(s) for s in sensor_list]
-
+def _parse_room(data: dict[str, Any]) -> RoomConfig:
+    sensors = [_parse_sensor_spec(s) for s in data["sensor"]]
     aircon_data = data.get("aircon")
-    aircon = None
-    if isinstance(aircon_data, dict):
-        aircon = _parse_aircon(aircon_data)
-
-    type_val = data.get("type")
 
     return RoomConfig(
-        label=str(data["label"]),
+        label=data["label"],
         sensor=sensors,
         light_icon=bool(data.get("light_icon", False)),
-        aircon=aircon,
-        type=str(type_val) if type_val is not None else None,
+        aircon=_parse_aircon(aircon_data) if aircon_data else None,
+        type=data.get("type"),
     )
 
 
-def _parse_sensor_param(data: dict[str, object]) -> SensorParamConfig:
+def _parse_sensor_param(data: dict[str, Any]) -> SensorParamConfig:
     range_val = data["range"]
     if range_val == "auto":
         range_parsed: Literal["auto"] | list[int] = "auto"
@@ -548,186 +500,96 @@ def _parse_sensor_param(data: dict[str, object]) -> SensorParamConfig:
         msg = f"range must be 'auto' or a list, got {type(range_val)}"
         raise TypeError(msg)
 
-    scale_val = str(data["scale"])
+    scale_val = data["scale"]
     if scale_val not in ("linear", "log"):
         msg = f"scale must be 'linear' or 'log', got {scale_val}"
         raise ValueError(msg)
 
+    # Literal 型へのキャストは型チェッカーの制限により必要
+    scale: Literal["linear", "log"] = "linear" if scale_val == "linear" else "log"
+
     return SensorParamConfig(
-        name=str(data["name"]),
-        format=str(data["format"]),
-        unit=str(data["unit"]),
+        name=data["name"],
+        format=data["format"],
+        unit=data["unit"],
         range=range_parsed,
-        scale=scale_val,  # type: ignore[arg-type]
+        scale=scale,
         size_small=bool(data.get("size_small", False)),
     )
 
 
-def _parse_sensor(data: dict[str, object]) -> SensorConfig:
-    panel_data = data["panel"]
-    if not isinstance(panel_data, dict):
-        msg = "panel must be a dict"
-        raise TypeError(msg)
-
-    room_list_data = data["room_list"]
-    if not isinstance(room_list_data, list):
-        msg = "room_list must be a list"
-        raise TypeError(msg)
-
-    param_list_data = data["param_list"]
-    if not isinstance(param_list_data, list):
-        msg = "param_list must be a list"
-        raise TypeError(msg)
-
+def _parse_sensor(data: dict[str, Any]) -> SensorConfig:
     icon_data = data["icon"]
-    if not isinstance(icon_data, dict):
-        msg = "icon must be a dict"
-        raise TypeError(msg)
-
-    light_data = icon_data["light"]
-    aircon_data = icon_data["aircon"]
-    if not isinstance(light_data, dict) or not isinstance(aircon_data, dict):
-        msg = "light and aircon must be dicts"
-        raise TypeError(msg)
 
     return SensorConfig(
-        panel=_parse_panel_geometry(panel_data),
-        room_list=[_parse_room(r) for r in room_list_data],
-        param_list=[_parse_sensor_param(p) for p in param_list_data],
+        panel=_parse_panel_geometry(data["panel"]),
+        room_list=[_parse_room(r) for r in data["room_list"]],
+        param_list=[_parse_sensor_param(p) for p in data["param_list"]],
         icon=SensorIconConfig(
             light=LightIconConfig(
-                on=_parse_icon(light_data["on"]),
-                off=_parse_icon(light_data["off"]),
+                on=_parse_icon(icon_data["light"]["on"]),
+                off=_parse_icon(icon_data["light"]["off"]),
             ),
-            aircon=_parse_icon(aircon_data),
+            aircon=_parse_icon(icon_data["aircon"]),
         ),
     )
 
 
-def _parse_rain_fall(data: dict[str, object]) -> RainFallConfig:
-    panel_data = data["panel"]
-    sensor_data = data["sensor"]
-    icon_data = data["icon"]
-
-    if not isinstance(panel_data, dict):
-        msg = "panel must be a dict"
-        raise TypeError(msg)
-    if not isinstance(sensor_data, dict):
-        msg = "sensor must be a dict"
-        raise TypeError(msg)
-    if not isinstance(icon_data, dict):
-        msg = "icon must be a dict"
-        raise TypeError(msg)
-
+def _parse_rain_fall(data: dict[str, Any]) -> RainFallConfig:
     return RainFallConfig(
-        panel=_parse_panel_geometry(panel_data),
-        sensor=_parse_sensor_spec(sensor_data),
-        icon=_parse_icon(icon_data),
+        panel=_parse_panel_geometry(data["panel"]),
+        sensor=_parse_sensor_spec(data["sensor"]),
+        icon=_parse_icon(data["icon"]),
     )
 
 
-def _parse_rain_cloud(data: dict[str, object]) -> RainCloudConfig:
-    panel_data = data["panel"]
+def _parse_rain_cloud(data: dict[str, Any]) -> RainCloudConfig:
     legend_data = data["legend"]
-    data_section = data["data"]
-
-    if not isinstance(panel_data, dict):
-        msg = "panel must be a dict"
-        raise TypeError(msg)
-    if not isinstance(legend_data, dict):
-        msg = "legend must be a dict"
-        raise TypeError(msg)
-    if not isinstance(data_section, dict):
-        msg = "data must be a dict"
-        raise TypeError(msg)
-
-    jma_data = data_section["jma"]
-    if not isinstance(jma_data, dict):
-        msg = "jma must be a dict"
-        raise TypeError(msg)
+    jma_data = data["data"]["jma"]
 
     return RainCloudConfig(
-        panel=_parse_panel_geometry(panel_data),
+        panel=_parse_panel_geometry(data["panel"]),
         legend=LegendConfig(
-            bar_size=int(legend_data["bar_size"]),
-            offset_x=int(legend_data["offset_x"]),
-            offset_y=int(legend_data["offset_y"]),
-            gamma=float(legend_data["gamma"]),
+            bar_size=legend_data["bar_size"],
+            offset_x=legend_data["offset_x"],
+            offset_y=legend_data["offset_y"],
+            gamma=legend_data["gamma"],
         ),
         data=RainCloudDataConfig(
-            jma=JmaDataConfig(url=str(jma_data["url"])),
+            jma=JmaDataConfig(url=jma_data["url"]),
         ),
     )
 
 
-def _parse_sunset(data: dict[str, object]) -> SunsetConfig:
-    data_section = data["data"]
-    if not isinstance(data_section, dict):
-        msg = "data must be a dict"
-        raise TypeError(msg)
-
-    nao_data = data_section["nao"]
-    if not isinstance(nao_data, dict):
-        msg = "nao must be a dict"
-        raise TypeError(msg)
+def _parse_sunset(data: dict[str, Any]) -> SunsetConfig:
+    nao_data = data["data"]["nao"]
 
     return SunsetConfig(
         data=SunsetDataConfig(
-            nao=NaoDataConfig(pref=int(nao_data["pref"])),
+            nao=NaoDataConfig(pref=nao_data["pref"]),
         ),
     )
 
 
-def _parse_wbgt(data: dict[str, object]) -> WbgtConfig:
-    panel_data = data["panel"]
-    data_section = data["data"]
-    icon_data = data["icon"]
-
-    if not isinstance(panel_data, dict):
-        msg = "panel must be a dict"
-        raise TypeError(msg)
-    if not isinstance(data_section, dict):
-        msg = "data must be a dict"
-        raise TypeError(msg)
-    if not isinstance(icon_data, dict):
-        msg = "icon must be a dict"
-        raise TypeError(msg)
-
-    env_go_data = data_section["env_go"]
-    if not isinstance(env_go_data, dict):
-        msg = "env_go must be a dict"
-        raise TypeError(msg)
-
-    face_data = icon_data["face"]
-    if not isinstance(face_data, list):
-        msg = "face must be a list"
-        raise TypeError(msg)
+def _parse_wbgt(data: dict[str, Any]) -> WbgtConfig:
+    env_go_data = data["data"]["env_go"]
+    face_data = data["icon"]["face"]
 
     face_icons = [_parse_icon(f) for f in face_data]
 
     return WbgtConfig(
-        panel=_parse_panel_geometry(panel_data),
+        panel=_parse_panel_geometry(data["panel"]),
         data=WbgtDataConfig(
-            env_go=EnvGoDataConfig(url=str(env_go_data["url"])),
+            env_go=EnvGoDataConfig(url=env_go_data["url"]),
         ),
         icon=WbgtIconConfig(face=face_icons),
     )
 
 
 def _parse_font(data: dict[str, str | dict[str, str]]) -> FontConfig:
-    path = data["path"]
-    if not isinstance(path, str):
-        msg = "font path must be a string"
-        raise TypeError(msg)
-
-    map_data = data["map"]
-    if not isinstance(map_data, dict):
-        msg = "font map must be a dict"
-        raise TypeError(msg)
-
     return FontConfig(
-        path=pathlib.Path(path),
-        map=dict(map_data),
+        path=pathlib.Path(data["path"]),  # type: ignore[arg-type]
+        map=dict(data["map"]),  # type: ignore[arg-type]
     )
 
 
@@ -737,54 +599,51 @@ def _parse_metrics(data: dict[str, str] | None) -> MetricsConfig | None:
     return MetricsConfig(data=pathlib.Path(data["data"]))
 
 
-def _parse_webapp(data: dict[str, object] | None) -> WebAppConfig | None:
+def _parse_webapp(data: dict[str, Any] | None) -> WebAppConfig | None:
     if data is None:
         return None
 
     timezone_data = data["timezone"]
-    if not isinstance(timezone_data, dict):
-        msg = "timezone must be a dict"
-        raise TypeError(msg)
 
     return WebAppConfig(
         timezone=TimezoneConfig(
-            offset=str(timezone_data["offset"]),
-            name=str(timezone_data["name"]),
-            zone=str(timezone_data["zone"]),
+            offset=timezone_data["offset"],
+            name=timezone_data["name"],
+            zone=timezone_data["zone"],
         ),
-        static_dir_path=pathlib.Path(str(data["static_dir_path"])),
+        static_dir_path=pathlib.Path(data["static_dir_path"]),
     )
 
 
-def parse_config(data: dict[str, object]) -> AppConfig:
+def parse_config(data: dict[str, Any]) -> AppConfig:
     """設定辞書をパースして AppConfig を返す"""
-    # オプションフィールドの処理
+    # オプションフィールド
     wall_data = data.get("wall")
-    wall = _parse_wall(wall_data) if wall_data is not None else WallConfig(image=[])  # type: ignore[arg-type]
+    wall = _parse_wall(wall_data) if wall_data is not None else WallConfig(image=[])
 
     sensor_data = data.get("sensor")
-    sensor = _parse_sensor(sensor_data) if sensor_data is not None else None  # type: ignore[arg-type]
+    sensor = _parse_sensor(sensor_data) if sensor_data is not None else None
 
     rain_fall_data = data.get("rain_fall")
-    rain_fall = _parse_rain_fall(rain_fall_data) if rain_fall_data is not None else None  # type: ignore[arg-type]
+    rain_fall = _parse_rain_fall(rain_fall_data) if rain_fall_data is not None else None
 
     return AppConfig(
-        liveness=_parse_liveness(data["liveness"]),  # type: ignore[arg-type]
-        panel=_parse_panel_device(data["panel"]),  # type: ignore[arg-type]
-        influxdb=_parse_influxdb(data["influxdb"]),  # type: ignore[arg-type]
-        time=_parse_time(data["time"]),  # type: ignore[arg-type]
-        weather=_parse_weather(data["weather"]),  # type: ignore[arg-type]
-        power=_parse_power(data["power"]),  # type: ignore[arg-type]
-        rain_cloud=_parse_rain_cloud(data["rain_cloud"]),  # type: ignore[arg-type]
-        sunset=_parse_sunset(data["sunset"]),  # type: ignore[arg-type]
-        wbgt=_parse_wbgt(data["wbgt"]),  # type: ignore[arg-type]
-        font=_parse_font(data["font"]),  # type: ignore[arg-type]
+        liveness=_parse_liveness(data["liveness"]),
+        panel=_parse_panel_device(data["panel"]),
+        influxdb=_parse_influxdb(data["influxdb"]),
+        time=_parse_time(data["time"]),
+        weather=_parse_weather(data["weather"]),
+        power=_parse_power(data["power"]),
+        rain_cloud=_parse_rain_cloud(data["rain_cloud"]),
+        sunset=_parse_sunset(data["sunset"]),
+        wbgt=_parse_wbgt(data["wbgt"]),
+        font=_parse_font(data["font"]),
         sensor=sensor,
         rain_fall=rain_fall,
         wall=wall,
         slack=parse_slack_config(data.get("slack", {})),
-        metrics=_parse_metrics(data.get("metrics")),  # type: ignore[arg-type]
-        webapp=_parse_webapp(data.get("webapp")),  # type: ignore[arg-type]
+        metrics=_parse_metrics(data.get("metrics")),
+        webapp=_parse_webapp(data.get("webapp")),
     )
 
 

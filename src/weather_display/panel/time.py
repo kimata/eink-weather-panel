@@ -17,22 +17,26 @@ import datetime
 import logging
 import time
 
+import my_lib.font_util
+import my_lib.panel_config
 import my_lib.pil_util
 import PIL.Image
 import PIL.ImageDraw
 import PIL.ImageEnhance
 import PIL.ImageFont
-import my_lib.panel_config
 
 from weather_display.config import AppConfig, TimeConfig
 
 
+FONT_SPEC_NESTED: dict[str, dict[str, my_lib.font_util.FontSpec]] = {
+    "time": {
+        "value": ("en_bold", 130),
+    },
+}
+
+
 def get_face_map(font_config: my_lib.panel_config.FontConfigProtocol) -> dict[str, dict[str, PIL.ImageFont.FreeTypeFont]]:
-    return {
-        "time": {
-            "value": my_lib.pil_util.get_font(font_config, "en_bold", 130),
-        },
-    }
+    return my_lib.font_util.build_pil_face_map_nested(font_config, FONT_SPEC_NESTED)
 
 
 def draw_time(

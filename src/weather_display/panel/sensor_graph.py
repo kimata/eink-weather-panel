@@ -29,11 +29,12 @@ import matplotlib.font_manager
 import matplotlib.gridspec
 import matplotlib.offsetbox
 import matplotlib.pyplot  # noqa: ICN001
+import my_lib.font_util
+import my_lib.panel_config
 import my_lib.panel_util
 import my_lib.plot_util
 import pandas.plotting
 import PIL.Image
-import my_lib.panel_config
 from my_lib.sensor_data import DataRequest, fetch_data, fetch_data_parallel
 
 from weather_display.config import (
@@ -63,15 +64,18 @@ def get_shared_axis_config() -> dict[str, object]:
     }
 
 
+FONT_SPEC: dict[str, my_lib.font_util.FontSpec] = {
+    "title": ("jp_bold", 34),
+    "value": ("en_cond", 65),
+    "value_small": ("en_cond", 55),
+    "value_unit": ("jp_regular", 18),
+    "yaxis": ("jp_regular", 20),
+    "xaxis": ("en_medium", 20),
+}
+
+
 def get_face_map(font_config: my_lib.panel_config.FontConfigProtocol) -> dict[str, matplotlib.font_manager.FontProperties]:
-    return {
-        "title": my_lib.plot_util.get_plot_font(font_config, "jp_bold", 34),
-        "value": my_lib.plot_util.get_plot_font(font_config, "en_cond", 65),
-        "value_small": my_lib.plot_util.get_plot_font(font_config, "en_cond", 55),
-        "value_unit": my_lib.plot_util.get_plot_font(font_config, "jp_regular", 18),
-        "yaxis": my_lib.plot_util.get_plot_font(font_config, "jp_regular", 20),
-        "xaxis": my_lib.plot_util.get_plot_font(font_config, "en_medium", 20),
-    }
+    return my_lib.font_util.build_plot_face_map(font_config, FONT_SPEC)
 
 
 def plot_item(  # noqa: PLR0913

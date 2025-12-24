@@ -23,7 +23,9 @@ import traceback
 
 import cv2
 import my_lib.chrome_util
+import my_lib.font_util
 import my_lib.notify.slack
+import my_lib.panel_config
 import my_lib.panel_util
 import my_lib.pil_util
 import my_lib.serializer
@@ -35,7 +37,6 @@ import PIL.ImageFont
 import selenium.webdriver.common.by
 import selenium.webdriver.support
 import selenium.webdriver.support.wait
-import my_lib.panel_config
 from my_lib.selenium_util import click_xpath  # NOTE: テスト時に mock する
 
 from weather_display.config import AppConfig, RainCloudConfig
@@ -67,12 +68,15 @@ RAINFALL_INTENSITY_LEVEL = [
 ]
 
 
+FONT_SPEC: dict[str, my_lib.font_util.FontSpec] = {
+    "title": ("jp_medium", 50),
+    "legend": ("en_medium", 30),
+    "legend_unit": ("en_medium", 18),
+}
+
+
 def get_face_map(font_config: my_lib.panel_config.FontConfigProtocol) -> dict[str, PIL.ImageFont.FreeTypeFont]:
-    return {
-        "title": my_lib.pil_util.get_font(font_config, "jp_medium", 50),
-        "legend": my_lib.pil_util.get_font(font_config, "en_medium", 30),
-        "legend_unit": my_lib.pil_util.get_font(font_config, "en_medium", 18),
-    }
+    return my_lib.font_util.build_pil_face_map(font_config, FONT_SPEC)
 
 
 def hide_label_and_icon(driver: object, wait: object) -> None:
