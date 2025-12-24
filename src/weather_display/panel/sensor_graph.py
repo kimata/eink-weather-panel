@@ -34,7 +34,7 @@ import my_lib.panel_util
 import my_lib.plot_util
 import pandas.plotting
 import PIL.Image
-from my_lib.sensor_data import DataRequest, fetch_data, fetch_data_parallel
+from my_lib.sensor_data import DataRequest, fetch_data_parallel
 
 from weather_display.config import (
     AppConfig,
