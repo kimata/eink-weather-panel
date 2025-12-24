@@ -11,8 +11,13 @@ Options:
   -D                : デバッグモードで動作します。
 """
 
+from __future__ import annotations
+
 import logging
 
+import my_lib.font_util
+import my_lib.notify.slack
+import my_lib.panel_config
 import my_lib.panel_util
 import my_lib.pil_util
 import my_lib.weather
@@ -22,16 +27,27 @@ import PIL.ImageEnhance
 import PIL.ImageFont
 from my_lib.weather import get_wbgt
 
-
-def get_face_map(font_config):
-    return {
-        "wbgt": my_lib.pil_util.get_font(font_config, "en_bold", 80),
-        "wbgt_symbol": my_lib.pil_util.get_font(font_config, "jp_bold", 120),
-        "wbgt_title": my_lib.pil_util.get_font(font_config, "jp_medium", 30),
-    }
+from weather_display.config import AppConfig, WbgtConfig, WbgtIconConfig
 
 
-def draw_wbgt(img, wbgt, panel_config, icon_config, face_map):
+FONT_SPEC: dict[str, my_lib.font_util.FontSpec] = {
+    "wbgt": ("en_bold", 80),
+    "wbgt_symbol": ("jp_bold", 120),
+    "wbgt_title": ("jp_medium", 30),
+}
+
+
+def get_face_map(font_config: my_lib.panel_config.FontConfigProtocol) -> dict[str, PIL.ImageFont.FreeTypeFont]:
+    return my_lib.font_util.build_pil_face_map(font_config, FONT_SPEC)
+
+
+def draw_wbgt(
+    img: PIL.Image.Image,
+    wbgt: float,
+    wbgt_config: WbgtConfig,
+    icon_config: WbgtIconConfig,
+    face_map: dict[str, PIL.ImageFont.FreeTypeFont],
+) -> PIL.Image.Image:
     title = "暑さ指数:"
     wbgt_str = f"{wbgt:.1f}"
 
@@ -46,9 +62,9 @@ def draw_wbgt(img, wbgt, panel_config, icon_config, face_map):
     else:
         index = 0
 
-    icon = my_lib.pil_util.load_image(icon_config["face"][index])
+    icon = my_lib.pil_util.load_image(icon_config.face[index])
 
-    pos_x = panel_config["panel"]["width"] - 10
+    pos_x = wbgt_config.panel.width - 10
     pos_y = 10
 
     my_lib.pil_util.alpha_paste(
@@ -84,38 +100,52 @@ def draw_wbgt(img, wbgt, panel_config, icon_config, face_map):
     return img
 
 
-def create_wbgt_panel_impl(panel_config, font_config, slack_config, is_side_by_side, trial, opt_config=None):  # noqa: PLR0913, ARG001
-    face_map = get_face_map(font_config)
+def create_wbgt_panel_impl(
+    panel_config: my_lib.panel_config.PanelConfigProtocol,
+    context: my_lib.panel_config.NormalPanelContext,
+    opt_config: object = None,  # noqa: ARG001
+) -> PIL.Image.Image:
+    # panel_config is WbgtConfig
+    wbgt_config: WbgtConfig = panel_config  # type: ignore[assignment]
+
+    face_map = get_face_map(context.font_config)
 
     img = PIL.Image.new(
         "RGBA",
-        (panel_config["panel"]["width"], panel_config["panel"]["height"]),
+        (wbgt_config.panel.width, wbgt_config.panel.height),
         (255, 255, 255, 0),
     )
 
-    wbgt = get_wbgt(panel_config)["current"]
+    wbgt = get_wbgt(wbgt_config.data.env_go.url).current
 
     if wbgt is None:
         return img
 
-    draw_wbgt(img, wbgt, panel_config, panel_config["icon"], face_map)
+    draw_wbgt(img, wbgt, wbgt_config, wbgt_config.icon, face_map)
 
     return img
 
 
-def create(config, is_side_by_side=True):
+def create(config: AppConfig, is_side_by_side: bool = True) -> tuple[PIL.Image.Image, float] | tuple[PIL.Image.Image, float, str]:
     logging.info("draw WBGT panel")
 
+    context = my_lib.panel_config.NormalPanelContext(
+        font_config=config.font,
+        slack_config=my_lib.notify.slack.SlackEmptyConfig(),
+        is_side_by_side=is_side_by_side,
+    )
+
     return my_lib.panel_util.draw_panel_patiently(
-        create_wbgt_panel_impl, config["wbgt"], config["font"], None, is_side_by_side, error_image=False
+        create_wbgt_panel_impl, config.wbgt, context, error_image=False
     )
 
 
 if __name__ == "__main__":
     # TEST Code
     import docopt
-    import my_lib.config
     import my_lib.logger
+
+    from weather_display.config import load
 
     args = docopt.docopt(__doc__)
 
@@ -125,8 +155,7 @@ if __name__ == "__main__":
 
     my_lib.logger.init("test", level=logging.DEBUG if debug_mode else logging.INFO)
 
-    config = my_lib.config.load(config_file)
-    out_file = args["-o"]
+    config = load(config_file)
 
     img = create(config)[0]
 
