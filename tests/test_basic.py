@@ -176,7 +176,6 @@ def mock_sensor_fetch_data(mocker):  # noqa: C901
             results.append(result)
         return results
 
-    mocker.patch("weather_display.panel.sensor_graph.fetch_data", side_effect=fetch_data_mock)
     mocker.patch(
         "weather_display.panel.sensor_graph.fetch_data_parallel", side_effect=fetch_data_parallel_mock
     )
@@ -614,20 +613,21 @@ def test_create_sensor_graph_dummy(time_machine, mocker, request, config):
 
 
 def test_create_sensor_graph_invalid(mocker, request, config):
-    import inspect
-
     import weather_display.panel.sensor_graph
 
-    def dummy_data(db_config, measure, hostname, field, start, stop, last=False):  # noqa: ARG001,PLR0913
-        dummy_data.i += 1
-        if (dummy_data.i % 4 == 0) or (inspect.stack()[4].function == "get_aircon_power"):
-            return gen_sensor_data(valid=False)
-        else:
-            return gen_sensor_data()
+    async def dummy_data_parallel(db_config, requests):  # noqa: ARG001
+        results = []
+        for i, req in enumerate(requests):
+            # 4回に1回、またはエアコン電力取得時は無効なデータを返す
+            if (i % 4 == 0) or (req.field == "power" and req.last):
+                results.append(gen_sensor_data(valid=False))
+            else:
+                results.append(gen_sensor_data())
+        return results
 
-    dummy_data.i = 0
-
-    mocker.patch("weather_display.panel.sensor_graph.fetch_data", side_effect=dummy_data)
+    mocker.patch(
+        "weather_display.panel.sensor_graph.fetch_data_parallel", side_effect=dummy_data_parallel
+    )
 
     check_image(
         request,
