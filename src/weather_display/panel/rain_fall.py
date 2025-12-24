@@ -52,7 +52,7 @@ def get_face_map(font_config: my_lib.panel_config.FontConfigProtocol) -> dict[st
 
 def get_rainfall_status(
     rain_fall_config: RainFallConfig,
-    db_config: my_lib.panel_config.DatabaseConfigProtocol,
+    db_config: my_lib.sensor_data.InfluxDBConfig,
 ) -> dict[str, object] | None:
     START = "-3m"
 

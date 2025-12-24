@@ -17,11 +17,13 @@ import my_lib.config
 from my_lib.notify.slack import SlackConfigTypes, SlackEmptyConfig
 from my_lib.notify.slack import parse_config as parse_slack_config
 from my_lib.panel_config import FontConfig, IconConfig, PanelGeometry
+from my_lib.sensor_data import InfluxDBConfig
 
 # my_lib から re-export
 __all__ = [
     "FontConfig",
     "IconConfig",
+    "InfluxDBConfig",
     "PanelGeometry",
     "AppConfig",
     "parse_config",
@@ -75,17 +77,6 @@ class PanelDeviceConfig:
 
     device: DeviceConfig
     update: UpdateConfig
-
-
-# === InfluxDB ===
-@dataclass(frozen=True)
-class InfluxDBConfig:
-    """InfluxDB 接続設定"""
-
-    url: str
-    org: str
-    token: str
-    bucket: str
 
 
 # === Wall ===
