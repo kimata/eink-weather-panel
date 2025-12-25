@@ -1,6 +1,6 @@
 # E-Ink Weather Panel
 
-[![Test Status](https://github.com/kimata/e-ink_weather_panel/actions/workflows/regression.yaml/badge.svg)](https://github.com/kimata/e-ink_weather_panel/actions/workflows/regression.yaml)
+[![Test Status](https://github.com/kimata/eink-weather-panel/actions/workflows/regression.yaml/badge.svg)](https://github.com/kimata/eink-weather-panel/actions/workflows/regression.yaml)
 
 > **総合気象パネル for E-Ink Display**
 > Raspberry Pi と E-Ink ディスプレイで構築する、包括的な気象情報表示システム
@@ -85,8 +85,8 @@ https://weather-panel-webapp-demo.kubernetes.green-rabbit.net/weather_panel/
 1. **リポジトリのクローン**
 
     ```bash
-    git clone https://github.com/kimata/e-ink_weather_panel.git
-    cd e-ink_weather_panel
+    git clone https://github.com/kimata/eink-weather-panel.git
+    cd eink-weather-panel
     ```
 
 2. **設定ファイルの準備**
@@ -237,7 +237,7 @@ services:
 
 ```bash
 # Kubernetesデプロイ
-kubectl apply -f kubernetes/e-ink_weather_panel.yaml
+kubectl apply -f kubernetes/eink-weather-panel.yaml
 
 # 設定の更新
 kubectl create configmap weather-config --from-file=config.yaml
@@ -311,9 +311,9 @@ uv run pytest --numprocesses=auto tests/
 
 ### CI/CD状況
 
-- **テスト結果**: [GitHub Actions](https://github.com/kimata/e-ink_weather_panel/actions)
-- **カバレッジレポート**: [Coverage Report](https://kimata.github.io/e-ink_weather_panel/coverage/)
-- **テスト詳細**: [Test Results](https://kimata.github.io/e-ink_weather_panel/)
+- **テスト結果**: [GitHub Actions](https://github.com/kimata/eink-weather-panel/actions)
+- **カバレッジレポート**: [Coverage Report](https://kimata.github.io/eink-weather-panel/coverage/)
+- **テスト詳細**: [Test Results](https://kimata.github.io/eink-weather-panel/)
 
 ## 🛠️ 開発者向け
 
@@ -579,6 +579,6 @@ kubernetes/                # K8s マニフェスト
 
 **⭐ このプロジェクトが役に立った場合は、Star をお願いします！**
 
-[🐛 Issue 報告](https://github.com/kimata/e-ink_weather_panel/issues) | [💡 Feature Request](https://github.com/kimata/e-ink_weather_panel/issues/new?template=feature_request.md) | [📖 Wiki](https://github.com/kimata/e-ink_weather_panel/wiki)
+[🐛 Issue 報告](https://github.com/kimata/eink-weather-panel/issues) | [💡 Feature Request](https://github.com/kimata/eink-weather-panel/issues/new?template=feature_request.md) | [📖 Wiki](https://github.com/kimata/eink-weather-panel/wiki)
 
 </div>
