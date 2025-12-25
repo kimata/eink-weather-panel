@@ -106,14 +106,15 @@ test-walk-through:
         - build-react
         - test-prepare
     script:
-        - uv run pytest --numprocesses=auto --junit-xml=tests/evidence/junit-report.xml tests/test_basic.py
+        - uv run pytest --numprocesses=auto --junit-xml=reports/junit-report.xml tests/test_basic.py
 
     artifacts:
         when: always
         paths:
-            - tests/evidence/**
+            - reports/**
+            - htmlcov/**
         reports:
-            junit: tests/evidence/junit-report.xml
+            junit: reports/junit-report.xml
 
 # 共通テンプレート: Dockerを使用したパネルテスト
 .panel_test_template:
@@ -337,7 +338,7 @@ test-webapp:
         - >
             uv run pytest tests/test_playwright.py
             --host ${DOCKER_GATEWAY} --port ${APP_PORT}
-            --junit-xml=tests/evidence/playwright-junit.xml
+            --junit-xml=reports/playwright-junit.xml
 
         - docker logs ${CI_JOB_NAME}-${CI_JOB_ID} > flask_log.txt
         - docker stop ${CI_JOB_NAME}-${CI_JOB_ID}
@@ -351,16 +352,17 @@ test-webapp:
         when: always
         paths:
             - flask_log.txt
-            - tests/evidence/**
+            - reports/**
         reports:
-            junit: tests/evidence/playwright-junit.xml
+            junit: reports/playwright-junit.xml
 pages:
     stage: test
     needs:
         - test-walk-through
     script:
         - mkdir -p public/
-        - cp -r tests/evidence/* public/
+        - cp -r reports/* public/ || true
+        - cp -r htmlcov public/coverage || true
     artifacts:
         paths:
             - public

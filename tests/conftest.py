@@ -20,25 +20,9 @@ import pytest
 # === 定数 ===
 CONFIG_FILE = "config.example.yaml"
 CONFIG_SMALL_FILE = "config-small.example.yaml"
-EVIDENCE_DIR = pathlib.Path(__file__).parent / "evidence" / "image"
+# プロジェクトルートの reports/evidence/ に画像を保存
+EVIDENCE_DIR = pathlib.Path(__file__).parent.parent / "reports" / "evidence"
 EVIDENCE_DIR.mkdir(parents=True, exist_ok=True)
-TIMEZONE = zoneinfo.ZoneInfo("Asia/Tokyo")
-
-
-# === pytest オプション ===
-def pytest_addoption(parser):
-    parser.addoption("--host", default="127.0.0.1")
-    parser.addoption("--port", default="5000")
-
-
-@pytest.fixture
-def host(request):
-    return request.config.getoption("--host")
-
-
-@pytest.fixture
-def port(request):
-    return request.config.getoption("--port")
 
 
 # === 環境モック ===
@@ -107,17 +91,6 @@ def config_small():
     return weather_display.config.load(CONFIG_SMALL_FILE)
 
 
-@pytest.fixture
-def config_dict():
-    """互換性のために辞書形式の設定を返す"""
-    import my_lib.config
-
-    config_ = my_lib.config.load(CONFIG_FILE)
-    config_["panel"]["update"]["interval"] = 60
-
-    return config_
-
-
 @pytest.fixture(autouse=True)
 def _clear(config):
     """各テスト前にステートをクリア"""
@@ -139,26 +112,19 @@ def client(app):
 
 
 # === センサーデータモック ===
-def gen_sensor_data(value=None, valid=True):
-    """センサーデータを生成するヘルパー"""
+def _gen_sensor_data(value=None, valid=True):
+    """センサーデータを生成するヘルパー（内部用）"""
     from my_lib.sensor_data import SensorDataResult
 
     if value is None:
         value = [30, 34, 25, 20]
 
-    time_list = []
-    for i in range(len(value)):
-        time_list.append(
-            datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(hours=i - len(value))
-        )
+    time_list = [
+        datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(hours=i - len(value))
+        for i in range(len(value))
+    ]
 
     return SensorDataResult(value=value, time=time_list, valid=valid)
-
-
-@pytest.fixture
-def sensor_data_factory():
-    """センサーデータファクトリを返す"""
-    return gen_sensor_data
 
 
 @pytest.fixture
@@ -172,7 +138,7 @@ def mock_sensor_fetch_data(mocker):
             hostname,  # noqa: ARG001
             field,
             start="-30h",  # noqa: ARG001
-            stop="now(TIMEZONE)",  # noqa: ARG001
+            stop="now()",  # noqa: ARG001
             every_min=1,  # noqa: ARG001
             window_min=3,  # noqa: ARG001
             create_empty=True,  # noqa: ARG001
@@ -186,29 +152,28 @@ def mock_sensor_fetch_data(mocker):
             count = fetch_data_mock.count[field]
 
             if field == "temp":
-                return gen_sensor_data([30, 20, 15, 0])
+                return _gen_sensor_data([30, 20, 15, 0])
             elif field == "power":
                 if count % 3 == 1:
-                    return gen_sensor_data([1500, 500, 750, 0])
+                    return _gen_sensor_data([1500, 500, 750, 0])
                 elif count % 3 == 2:
-                    return gen_sensor_data([20, 15, 10, 0])
+                    return _gen_sensor_data([20, 15, 10, 0])
                 else:
-                    return gen_sensor_data([1000, 750, 500, 0], False)
+                    return _gen_sensor_data([1000, 750, 500, 0], False)
             elif field == "lux":
                 if count % 3 == 0:
-                    return gen_sensor_data([0, 250, 400, 500])
+                    return _gen_sensor_data([0, 250, 400, 500])
                 elif count % 3 == 1:
-                    return gen_sensor_data([0, 4, 6, 8])
+                    return _gen_sensor_data([0, 4, 6, 8])
                 else:
-                    return gen_sensor_data([0, 25, 200, 500], False)
+                    return _gen_sensor_data([0, 25, 200, 500], False)
             elif field == "solar_rad":
-                return gen_sensor_data([300, 150, 50, 0])
+                return _gen_sensor_data([300, 150, 50, 0])
             else:
-                return gen_sensor_data([30, 20, 15, 0])
+                return _gen_sensor_data([30, 20, 15, 0])
 
         fetch_data_mock.count = {}
 
-        # Mock for parallel fetch
         async def fetch_data_parallel_mock(db_config, requests):
             results = []
             for request in requests:
@@ -260,49 +225,6 @@ def ssh_mock(mocker):
     }
 
 
-@pytest.fixture
-def open_mock(mocker):
-    """builtins.open のモック"""
-    import builtins
-
-    orig_open = builtins.open
-
-    def open_mock_impl(
-        file,
-        mode="r",
-        buffering=-1,
-        encoding=None,
-        errors=None,
-        newline=None,
-        closefd=True,
-        opener=None,
-    ):
-        if file == "TEST":
-            return mocker.MagicMock()
-        else:
-            return orig_open(file, mode, buffering, encoding, errors, newline, closefd, opener)
-
-    mocker.patch("builtins.open", side_effect=open_mock_impl)
-    return open_mock_impl
-
-
-# === WBGT データ ===
-@pytest.fixture
-def wbgt_info_factory():
-    """WBGT 情報を生成するファクトリ"""
-
-    def create(current=32):
-        return {
-            "current": current,
-            "daily": {
-                "today": list(range(18, 34, 2)),
-                "tommorow": list(range(18, 34, 2)),
-            },
-        }
-
-    return create
-
-
 # === 画像検証ヘルパー ===
 class ImageChecker:
     """画像検証ヘルパークラス"""
@@ -322,19 +244,16 @@ class ImageChecker:
         )
         my_lib.pil_util.convert_to_gray(img).save(self.evidence_dir / file_name, "PNG")
 
-    def check(self, img, size, index=None):
+    def check(self, img, panel_size, index=None):
         """画像サイズを検証して保存"""
         self.save(img, index)
 
-        # size は PanelGeometry dataclass または dict を受け付ける
-        width = size.width if hasattr(size, "width") else size["width"]
-        height = size.height if hasattr(size, "height") else size["height"]
-
         # NOTE: matplotlib で生成した画像の場合、期待値より 1pix 小さい場合がある
-        assert abs(img.size[0] - width) < 2
-        assert abs(img.size[1] - height) < 2, (
-            "画像サイズが期待値と一致しません。"
-            f"(期待値: {width} x {height}, 実際: {img.size[0]} x {img.size[1]})"
+        assert abs(img.size[0] - panel_size.width) < 2
+        assert abs(img.size[1] - panel_size.height) < 2, (
+            f"画像サイズが期待値と一致しません。"
+            f"(期待値: {panel_size.width} x {panel_size.height}, "
+            f"実際: {img.size[0]} x {img.size[1]})"
         )
 
 
@@ -345,85 +264,22 @@ def image_checker(request):
 
 
 # === Slack 通知検証 ===
-class SlackChecker:
-    """Slack 通知検証ヘルパークラス"""
-
-    def assert_notified(self, message, index=-1):
-        """指定したメッセージが通知されていることを確認"""
-        import my_lib.notify.slack
-
-        notify_hist = my_lib.notify.slack._hist_get(is_thread_local=False)
-
-        assert len(notify_hist) != 0, "異常が発生したはずなのに、エラー通知がされていません。"
-        assert notify_hist[index].find(message) != -1, f"「{message}」が Slack で通知されていません。"
-
-    def assert_not_notified(self):
-        """通知されていないことを確認"""
-        import my_lib.notify.slack
-
-        notify_hist = my_lib.notify.slack._hist_get(is_thread_local=False)
-        assert notify_hist == [], "正常なはずなのに、エラー通知がされています。"
-
-
 @pytest.fixture
 def slack_checker():
     """Slack 通知検証ヘルパーを返す"""
+    import my_lib.notify.slack
+
+    class SlackChecker:
+        def assert_notified(self, message, index=-1):
+            notify_hist = my_lib.notify.slack._hist_get(is_thread_local=False)
+            assert len(notify_hist) != 0, "エラー通知がされていません。"
+            assert notify_hist[index].find(message) != -1, f"「{message}」が通知されていません。"
+
+        def assert_not_notified(self):
+            notify_hist = my_lib.notify.slack._hist_get(is_thread_local=False)
+            assert notify_hist == [], "エラー通知がされています。"
+
     return SlackChecker()
-
-
-# === Liveness 検証 ===
-class LivenessChecker:
-    """Liveness 検証ヘルパークラス"""
-
-    def check(self, config, should_be_healthy):
-        """Liveness 状態を検証"""
-        import healthz
-        from my_lib.healthz import HealthzTarget
-
-        target_list = [
-            HealthzTarget(
-                name="display",
-                liveness_file=config.liveness.file.display,
-                interval=config.panel.update.interval,
-            )
-        ]
-
-        liveness = healthz.check_liveness(target_list)
-
-        if should_be_healthy:
-            assert liveness, "Liveness が更新されていません。"
-        else:
-            assert not liveness, "Liveness が更新されてしまっています。"
-
-
-@pytest.fixture
-def liveness_checker():
-    """Liveness 検証ヘルパーを返す"""
-    return LivenessChecker()
-
-
-# === Playwright 用フィクスチャ ===
-@pytest.fixture
-def page(page):
-    """Playwright ページ設定"""
-    from playwright.sync_api import expect
-
-    timeout = 30000
-    page.set_default_navigation_timeout(timeout)
-    page.set_default_timeout(timeout)
-    expect.set_options(timeout=timeout)
-
-    return page
-
-
-@pytest.fixture
-def browser_context_args(browser_context_args, request):
-    """Playwright ブラウザコンテキスト設定"""
-    return {
-        **browser_context_args,
-        "record_video_dir": f"tests/evidence/{request.node.name}",
-        "record_video_size": {"width": 2400, "height": 1600},
-    }
 
 
 # === ロギング設定 ===

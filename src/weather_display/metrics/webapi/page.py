@@ -230,25 +230,6 @@ def metrics_anomalies():
         return flask.jsonify({"error": "internal_error", "message": str(e)}), 500
 
 
-@blueprint.route("/static/<path:filename>", methods=["GET"])
-def static_files(filename):  # pragma: no cover  # Flask の静的ファイルハンドラが優先されるため到達不能
-    """静的ファイル（JS/CSS）を提供する"""
-    try:
-        static_path = pathlib.Path(__file__).parent / "static" / filename
-        if static_path.exists() and static_path.is_file():
-            return flask.send_file(
-                static_path,
-                mimetype="application/javascript" if filename.endswith(".js") else "text/css",
-                as_attachment=False,
-                max_age=3600,  # 1時間キャッシュ
-            )
-        else:
-            return flask.Response("File not found", status=404)
-    except Exception:
-        logging.exception("静的ファイル取得エラー")
-        return flask.Response("", status=500)
-
-
 @blueprint.route("/favicon.png", methods=["GET"])
 def favicon():
     """react/public/favicon.pngを返す"""
