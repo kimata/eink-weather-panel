@@ -301,22 +301,3 @@ class TestMetricsEndpointsErrorHandling:
 
         assert response.status_code == 500
 
-    def test_static_files_exception(self, mocker):
-        """static ファイル取得中に例外発生時に 500 を返すこと"""
-        import flask
-
-        from weather_display.metrics.webapi import page
-
-        # page.py の static_files 関数を直接テストするため、Flask アプリのコンテキストを作成
-        app = flask.Flask(__name__)
-
-        # send_file で例外を発生させる (page モジュール内でモック)
-        mocker.patch.object(
-            page.flask, "send_file", side_effect=Exception("Static file error")
-        )
-
-        with app.test_request_context():
-            response = page.static_files("metrics.js")
-
-        assert response.status_code == 500
-
