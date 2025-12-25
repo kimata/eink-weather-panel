@@ -190,3 +190,91 @@ class TestTimingController:
 
         # 負にならないこと
         assert sleep_time >= 0
+
+
+class TestTimingFilterBoundaryValues:
+    """境界値テスト"""
+
+    def test_kalman_filter_with_zero_initial_estimate(self):
+        """初期値が0の場合も正常に動作すること"""
+        from weather_display.timing_filter import TimingKalmanFilter
+
+        kf = TimingKalmanFilter(initial_estimate=0.0)
+
+        result = kf.update(10.0)
+
+        assert result > 0.0
+        assert result < 10.0
+
+    def test_kalman_filter_with_negative_initial_estimate(self):
+        """初期値が負の場合も正常に動作すること"""
+        from weather_display.timing_filter import TimingKalmanFilter
+
+        kf = TimingKalmanFilter(initial_estimate=-10.0)
+
+        result = kf.update(10.0)
+
+        # 測定値方向に移動すること
+        assert result > -10.0
+
+    def test_kalman_filter_with_very_large_value(self):
+        """非常に大きな値でも正常に動作すること"""
+        from weather_display.timing_filter import TimingKalmanFilter
+
+        kf = TimingKalmanFilter(initial_estimate=1000000.0)
+
+        result = kf.update(1000010.0)
+
+        assert result > 1000000.0
+        assert result < 1000010.0
+
+    def test_kalman_filter_with_very_small_noise(self):
+        """非常に小さいノイズでも正常に動作すること"""
+        from weather_display.timing_filter import TimingKalmanFilter
+
+        kf = TimingKalmanFilter(
+            initial_estimate=30.0,
+            process_noise=0.0001,
+            measurement_noise=0.0001,
+        )
+
+        result = kf.update(35.0)
+
+        assert result is not None
+        assert isinstance(result, float)
+
+    def test_controller_with_zero_elapsed_time(self):
+        """経過時間が0の場合も正常に動作すること"""
+        from weather_display.timing_filter import TimingController
+
+        controller = TimingController(update_interval=60)
+        tz = zoneinfo.ZoneInfo("Asia/Tokyo")
+        current_time = datetime.datetime.now(tz)
+
+        sleep_time, _ = controller.calculate_sleep_time(0.0, current_time)
+
+        assert sleep_time >= 0
+
+    def test_controller_with_negative_elapsed_time(self):
+        """経過時間が負の場合も正常に動作すること（異常値への耐性）"""
+        from weather_display.timing_filter import TimingController
+
+        controller = TimingController(update_interval=60)
+        tz = zoneinfo.ZoneInfo("Asia/Tokyo")
+        current_time = datetime.datetime.now(tz)
+
+        sleep_time, _ = controller.calculate_sleep_time(-5.0, current_time)
+
+        assert sleep_time >= 0
+
+    def test_controller_with_very_large_elapsed_time(self):
+        """非常に長い経過時間でも正常に動作すること"""
+        from weather_display.timing_filter import TimingController
+
+        controller = TimingController(update_interval=60)
+        tz = zoneinfo.ZoneInfo("Asia/Tokyo")
+        current_time = datetime.datetime.now(tz)
+
+        sleep_time, _ = controller.calculate_sleep_time(3600.0, current_time)  # 1時間
+
+        assert sleep_time >= 0

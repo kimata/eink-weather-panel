@@ -1,14 +1,17 @@
 #!/usr/bin/env python3
+from __future__ import annotations
 
 import concurrent.futures
 import io
 import logging
+import pathlib
 import queue
 import subprocess
 import threading
 import time
 import traceback
 import uuid
+from typing import Any, TypedDict
 
 import flask
 import my_lib.flask_util
@@ -16,12 +19,21 @@ import my_lib.webapp.config
 
 blueprint = flask.Blueprint("webapi-run", __name__, url_prefix=my_lib.webapp.config.URL_PREFIX)
 
-thread_pool = None
-panel_data_map = {}
-create_image_path = None
+
+class PanelData(TypedDict):
+    lock: threading.Lock
+    log: queue.Queue[bytes | None]
+    image: bytes | None
+    time: float
+    future: concurrent.futures.Future[None] | None
 
 
-def init(create_image_path_):
+thread_pool: concurrent.futures.ThreadPoolExecutor | None = None
+panel_data_map: dict[str, PanelData] = {}
+create_image_path: pathlib.Path | str | None = None
+
+
+def init(create_image_path_: pathlib.Path | str) -> None:
     global thread_pool  # noqa: PLW0603
     global create_image_path  # noqa: PLW0603
 
@@ -30,29 +42,33 @@ def init(create_image_path_):
     create_image_path = create_image_path_
 
 
-def term():
+def term() -> None:
     global thread_pool
 
     if thread_pool:
         thread_pool.shutdown(wait=True)
 
 
-def image_reader(proc, token):
+def image_reader(proc: subprocess.Popen[bytes], token: str) -> None:
     global panel_data_map
     panel_data = panel_data_map[token]
     img_stream = io.BytesIO()
+
+    stdout = proc.stdout
+    if stdout is None:
+        return
 
     try:
         while True:
             state = proc.poll()
             if state is not None:
                 # プロセス終了後の残りデータを読み取り
-                remaining = proc.stdout.read()
+                remaining = stdout.read()
                 if remaining:
                     img_stream.write(remaining)
                 break
             try:
-                buf = proc.stdout.read(8192)
+                buf = stdout.read(8192)
                 if buf:
                     img_stream.write(buf)
                 else:
@@ -65,14 +81,17 @@ def image_reader(proc, token):
         logging.exception("Failed to generate image")
 
 
-def log_reader(proc, token):
+def log_reader(proc: subprocess.Popen[bytes], token: str) -> None:
     global panel_data_map
 
     panel_data = panel_data_map[token]
+    stderr = proc.stderr
+    if stderr is None:
+        return
 
     try:
         while True:
-            line = proc.stderr.readline()
+            line = stderr.readline()
             if not line:
                 break
             panel_data["log"].put(line)
@@ -80,11 +99,18 @@ def log_reader(proc, token):
         logging.exception("Failed to read log")
 
 
-def generate_image_impl(config_file, is_small_mode, is_dummy_mode, is_test_mode, token):
+def generate_image_impl(
+    config_file: str, is_small_mode: bool, is_dummy_mode: bool, is_test_mode: bool, token: str
+) -> None:
     global panel_data_map
 
     panel_data = panel_data_map[token]
-    cmd = ["python3", create_image_path, "-c", config_file]
+    if create_image_path is None:
+        logging.error("create_image_path is not initialized")
+        panel_data["log"].put(None)
+        return
+
+    cmd: list[str | pathlib.Path] = ["python3", create_image_path, "-c", config_file]
     if is_small_mode:
         cmd.append("-S")
     if is_dummy_mode:
@@ -128,10 +154,10 @@ def generate_image_impl(config_file, is_small_mode, is_dummy_mode, is_test_mode,
         panel_data["log"].put(None)
 
 
-def clean_map():
+def clean_map() -> None:
     global panel_data_map
 
-    remove_token = []
+    remove_token: list[str] = []
     for token, panel_data in panel_data_map.items():
         if (time.time() - panel_data["time"]) > 60:
             remove_token.append(token)
@@ -140,14 +166,18 @@ def clean_map():
         del panel_data_map[token]
 
 
-def generate_image(config_file, is_small_mode, is_dummy_mode, is_test_mode):
+def generate_image(config_file: str, is_small_mode: bool, is_dummy_mode: bool, is_test_mode: bool) -> str:
     global thread_pool
     global panel_data_map
+
+    if thread_pool is None:
+        msg = "thread_pool is not initialized. Call init() first."
+        raise RuntimeError(msg)
 
     clean_map()
 
     token = str(uuid.uuid4())
-    log_queue = queue.Queue()
+    log_queue: queue.Queue[bytes | None] = queue.Queue()
 
     panel_data_map[token] = {
         "lock": threading.Lock(),
@@ -168,7 +198,7 @@ def generate_image(config_file, is_small_mode, is_dummy_mode, is_test_mode):
 
 @blueprint.route("/api/image", methods=["POST"])
 @my_lib.flask_util.gzipped
-def api_image():
+def api_image() -> flask.Response | str:
     global panel_data_map
 
     # NOTE: @gzipped をつけた場合、キャッシュ用のヘッダを付与しているので、
@@ -186,7 +216,7 @@ def api_image():
 
 
 @blueprint.route("/api/log", methods=["POST"])
-def api_log():
+def api_log() -> flask.Response | str:
     global panel_data_map
 
     token = flask.request.form.get("token", "")
@@ -196,7 +226,7 @@ def api_log():
 
     log_queue = panel_data_map[token]["log"]
 
-    def generate():
+    def generate() -> Any:
         try:
             while True:
                 try:
@@ -205,8 +235,8 @@ def api_log():
                     continue
                 if log is None:
                     break
-                log = log.decode("utf-8")
-                yield log
+                log_str = log.decode("utf-8")
+                yield log_str
         except Exception:
             logging.exception("Failed to read log")
 
@@ -220,7 +250,7 @@ def api_log():
 
 @blueprint.route("/api/run", methods=["GET"])
 @my_lib.flask_util.support_jsonp
-def api_run():
+def api_run() -> flask.Response:
     mode = flask.request.args.get("mode", "")
     is_small_mode = mode == "small"
     is_test_mode = flask.request.args.get("test", False, type=bool)

@@ -67,7 +67,7 @@ https://weather-panel-webapp-demo.kubernetes.green-rabbit.net/weather_panel/
 | **センサーグラフ** | InfluxDBから温度・湿度・照度データを可視化 | `sensor_graph.py`     |
 | **電力監視**       | 消費電力の履歴とトレンド分析               | `power_graph.py`      |
 | **WBGT指数**       | 熱中症警戒レベルの算出と表示               | `wbgt_panel.py`       |
-| **Web API**        | React フロントエンドとの連携               | `webapp.py`           |
+| **Web API**        | React フロントエンドとの連携               | `webui.py`            |
 
 ## 🚀 クイックスタート
 
@@ -75,7 +75,7 @@ https://weather-panel-webapp-demo.kubernetes.green-rabbit.net/weather_panel/
 
 | 項目         | 最小要件 | 推奨         |
 | ------------ | -------- | ------------ |
-| **Python**   | 3.12+    | 3.13+        |
+| **Python**   | 3.10+    | 3.13+        |
 | **OS**       | Linux    | Ubuntu 24.04 |
 | **メモリ**   | 1GB      | 2GB+         |
 | **ディスク** | 500MB    | 1GB+         |
@@ -119,10 +119,10 @@ docker compose up --build
 
 ```bash
 # 画像生成と表示
-env RASP_HOSTNAME="your-raspi-hostname" uv run python src/display_image.py
+env RASP_HOSTNAME="your-raspi-hostname" uv run src/display_image.py
 
 # Web サーバー起動
-uv run python src/webapp.py
+uv run src/webui.py
 
 # テスト実行
 uv run pytest tests/test_basic.py
@@ -346,7 +346,7 @@ flowchart TB
     end
 
     subgraph "Web インターフェース"
-        WEBAPP[webapp.py<br/>🌐 Flask REST API<br/>🔄 非同期処理<br/>📤 JSON レスポンス]
+        WEBAPP[webui.py<br/>🌐 Flask REST API<br/>🔄 非同期処理<br/>📤 JSON レスポンス]
         REACT[React Frontend<br/>⚛️ SPA アプリ<br/>🖼️ リアルタイムプレビュー<br/>⚙️ パラメータ調整]
         GENERATOR[generator.py<br/>🎛️ Web画像生成<br/>🔧 動的パラメータ<br/>📱 レスポンシブ対応]
     end
@@ -553,7 +553,7 @@ src/
 │   ├── weather_panel.py   # 天気予報
 │   ├── sensor_graph.py    # センサーグラフ
 │   └── rain_cloud_panel.py # 雨雲レーダー
-├── webapp.py              # Flask Web API
+├── webui.py               # Flask Web API
 └── display_image.py       # メイン実行スクリプト
 
 react/                     # React フロントエンド

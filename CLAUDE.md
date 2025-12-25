@@ -26,8 +26,8 @@ uv run pytest --cov=src --cov-report=html tests/
 # Run specific test file
 uv run pytest tests/unit/test_config.py
 
-# Run web interface tests (requires host IP)
-uv run pytest tests/test_playwright.py --host <host-ip>
+# Run E2E tests (requires running webapp)
+uv run pytest tests/e2e/test_webapp.py --host <host-ip> --port <port>
 
 # Type check
 uv run pyright
@@ -133,8 +133,7 @@ docker compose run --build --rm weather_panel
 ```
 tests/
 ├── conftest.py              # Shared fixtures and helpers
-├── test_basic.py            # Legacy monolithic tests (1300+ lines)
-├── test_playwright.py       # Browser-based web UI tests
+├── test_basic.py            # Comprehensive integration tests
 ├── unit/                    # Unit tests
 │   ├── test_config.py           # Configuration parsing
 │   ├── test_timing_filter.py    # Kalman filter logic
@@ -148,7 +147,6 @@ tests/
 ├── integration/             # Integration tests
 │   ├── test_create_image.py     # Image generation workflow
 │   ├── test_display_image.py    # Display control
-│   ├── test_panels.py           # All panels
 │   ├── test_weather_panel.py    # Weather panel
 │   ├── test_sensor_graph_panel.py  # Sensor graph
 │   ├── test_power_graph_panel.py   # Power graph
@@ -157,7 +155,8 @@ tests/
 │   └── test_wbgt_panel.py          # WBGT
 ├── webapp/                  # Web API tests
 │   └── test_api.py              # Flask API endpoints
-└── e2e/                     # End-to-end tests (placeholder)
+└── e2e/                     # End-to-end tests (Playwright)
+    └── test_webapp.py           # Web UI E2E tests
 ```
 
 ### Key Test Fixtures (conftest.py)
@@ -169,13 +168,12 @@ tests/
 | `mock_sensor_fetch_data` | Mock InfluxDB data fetching |
 | `image_checker` | Helper for saving and validating generated images |
 | `slack_checker` | Verify Slack notification behavior |
-| `liveness_checker` | Verify health check status |
 
 ### Running Tests
 
 - Tests run with `DUMMY_MODE=true` by default to avoid real API calls
-- Coverage reports are generated in `tests/evidence/coverage/`
-- Test evidence (HTML reports, images) stored in `tests/evidence/`
+- Coverage reports are generated in `htmlcov/`
+- Test reports (HTML, images) stored in `reports/`
 
 ## Deployment
 
