@@ -75,6 +75,16 @@ class TestCleanMap:
 class TestGenerateImage:
     """generate_image 関数のテスト"""
 
+    def test_generate_image_raises_error_when_thread_pool_not_initialized(self):
+        """thread_pool が初期化されていない場合に RuntimeError が発生すること"""
+        from weather_display.runner.webapi import run
+
+        # thread_pool を None に設定
+        run.thread_pool = None
+
+        with pytest.raises(RuntimeError, match="thread_pool is not initialized"):
+            run.generate_image("config.yaml", False, False, True)
+
     def test_generate_image_creates_token(self, mocker):
         """generate_image がトークンを生成すること"""
         from weather_display.runner.webapi import run
@@ -277,6 +287,30 @@ class TestTermEdgeCases:
 
 class TestGenerateImageImpl:
     """generate_image_impl 関数のテスト"""
+
+    def test_generate_image_impl_handles_none_create_image_path(self, mocker, caplog):
+        """create_image_path が None の場合にエラーログが出力されること"""
+        import logging
+
+        from weather_display.runner.webapi import run
+
+        token = "test_none_path_token"
+        log_queue = queue.Queue()
+        run.panel_data_map[token] = {
+            "lock": threading.Lock(),
+            "log": log_queue,
+            "image": None,
+            "time": time.time(),
+            "future": None,
+        }
+        run.create_image_path = None
+
+        with caplog.at_level(logging.ERROR):
+            run.generate_image_impl("config.yaml", False, False, True, token)
+
+        assert "create_image_path is not initialized" in caplog.text
+        # 完了通知の None がキューに入っていること
+        assert log_queue.get(timeout=1) is None
 
     def test_generate_image_impl_runs_subprocess(self, mocker):
         """サブプロセスが実行されること"""

@@ -9,6 +9,8 @@ import subprocess
 import sys
 import time
 import traceback
+from collections.abc import Callable
+from typing import Any, TypeVar
 
 import my_lib.footprint
 import my_lib.panel_util
@@ -18,12 +20,14 @@ import paramiko
 import create_image
 from weather_display.config import AppConfig
 
+T = TypeVar("T")
+
 RETRY_COUNT = 3
 RETRY_WAIT = 2
 CREATE_IMAGE = pathlib.Path(__file__).parent.parent / "create_image.py"
 
 
-def exec_patiently(func, args):
+def exec_patiently(func: Callable[..., T], args: tuple[Any, ...]) -> T:
     for i in range(RETRY_COUNT):
         try:
             return func(*args)
@@ -32,10 +36,10 @@ def exec_patiently(func, args):
                 raise
             logging.warning(traceback.format_exc())
             time.sleep(RETRY_WAIT)
-    return None  # pragma: no cover  # 論理的に到達不能（ループは必ず return か raise で終了）
+    raise RuntimeError("Unreachable")  # pragma: no cover  # 論理的に到達不能（ループは必ず return か raise で終了）
 
 
-def ssh_connect_impl(hostname, key_filename):
+def ssh_connect_impl(hostname: str, key_filename: str) -> paramiko.SSHClient:
     logging.info("Connect to %s", hostname)
 
     ssh = paramiko.SSHClient()
@@ -61,7 +65,7 @@ def ssh_connect_impl(hostname, key_filename):
     return ssh
 
 
-def ssh_kill_and_close_impl(ssh, cmd):
+def ssh_kill_and_close_impl(ssh: paramiko.SSHClient | None, cmd: str) -> None:
     if ssh is None:
         return
 
@@ -88,15 +92,15 @@ def ssh_kill_and_close_impl(ssh, cmd):
         raise
 
 
-def ssh_kill_and_close(ssh, cmd):
+def ssh_kill_and_close(ssh: paramiko.SSHClient | None, cmd: str) -> None:
     exec_patiently(ssh_kill_and_close_impl, (ssh, cmd))
 
 
-def ssh_connect(hostname, key_file_path):
+def ssh_connect(hostname: str, key_file_path: str) -> paramiko.SSHClient:
     return exec_patiently(ssh_connect_impl, (hostname, key_file_path))
 
 
-def terminate_session_processes(session_id):
+def terminate_session_processes(session_id: int) -> None:
     """セッションIDに属する全プロセスを段階的に終了する"""
     try:
         # セッションIDに属する全プロセスを取得
@@ -122,7 +126,11 @@ def terminate_session_processes(session_id):
         logging.warning("Error terminating session processes: %s", e)
 
 
-def _cleanup_ssh_channels(ssh_stdin, ssh_stdout, ssh_stderr):
+def _cleanup_ssh_channels(
+    ssh_stdin: Any,
+    ssh_stdout: Any,
+    ssh_stderr: Any,
+) -> None:
     """SSHチャンネルを安全にクローズする"""
     for channel in [ssh_stdin, ssh_stdout, ssh_stderr]:
         if channel is not None:
@@ -131,7 +139,7 @@ def _cleanup_ssh_channels(ssh_stdin, ssh_stdout, ssh_stderr):
 
 
 def execute(
-    ssh: object,
+    ssh: paramiko.SSHClient,
     config: AppConfig,
     config_file: str,
     small_mode: bool,
