@@ -26,8 +26,8 @@ config.yaml
 # Testing
 .coverage
 .pytest_cache/
-tests/evidence/
 htmlcov/
+reports/
 
 # IDE
 .vscode/

@@ -57,7 +57,7 @@ minversion = "6.0"
 
 # Default: parallel execution with 4 workers
 # To exclude slow Selenium tests: uv run pytest -m "not selenium"
-addopts = "--verbose --timeout=300 --durations=10 --log-file-level=DEBUG --log-format=\"%(asctime)s %(levelname)s %(message)s\" --log-format=\"%(asctime)s %(levelname)s [%(filename)s:%(lineno)s %(funcName)s] %(message)s\" --capture=sys --html=tests/evidence/index.htm --self-contained-html --cov=src --cov-report=html -n 4"
+addopts = "--verbose --timeout=300 --durations=10 --log-file-level=DEBUG --log-format=\"%(asctime)s %(levelname)s %(message)s\" --log-format=\"%(asctime)s %(levelname)s [%(filename)s:%(lineno)s %(funcName)s] %(message)s\" --capture=sys --html=reports/pytest.html --self-contained-html --cov=src --cov-report=html -n 4"
 
 testpaths = [
     "tests",
@@ -94,7 +94,7 @@ exclude_lines = [
 ]
 
 [tool.coverage.html]
-directory = "tests/evidence/coverage"
+directory = "htmlcov"
 
 [tool.pyright]
 venvPath = "."
