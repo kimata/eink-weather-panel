@@ -443,13 +443,25 @@ deploy:
 renovate:
     stage: renovate
     dependencies: []
+    resource_group: renovate
     image:
         name: gitlab.green-rabbit.net:5050/kimata/local-renovate:250715_3b8866ff
 
     before_script: []
 
+    variables:
+        RENOVATE_CACHE_DIR: .renovate-cache
+        LOG_LEVEL: info
+
     script:
         - renovate --platform gitlab --token ${RENOVATE_TOKEN} --endpoint ${CI_SERVER_URL}/api/v4 ${CI_PROJECT_PATH}
+
+    cache:
+        key: renovate-cache
+        paths:
+            - ${RENOVATE_CACHE_DIR}
+        expire_in: 1 week
+
     rules:
         - if: $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
           when: never
