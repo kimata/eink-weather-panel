@@ -18,6 +18,7 @@ import io
 import logging
 import os
 import pathlib
+import threading
 import time
 import traceback
 
@@ -45,6 +46,9 @@ PATIENT_COUNT = 3
 
 DATA_PATH = pathlib.Path("data")
 WINDOW_SIZE_CACHE_FILE = DATA_PATH / "window_size_cache.dat"
+
+# undetected_chromedriver のパッチ処理は並列実行時に競合するためロックで保護
+_driver_creation_lock = threading.Lock()
 
 CLOUD_IMAGE_XPATH = '//div[contains(@id, "jmatile_map_")]'
 
@@ -422,9 +426,11 @@ def create_rain_cloud_img(
     img = None
 
     try:
-        driver = my_lib.selenium_util.create_driver(
-            get_driver_profile_name(sub_panel_config["is_future"]), DATA_PATH
-        )
+        # undetected_chromedriver のパッチ処理は並列実行時に競合するためロックで保護
+        with _driver_creation_lock:
+            driver = my_lib.selenium_util.create_driver(
+                get_driver_profile_name(sub_panel_config["is_future"]), DATA_PATH
+            )
 
         wait = selenium.webdriver.support.wait.WebDriverWait(driver, 5)
         my_lib.selenium_util.clear_cache(driver)
