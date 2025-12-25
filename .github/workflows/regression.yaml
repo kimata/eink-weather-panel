@@ -82,7 +82,7 @@ jobs:
               run: |
                   uv sync
             - name: Run Tests
-              run: uv run pytest --numprocesses=auto --junit-xml=reports/junit.xml tests/unit/ tests/integration/ tests/webapp/
+              run: uv run pytest --numprocesses=auto --junit-xml=reports/junit.xml --cov=src --cov-report=html:reports/coverage tests/unit/ tests/integration/ tests/webapp/
             - name: Publish Test Results
               uses: dorny/test-reporter@v1
               if: success() || failure()
@@ -106,7 +106,7 @@ jobs:
             url: ${{ steps.deployment.outputs.page_url }}
         runs-on: ubuntu-latest
         needs: test
-        if: github.ref == 'refs/heads/master'
+        if: github.ref == 'refs/heads/main'
         steps:
             - name: Download test results
               id: deployment
