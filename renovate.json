@@ -21,9 +21,9 @@
             "automerge": false
         },
         {
-            "matchPaths": [".gitlab-ci.yml"],
-            "matchPackagePatterns": ["local-playwright"],
-            "enabled": false
+            "matchFileNames": [".gitlab-ci.yml"],
+            "enabled": false,
+            "matchPackageNames": ["/local-playwright/"]
         }
     ]
 }
