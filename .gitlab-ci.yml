@@ -81,17 +81,15 @@ build-image:
     # after_script:
     #     - docker buildx rm ${BUILDER} || true
 
-test-prepare:
-    stage: build
-    needs: []
-
+test-walk-through:
+    stage: test
+    needs:
+        - build-react
     script:
         - uv sync --locked --no-editable
+        - uv run pytest --numprocesses=auto --junit-xml=reports/junit-report.xml --cov-report=term-missing --cov-report=xml:reports/coverage.xml tests/unit/ tests/integration/ tests/webapp/
 
-    artifacts:
-        paths:
-            - ${UV_CACHE_DIR}
-        expire_in: 1 hour
+    coverage: '/TOTAL.*\s+(\d+%)/'
 
     cache:
         - key:
@@ -99,16 +97,6 @@ test-prepare:
                   - uv.lock
           paths:
               - ${UV_CACHE_DIR}
-
-test-walk-through:
-    stage: test
-    needs:
-        - build-react
-        - test-prepare
-    script:
-        - uv run pytest --numprocesses=auto --junit-xml=reports/junit-report.xml --cov-report=term-missing --cov-report=xml:reports/coverage.xml tests/unit/ tests/integration/ tests/webapp/
-
-    coverage: '/TOTAL.*\s+(\d+%)/'
 
     artifacts:
         when: always
@@ -298,7 +286,6 @@ test-webapp:
     needs:
         - generate-tag
         - build-image
-        - test-prepare
         - job: test-demo
           artifacts: false
     script:
@@ -317,6 +304,7 @@ test-webapp:
 
         - docker ps | grep ${CI_JOB_NAME}-${CI_JOB_ID}
 
+        - uv sync --locked --no-editable
         - uv run playwright install --with-deps chromium
 
         - >
@@ -349,9 +337,14 @@ test-webapp:
         - docker stop ${CI_JOB_NAME}-${CI_JOB_ID}
 
     cache:
-        key: playwright-cache
-        paths:
-            - .cache/ms-playwright/
+        - key:
+              files:
+                  - uv.lock
+          paths:
+              - ${UV_CACHE_DIR}
+        - key: playwright-cache
+          paths:
+              - .cache/ms-playwright/
 
     artifacts:
         when: always
