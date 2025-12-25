@@ -97,7 +97,6 @@ test-walk-through:
                   - uv.lock
           paths:
               - ${UV_CACHE_DIR}
-          expire_in: 2 months
 
     artifacts:
         when: always
@@ -343,7 +342,6 @@ test-webapp:
                   - uv.lock
           paths:
               - ${UV_CACHE_DIR}
-          expire_in: 2 months
         - key: playwright-cache
           paths:
               - .cache/ms-playwright/
@@ -460,7 +458,6 @@ renovate:
         key: renovate-cache
         paths:
             - ${RENOVATE_CACHE_DIR}
-        expire_in: 1 week
 
     rules:
         - if: $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
