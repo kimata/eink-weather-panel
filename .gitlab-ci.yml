@@ -106,7 +106,7 @@ test-walk-through:
         - build-react
         - test-prepare
     script:
-        - uv run pytest --numprocesses=auto --junit-xml=reports/junit-report.xml tests/test_basic.py
+        - uv run pytest --numprocesses=auto --junit-xml=reports/junit-report.xml tests/unit/ tests/integration/ tests/webapp/
 
     artifacts:
         when: always
