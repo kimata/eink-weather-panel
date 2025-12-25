@@ -195,214 +195,216 @@ def create_sensor_graph_impl(  # noqa: C901, PLR0912, PLR0915
 
     fig = matplotlib.pyplot.figure(facecolor="azure", edgecolor="coral", linewidth=2)
 
-    fig.set_size_inches(width / IMAGE_DPI, height / IMAGE_DPI)
+    try:
+        fig.set_size_inches(width / IMAGE_DPI, height / IMAGE_DPI)
 
-    # NOTE: 全データを並列で一度に取得してキャッシュ（最適化）
-    data_cache: dict[str, dict[int, dict[str, object]]] = {}
-    cache: dict[str, object] = {
-        "time": [],
-        "time_numeric": [],
-        "value": [],
-        "valid": False,
-    }
-    range_map: dict[str, list[float]] = {}
-    time_begin = datetime.datetime.now(datetime.timezone.utc)
+        # NOTE: 全データを並列で一度に取得してキャッシュ（最適化）
+        data_cache: dict[str, dict[int, dict[str, object]]] = {}
+        cache: dict[str, object] = {
+            "time": [],
+            "time_numeric": [],
+            "value": [],
+            "valid": False,
+        }
+        range_map: dict[str, list[float]] = {}
+        time_begin = datetime.datetime.now(datetime.timezone.utc)
 
-    # 並列取得用のリクエストリストを準備
-    fetch_requests: list[DataRequest] = []
-    request_map: dict[tuple[str, int, str, str], int] = {}  # (param_name, col, measure, hostname) -> request_index
+        # 並列取得用のリクエストリストを準備
+        fetch_requests: list[DataRequest] = []
+        request_map: dict[tuple[str, int, str, str], int] = {}  # (param_name, col, measure, hostname) -> request_index
 
-    for param in sensor_config.param_list:
-        data_cache[param.name] = {}
-        for col, room in enumerate(room_list):
-            for sensor in room.sensor:
-                request_index = len(fetch_requests)
-                request_map[(param.name, col, sensor.measure, sensor.hostname)] = request_index
+        for param in sensor_config.param_list:
+            data_cache[param.name] = {}
+            for col, room in enumerate(room_list):
+                for sensor in room.sensor:
+                    request_index = len(fetch_requests)
+                    request_map[(param.name, col, sensor.measure, sensor.hostname)] = request_index
 
-                if os.environ.get("DUMMY_MODE", "false") == "true":
-                    period_start = "-228h"
-                    period_stop = "-168h"
-                else:
-                    period_start = "-60h"
-                    period_stop = "now()"
+                    if os.environ.get("DUMMY_MODE", "false") == "true":
+                        period_start = "-228h"
+                        period_stop = "-168h"
+                    else:
+                        period_start = "-60h"
+                        period_stop = "now()"
 
-                fetch_requests.append(
-                    DataRequest(
-                        measure=sensor.measure,
-                        hostname=sensor.hostname,
-                        field=param.name,
-                        start=period_start,
-                        stop=period_stop,
+                    fetch_requests.append(
+                        DataRequest(
+                            measure=sensor.measure,
+                            hostname=sensor.hostname,
+                            field=param.name,
+                            start=period_start,
+                            stop=period_stop,
+                        )
                     )
-                )
 
-    # エアコン電力取得用のリクエストも追加
-    aircon_requests, aircon_map = get_aircon_power_requests(room_list)
+        # エアコン電力取得用のリクエストも追加
+        aircon_requests, aircon_map = get_aircon_power_requests(room_list)
 
-    all_requests = fetch_requests + aircon_requests
-    aircon_results_offset = len(fetch_requests)
+        all_requests = fetch_requests + aircon_requests
+        aircon_results_offset = len(fetch_requests)
 
-    # 並列でデータを取得
-    logging.info(
-        "Fetching sensor data in parallel (%d requests, %d aircon)", len(fetch_requests), len(aircon_requests)
-    )
-    parallel_start = time.perf_counter()
-    all_results = asyncio.run(fetch_data_parallel(context.db_config, all_requests))
-    parallel_time = time.perf_counter() - parallel_start
-    logging.info("Parallel fetch completed in %.2f seconds", parallel_time)
+        # 並列でデータを取得
+        logging.info(
+            "Fetching sensor data in parallel (%d requests, %d aircon)", len(fetch_requests), len(aircon_requests)
+        )
+        parallel_start = time.perf_counter()
+        all_results = asyncio.run(fetch_data_parallel(context.db_config, all_requests))
+        parallel_time = time.perf_counter() - parallel_start
+        logging.info("Parallel fetch completed in %.2f seconds", parallel_time)
 
-    # センサーデータとエアコンデータを分離
-    results = all_results[: len(fetch_requests)]
-    aircon_results = all_results[aircon_results_offset:] if aircon_requests else []
+        # センサーデータとエアコンデータを分離
+        results = all_results[: len(fetch_requests)]
+        aircon_results = all_results[aircon_results_offset:] if aircon_requests else []
 
-    # 結果をキャッシュに格納（sensor_data関数のロジックを適用）
-    for param in sensor_config.param_list:
-        for col, room in enumerate(room_list):
-            # 複数のセンサーから最初の有効なデータを選択
-            data = None
-            for sensor in room.sensor:
-                request_key = (param.name, col, sensor.measure, sensor.hostname)
-                if request_key in request_map:
-                    request_index = request_map[request_key]
-                    candidate_data = results[request_index]
+        # 結果をキャッシュに格納（sensor_data関数のロジックを適用）
+        for param in sensor_config.param_list:
+            for col, room in enumerate(room_list):
+                # 複数のセンサーから最初の有効なデータを選択
+                data = None
+                for sensor in room.sensor:
+                    request_key = (param.name, col, sensor.measure, sensor.hostname)
+                    if request_key in request_map:  # pragma: no branch  # 同じデータから構築されるため常にTrue
+                        request_index = request_map[request_key]
+                        candidate_data = results[request_index]
 
-                    if candidate_data.valid:
-                        data = candidate_data
-                        break
+                        if candidate_data.valid:
+                            data = candidate_data
+                            break
 
-            # 有効なデータが見つからない場合は最後のデータを使用
-            if data is None and room.sensor:
-                last_sensor = room.sensor[-1]
-                request_key = (param.name, col, last_sensor.measure, last_sensor.hostname)
-                if request_key in request_map:
-                    request_index = request_map[request_key]
-                    data = results[request_index]
+                # 有効なデータが見つからない場合は最後のデータを使用
+                if data is None and room.sensor:
+                    last_sensor = room.sensor[-1]
+                    request_key = (param.name, col, last_sensor.measure, last_sensor.hostname)
+                    if request_key in request_map:  # pragma: no branch  # 同じデータから構築されるため常にTrue
+                        request_index = request_map[request_key]
+                        data = results[request_index]
 
-            # SensorDataResult を辞書に変換して time_numeric を追加できるようにする
-            if data:
-                data_dict: dict[str, object] = {"valid": data.valid, "time": data.time, "value": data.value}
-            else:
-                data_dict = {"valid": False, "time": [], "value": []}
-            data_cache[param.name][col] = data_dict
+                # SensorDataResult を辞書に変換して time_numeric を追加できるようにする
+                if data:
+                    data_dict: dict[str, object] = {"valid": data.valid, "time": data.time, "value": data.value}
+                else:  # pragma: no cover  # room.sensor が空の場合のみ
+                    data_dict = {"valid": False, "time": [], "value": []}
+                data_cache[param.name][col] = data_dict
 
-            if data_dict.get("valid"):
-                # 日付を数値化（最適化）
-                time_data = data_dict.get("time", [])
-                if time_data:
-                    data_dict["time_numeric"] = matplotlib.dates.date2num(time_data)
-                    time_begin = min(time_begin, time_data[0])
-                else:
-                    data_dict["time_numeric"] = []
+                if data_dict.get("valid"):
+                    # 日付を数値化（最適化）
+                    time_data = data_dict.get("time", [])
+                    if time_data:
+                        data_dict["time_numeric"] = matplotlib.dates.date2num(time_data)
+                        time_begin = min(time_begin, time_data[0])
+                    else:
+                        data_dict["time_numeric"] = []
 
-                if not cache.get("time"):
-                    cache = {
-                        "time": time_data,
-                        "time_numeric": data_dict.get("time_numeric", []),
-                        "value": [EMPTY_VALUE for _ in range(len(time_data))],
-                        "valid": False,
-                    }
+                    if not cache.get("time"):
+                        cache = {
+                            "time": time_data,
+                            "time_numeric": data_dict.get("time_numeric", []),
+                            "value": [EMPTY_VALUE for _ in range(len(time_data))],
+                            "valid": False,
+                        }
 
-    # キャッシュからレンジを計算
-    for param in sensor_config.param_list:
-        param_min = float("inf")
-        param_max = -float("inf")
+        # キャッシュからレンジを計算
+        for param in sensor_config.param_list:
+            param_min = float("inf")
+            param_max = -float("inf")
 
-        for col in range(len(room_list)):
-            data = data_cache[param.name][col]
-            if not data.get("valid"):
-                continue
+            for col in range(len(room_list)):
+                data = data_cache[param.name][col]
+                if not data.get("valid"):
+                    continue
 
-            value_list = data.get("value", [])
-            min_val = min([item for item in value_list if item is not None])
-            max_val = max([item for item in value_list if item is not None])
-            param_min = min(param_min, min_val)
-            param_max = max(param_max, max_val)
-
-        # NOTE: 見やすくなるように、ちょっと広げる
-        range_map[param.name] = [
-            max(0, param_min - (param_max - param_min) * 0.3),
-            param_max + (param_max - param_min) * 0.05,
-        ]
-
-    # 共通の軸設定を取得（日付変換最適化）
-    axis_config = get_shared_axis_config()
-
-    # 開始時間を数値化
-    time_begin_numeric = matplotlib.dates.date2num(time_begin)
-
-    # サブプロットを一括生成（最適化）
-    num_rows = len(sensor_config.param_list)
-    num_cols = len(room_list)
-
-    # 既存のfigを使って、gridspecでサブプロットを作成
-    gs = matplotlib.gridspec.GridSpec(
-        num_rows, num_cols, figure=fig, hspace=0.1, wspace=0, left=0.05, bottom=0.08, right=0.98, top=0.92
-    )
-    axes = []
-    for i in range(num_rows * num_cols):
-        row = i // num_cols
-        col = i % num_cols
-        ax = fig.add_subplot(gs[row, col])
-        axes.append(ax)
-
-    for row, param in enumerate(sensor_config.param_list):
-        logging.info("draw %s graph", param.name)
-
-        for col, room in enumerate(room_list):
-            # キャッシュからデータを取得（最適化）
-            data = data_cache[param.name][col]
-            if not data.get("valid"):
-                data = cache
-
-            # 一括生成したaxesを使用
-            ax_index = row * num_cols + col
-            ax = axes[ax_index]
-
-            title = room.label if row == 0 else None
-            graph_range = range_map[param.name] if param.range == "auto" else list(param.range)
-
-            plot_item(
-                ax,
-                title,
-                param.unit,
-                data,
-                time_begin_numeric,
-                graph_range,
-                param.format,
-                param.scale,
-                param.size_small,
-                face_map,
-                axis_config,
-            )
-
-            if (param.name == "temp") and room.aircon is not None:
-                draw_aircon_icon(
-                    ax,
-                    get_aircon_power_from_results(aircon_results, aircon_map, col),
-                    sensor_config.icon,
-                )
-
-            if (param.name == "lux") and room.light_icon:
                 value_list = data.get("value", [])
-                draw_light_icon(ax, value_list, sensor_config.icon)
+                min_val = min([item for item in value_list if item is not None])
+                max_val = max([item for item in value_list if item is not None])
+                param_min = min(param_min, min_val)
+                param_max = max(param_max, max_val)
 
-    buf = io.BytesIO()
-    # グレースケール画像を直接生成（最適化）
-    matplotlib.pyplot.savefig(buf, format="png", dpi=IMAGE_DPI, facecolor="white", transparent=False)
+            # NOTE: 見やすくなるように、ちょっと広げる
+            range_map[param.name] = [
+                max(0, param_min - (param_max - param_min) * 0.3),
+                param_max + (param_max - param_min) * 0.05,
+            ]
 
-    buf.seek(0)
+        # 共通の軸設定を取得（日付変換最適化）
+        axis_config = get_shared_axis_config()
 
-    img = PIL.Image.open(buf).copy()
-    # 既にグレースケールカラーマップ使用中のため、Lモードに変換
-    if img.mode != "L":
-        img = img.convert("L")
+        # 開始時間を数値化
+        time_begin_numeric = matplotlib.dates.date2num(time_begin)
 
-    buf.close()
+        # サブプロットを一括生成（最適化）
+        num_rows = len(sensor_config.param_list)
+        num_cols = len(room_list)
 
-    matplotlib.pyplot.clf()
-    matplotlib.pyplot.close(fig)
+        # 既存のfigを使って、gridspecでサブプロットを作成
+        gs = matplotlib.gridspec.GridSpec(
+            num_rows, num_cols, figure=fig, hspace=0.1, wspace=0, left=0.05, bottom=0.08, right=0.98, top=0.92
+        )
+        axes = []
+        for i in range(num_rows * num_cols):
+            row = i // num_cols
+            col = i % num_cols
+            ax = fig.add_subplot(gs[row, col])
+            axes.append(ax)
 
-    return img
+        for row, param in enumerate(sensor_config.param_list):
+            logging.info("draw %s graph", param.name)
+
+            for col, room in enumerate(room_list):
+                # キャッシュからデータを取得（最適化）
+                data = data_cache[param.name][col]
+                if not data.get("valid"):
+                    data = cache
+
+                # 一括生成したaxesを使用
+                ax_index = row * num_cols + col
+                ax = axes[ax_index]
+
+                title = room.label if row == 0 else None
+                graph_range = range_map[param.name] if param.range == "auto" else list(param.range)
+
+                plot_item(
+                    ax,
+                    title,
+                    param.unit,
+                    data,
+                    time_begin_numeric,
+                    graph_range,
+                    param.format,
+                    param.scale,
+                    param.size_small,
+                    face_map,
+                    axis_config,
+                )
+
+                if (param.name == "temp") and room.aircon is not None:
+                    draw_aircon_icon(
+                        ax,
+                        get_aircon_power_from_results(aircon_results, aircon_map, col),
+                        sensor_config.icon,
+                    )
+
+                if (param.name == "lux") and room.light_icon:
+                    value_list = data.get("value", [])
+                    draw_light_icon(ax, value_list, sensor_config.icon)
+
+        buf = io.BytesIO()
+        # グレースケール画像を直接生成（最適化）
+        matplotlib.pyplot.savefig(buf, format="png", dpi=IMAGE_DPI, facecolor="white", transparent=False)
+
+        buf.seek(0)
+
+        img = PIL.Image.open(buf).copy()
+        # 既にグレースケールカラーマップ使用中のため、Lモードに変換
+        if img.mode != "L":  # pragma: no branch  # savefig は常に RGB を返すため
+            img = img.convert("L")
+
+        buf.close()
+
+        return img
+    finally:
+        # 例外発生時も含め、確実にmatplotlibリソースをクリーンアップ
+        matplotlib.pyplot.clf()
+        matplotlib.pyplot.close(fig)
 
 
 def create(config: AppConfig) -> tuple[PIL.Image.Image, float] | tuple[PIL.Image.Image, float, str]:

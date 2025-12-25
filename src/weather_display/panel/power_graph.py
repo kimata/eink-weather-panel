@@ -176,76 +176,78 @@ def create_power_graph_impl(
 
     fig = matplotlib.pyplot.figure(facecolor="azure", edgecolor="coral", linewidth=2)
 
-    fig.set_size_inches(width / IMAGE_DPI, height / IMAGE_DPI)
+    try:
+        fig.set_size_inches(width / IMAGE_DPI, height / IMAGE_DPI)
 
-    if os.environ.get("DUMMY_MODE", "false") == "true":
-        period_start = "-228h"
-        period_stop = "-168h"
-    else:
-        period_start = "-60h"
-        period_stop = "now()"
+        if os.environ.get("DUMMY_MODE", "false") == "true":
+            period_start = "-228h"
+            period_stop = "-168h"
+        else:
+            period_start = "-60h"
+            period_stop = "now()"
 
-    # デバッグログ: fetch_data呼び出し前
-    logging.info(
-        "Fetching power data: measure=%s, hostname=%s, field=%s, period=%s to %s",
-        power_config.data.sensor.measure,
-        power_config.data.sensor.hostname,
-        power_config.data.param.field,
-        period_start,
-        period_stop,
-    )
+        # デバッグログ: fetch_data呼び出し前
+        logging.info(
+            "Fetching power data: measure=%s, hostname=%s, field=%s, period=%s to %s",
+            power_config.data.sensor.measure,
+            power_config.data.sensor.hostname,
+            power_config.data.param.field,
+            period_start,
+            period_stop,
+        )
 
-    data = fetch_data(
-        context.db_config,
-        power_config.data.sensor.measure,
-        power_config.data.sensor.hostname,
-        power_config.data.param.field,
-        period_start,
-        period_stop,
-    )
+        data = fetch_data(
+            context.db_config,
+            power_config.data.sensor.measure,
+            power_config.data.sensor.hostname,
+            power_config.data.param.field,
+            period_start,
+            period_stop,
+        )
 
-    # デバッグログ: fetch_data結果
-    logging.info(
-        "Power data fetched: valid=%s, time_length=%d, value_length=%d",
-        data.valid,
-        len(data.time),
-        len(data.value),
-    )
+        # デバッグログ: fetch_data結果
+        logging.info(
+            "Power data fetched: valid=%s, time_length=%d, value_length=%d",
+            data.valid,
+            len(data.time),
+            len(data.value),
+        )
 
-    # データが無効な場合の詳細ログ
-    if not data.valid or not data.time or not data.value:
-        logging.warning("Invalid or empty power data: %s", data)
-        if not data.time:
-            logging.warning("time data is empty")
-        if not data.value:
-            logging.warning("value data is empty")
+        # データが無効な場合の詳細ログ
+        if not data.valid or not data.time or not data.value:
+            logging.warning("Invalid or empty power data: %s", data)
+            if not data.time:
+                logging.warning("time data is empty")
+            if not data.value:
+                logging.warning("value data is empty")
 
-    ax = fig.add_subplot()
-    plot_item(
-        ax,
-        power_config.data.param.unit,
-        data,
-        power_config.data.param.range,
-        power_config.data.param.format,
-        face_map,
-    )
+        ax = fig.add_subplot()
+        plot_item(
+            ax,
+            power_config.data.param.unit,
+            data,
+            power_config.data.param.range,
+            power_config.data.param.format,
+            face_map,
+        )
 
-    matplotlib.pyplot.subplots_adjust(hspace=0, wspace=0)
-    fig.tight_layout()
+        matplotlib.pyplot.subplots_adjust(hspace=0, wspace=0)
+        fig.tight_layout()
 
-    buf = io.BytesIO()
-    matplotlib.pyplot.savefig(buf, format="png", dpi=IMAGE_DPI, transparent=True)
+        buf = io.BytesIO()
+        matplotlib.pyplot.savefig(buf, format="png", dpi=IMAGE_DPI, transparent=True)
 
-    buf.seek(0)
+        buf.seek(0)
 
-    img = PIL.Image.open(buf).copy()
+        img = PIL.Image.open(buf).copy()
 
-    buf.close()
+        buf.close()
 
-    matplotlib.pyplot.clf()
-    matplotlib.pyplot.close(fig)
-
-    return img
+        return img
+    finally:
+        # 例外発生時も含め、確実にmatplotlibリソースをクリーンアップ
+        matplotlib.pyplot.clf()
+        matplotlib.pyplot.close(fig)
 
 
 def create(config: AppConfig) -> tuple[PIL.Image.Image, float] | tuple[PIL.Image.Image, float, str]:

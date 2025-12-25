@@ -90,16 +90,17 @@ def draw_panel(
     panel_metrics: list[dict[str, object]] = []
 
     # NOTE: 並列処理 (matplotlib はマルチスレッド対応していないので、マルチプロセス処理する)
+    # with ステートメントで確実にPoolをクリーンアップする
     start = time.perf_counter()
-    pool = multiprocessing.Pool(processes=len(panel_list))
-    for panel in panel_list:
-        arg = (config,)
-        if "arg" in panel:
-            arg += panel["arg"]
-        panel["task"] = pool.apply_async(panel["func"], arg)
+    with multiprocessing.Pool(processes=len(panel_list)) as pool:
+        for panel in panel_list:
+            arg = (config,)
+            if "arg" in panel:
+                arg += panel["arg"]
+            panel["task"] = pool.apply_async(panel["func"], arg)
 
-    pool.close()
-    pool.join()
+        pool.close()
+        pool.join()
 
     ret = 0
     for panel in panel_list:

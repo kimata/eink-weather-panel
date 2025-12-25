@@ -231,7 +231,7 @@ def metrics_anomalies():
 
 
 @blueprint.route("/static/<path:filename>", methods=["GET"])
-def static_files(filename):
+def static_files(filename):  # pragma: no cover  # Flask の静的ファイルハンドラが優先されるため到達不能
     """静的ファイル（JS/CSS）を提供する"""
     try:
         static_path = pathlib.Path(__file__).parent / "static" / filename
