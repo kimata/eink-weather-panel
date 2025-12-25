@@ -32,7 +32,7 @@ def exec_patiently(func, args):
                 raise
             logging.warning(traceback.format_exc())
             time.sleep(RETRY_WAIT)
-    return None
+    return None  # pragma: no cover  # 論理的に到達不能（ループは必ず return か raise で終了）
 
 
 def ssh_connect_impl(hostname, key_filename):
@@ -41,16 +41,22 @@ def ssh_connect_impl(hostname, key_filename):
     ssh = paramiko.SSHClient()
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())  # noqa: S507
 
-    with open(key_filename) as f:  # noqa: PTH123
-        ssh.connect(
-            hostname,
-            username="ubuntu",
-            pkey=paramiko.RSAKey.from_private_key(f),
-            allow_agent=False,
-            look_for_keys=False,
-            timeout=2,
-            auth_timeout=2,
-        )
+    try:
+        with open(key_filename) as f:  # noqa: PTH123
+            ssh.connect(
+                hostname,
+                username="ubuntu",
+                pkey=paramiko.RSAKey.from_private_key(f),
+                allow_agent=False,
+                look_for_keys=False,
+                timeout=2,
+                auth_timeout=2,
+            )
+    except Exception:
+        # 接続失敗時にSSHクライアントをクローズしてリソースリークを防止
+        with contextlib.suppress(Exception):
+            ssh.close()
+        raise
 
     return ssh
 
@@ -116,6 +122,14 @@ def terminate_session_processes(session_id):
         logging.warning("Error terminating session processes: %s", e)
 
 
+def _cleanup_ssh_channels(ssh_stdin, ssh_stdout, ssh_stderr):
+    """SSHチャンネルを安全にクローズする"""
+    for channel in [ssh_stdin, ssh_stdout, ssh_stderr]:
+        if channel is not None:
+            with contextlib.suppress(Exception):
+                channel.close()
+
+
 def execute(
     ssh: object,
     config: AppConfig,
@@ -123,77 +137,76 @@ def execute(
     small_mode: bool,
     test_mode: bool,
 ) -> None:
-    ssh_stdin, ssh_stdout, ssh_stderr = exec_patiently(
-        ssh.exec_command,
-        (
-            "cat - > /dev/shm/display.png && "
-            "sudo fbi -1 -T 1 -d /dev/fb0 --noverbose /dev/shm/display.png; echo $?",
-        ),
-    )
-
-    logging.info("Start drawing.")
-
-    cmd = ["python3", CREATE_IMAGE, "-c", config_file]
-    if small_mode:
-        cmd.append("-S")
-    if test_mode:
-        cmd.append("-t")
-
-    # セッション管理でプロセスグループを作成してゾンビプロセス対策
-    proc = subprocess.Popen(  # noqa: S603
-        cmd,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        start_new_session=True,  # 新しいセッションを作成
-    )
-
-    # セッションIDを取得（プロセスIDと同じ）
-    session_id = proc.pid
+    ssh_stdin = None
+    ssh_stdout = None
+    ssh_stderr = None
 
     try:
-        # タイムアウト付きでプロセスの完了を待機
-        stdout_data, stderr_data = proc.communicate(timeout=300)  # 5分でタイムアウト
-    except subprocess.TimeoutExpired:
-        logging.warning("create_image.py process timed out, terminating session %d...", session_id)
-        terminate_session_processes(session_id)
+        ssh_stdin, ssh_stdout, ssh_stderr = exec_patiently(
+            ssh.exec_command,
+            (
+                "cat - > /dev/shm/display.png && "
+                "sudo fbi -1 -T 1 -d /dev/fb0 --noverbose /dev/shm/display.png; echo $?",
+            ),
+        )
+
+        logging.info("Start drawing.")
+
+        cmd = ["python3", CREATE_IMAGE, "-c", config_file]
+        if small_mode:
+            cmd.append("-S")
+        if test_mode:
+            cmd.append("-t")
+
+        # セッション管理でプロセスグループを作成してゾンビプロセス対策
+        proc = subprocess.Popen(  # noqa: S603
+            cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            start_new_session=True,  # 新しいセッションを作成
+        )
+
+        # セッションIDを取得（プロセスIDと同じ）
+        session_id = proc.pid
+
+        try:
+            # タイムアウト付きでプロセスの完了を待機
+            stdout_data, stderr_data = proc.communicate(timeout=300)  # 5分でタイムアウト
+        except subprocess.TimeoutExpired:
+            logging.warning("create_image.py process timed out, terminating session %d...", session_id)
+            terminate_session_processes(session_id)
+            my_lib.proc_util.reap_zombie()
+            timeout_msg = "Image creation process timed out"
+            raise RuntimeError(timeout_msg) from None
+
+        ssh_stdin.write(stdout_data)
+
+        ssh_stdin.flush()
+        ssh_stdin.channel.shutdown_write()
+
+        logging.info(stderr_data.decode("utf-8").rstrip())
+
+        # SSH接続の終了ステータスを取得
+        fbi_status = ssh_stdout.channel.recv_exit_status()
+
+        # NOTE: -24 は create_image.py の異常時の終了コードに合わせる。
+        if (fbi_status == 0) and (proc.returncode == 0):
+            logging.info("Succeeded.")
+            my_lib.footprint.update(config.liveness.file.display)
+        elif proc.returncode == create_image.ERROR_CODE_MAJOR:
+            logging.warning("Failed to create image at all. (code: %d)", proc.returncode)
+        elif proc.returncode == create_image.ERROR_CODE_MINOR:
+            logging.warning("Failed to create image partially. (code: %d)", proc.returncode)
+            my_lib.footprint.update(config.liveness.file.display)
+        elif fbi_status != 0:
+            logging.warning("Failed to display image. (code: %d)", fbi_status)
+            logging.warning("[stdout] %s", ssh_stdout.read().decode("utf-8"))
+            logging.warning("[stderr] %s", ssh_stderr.read().decode("utf-8"))
+        else:
+            logging.error("Failed to create image. (code: %d)", proc.returncode)
+            sys.exit(proc.returncode)
+    finally:
+        # 例外発生時も含め、SSHチャンネルを確実にクリーンアップ
+        _cleanup_ssh_channels(ssh_stdin, ssh_stdout, ssh_stderr)
+        # プロセス終了後に必ずゾンビプロセスを回収
         my_lib.proc_util.reap_zombie()
-        timeout_msg = "Image creation process timed out"
-        raise RuntimeError(timeout_msg) from None
-
-    ssh_stdin.write(stdout_data)
-
-    ssh_stdin.flush()
-    ssh_stdin.channel.shutdown_write()
-
-    logging.info(stderr_data.decode("utf-8"))
-
-    # SSH接続の終了ステータスを取得
-    fbi_status = ssh_stdout.channel.recv_exit_status()
-
-    # NOTE: -24 は create_image.py の異常時の終了コードに合わせる。
-    if (fbi_status == 0) and (proc.returncode == 0):
-        logging.info("Succeeded.")
-        my_lib.footprint.update(config.liveness.file.display)
-    elif proc.returncode == create_image.ERROR_CODE_MAJOR:
-        logging.warning("Failed to create image at all. (code: %d)", proc.returncode)
-    elif proc.returncode == create_image.ERROR_CODE_MINOR:
-        logging.warning("Failed to create image partially. (code: %d)", proc.returncode)
-        my_lib.footprint.update(config.liveness.file.display)
-    elif fbi_status != 0:
-        logging.warning("Failed to display image. (code: %d)", fbi_status)
-        logging.warning("[stdout] %s", ssh_stdout.read().decode("utf-8"))
-        logging.warning("[stderr] %s", ssh_stderr.read().decode("utf-8"))
-    else:
-        logging.error("Failed to create image. (code: %d)", proc.returncode)
-        sys.exit(proc.returncode)
-
-    # SSH接続のクリーンアップ
-    try:
-        ssh_stdin.close()
-        ssh_stdout.close()
-        ssh_stderr.close()
-    except Exception as e:
-        logging.warning("Error closing SSH channels: %s", e)
-
-    # プロセス終了後に必ずゾンビプロセスを回収
-    my_lib.proc_util.reap_zombie()

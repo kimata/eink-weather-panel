@@ -48,8 +48,6 @@ SCHEMA_CONFIG_SMALL = "config-small.schema"
 
 NOTIFY_THRESHOLD = 2
 
-elapsed_list: list[float] = []
-
 should_terminate = threading.Event()
 
 
@@ -118,11 +116,6 @@ def execute(  # noqa: PLR0913
             # タイミングのずれが大きい場合は警告
             if abs(diff_sec) > 3:
                 logging.warning("Update timing gap is large: %d", diff_sec)
-
-            # 従来の統計ベース手法も維持（比較用）
-            if len(elapsed_list) >= 10:
-                elapsed_list.pop(0)
-            elapsed_list.append(elapsed)
 
     except Exception as e:
         success = False

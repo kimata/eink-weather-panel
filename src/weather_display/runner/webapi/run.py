@@ -199,16 +199,14 @@ def api_log():
     def generate():
         try:
             while True:
-                while not log_queue.empty():
-                    log = log_queue.get()
-                    if log is None:
-                        break
-                    log = log.decode("utf-8")
-                    yield log
-                else:
-                    time.sleep(0.1)
+                try:
+                    log = log_queue.get(timeout=0.1)
+                except queue.Empty:
                     continue
-                break
+                if log is None:
+                    break
+                log = log.decode("utf-8")
+                yield log
         except Exception:
             logging.exception("Failed to read log")
 
