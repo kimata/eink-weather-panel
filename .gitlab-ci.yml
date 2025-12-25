@@ -106,7 +106,9 @@ test-walk-through:
         - build-react
         - test-prepare
     script:
-        - uv run pytest --numprocesses=auto --junit-xml=reports/junit-report.xml tests/unit/ tests/integration/ tests/webapp/
+        - uv run pytest --numprocesses=auto --junit-xml=reports/junit-report.xml --cov-report=term-missing --cov-report=xml:reports/coverage.xml tests/unit/ tests/integration/ tests/webapp/
+
+    coverage: '/TOTAL.*\s+(\d+%)/'
 
     artifacts:
         when: always
@@ -115,6 +117,9 @@ test-walk-through:
             - htmlcov/**
         reports:
             junit: reports/junit-report.xml
+            coverage_report:
+                coverage_format: cobertura
+                path: reports/coverage.xml
 
 # 共通テンプレート: Dockerを使用したパネルテスト
 .panel_test_template:
