@@ -25,6 +25,13 @@ EVIDENCE_DIR = pathlib.Path(__file__).parent.parent / "reports" / "evidence"
 EVIDENCE_DIR.mkdir(parents=True, exist_ok=True)
 
 
+# === pytest コマンドラインオプション ===
+def pytest_addoption(parser):
+    """E2E テスト用のコマンドラインオプションを追加"""
+    parser.addoption("--host", default="127.0.0.1", help="E2E テスト対象のホスト")
+    parser.addoption("--port", default="5000", help="E2E テスト対象のポート")
+
+
 # === 環境モック ===
 @pytest.fixture(scope="session", autouse=True)
 def env_mock():

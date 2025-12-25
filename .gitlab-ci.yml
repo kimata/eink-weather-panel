@@ -336,9 +336,9 @@ test-webapp:
         - docker logs ${CI_JOB_NAME}-${CI_JOB_ID} > flask_log.txt
 
         - >
-            uv run pytest tests/test_playwright.py
+            uv run pytest tests/e2e/test_webapp.py
             --host ${DOCKER_GATEWAY} --port ${APP_PORT}
-            --junit-xml=reports/playwright-junit.xml
+            --junit-xml=reports/e2e-junit.xml
 
         - docker logs ${CI_JOB_NAME}-${CI_JOB_ID} > flask_log.txt
         - docker stop ${CI_JOB_NAME}-${CI_JOB_ID}
@@ -354,7 +354,7 @@ test-webapp:
             - flask_log.txt
             - reports/**
         reports:
-            junit: reports/playwright-junit.xml
+            junit: reports/e2e-junit.xml
 pages:
     stage: test
     needs:
