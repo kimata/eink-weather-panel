@@ -13,7 +13,9 @@ import matplotlib.axes
 import matplotlib.offsetbox
 import matplotlib.pyplot  # noqa: ICN001
 
-from my_lib.sensor_data import DataRequest
+from collections.abc import Sequence
+
+from my_lib.sensor_data import DataRequest, SensorDataResult
 
 from weather_display.config import RoomConfig, SensorIconConfig
 
@@ -55,7 +57,7 @@ def get_aircon_power_requests(room_list: list[RoomConfig]) -> tuple[list[DataReq
 
 
 def get_aircon_power_from_results(
-    results: list[object],
+    results: Sequence[SensorDataResult | BaseException],
     aircon_map: dict[int, int],
     col: int,
 ) -> float | None:
@@ -64,6 +66,8 @@ def get_aircon_power_from_results(
         return None
 
     data = results[aircon_map[col]]
+    if isinstance(data, BaseException):
+        return None
     if data.valid:
         return data.value[0]
     else:
