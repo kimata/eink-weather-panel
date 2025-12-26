@@ -147,6 +147,7 @@ if __name__ == "__main__":
 
     from weather_display.config import load
 
+    assert __doc__ is not None
     args = docopt.docopt(__doc__)
 
     config_file = args["-c"]
