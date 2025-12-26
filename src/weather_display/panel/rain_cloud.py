@@ -670,10 +670,13 @@ def create(
         # ダミー画像を作成
         img = PIL.Image.new("RGBA", (width, height), (200, 200, 200, 255))
 
-        # 中央にテキストを描画
-        font = my_lib.pil_util.get_font(config.font, "jp_medium", 40)
-        text = "雨雲レーダー\n(ダミー)"
-        my_lib.pil_util.draw_text(img, text, (width // 2, height // 2), font, "center", "#666")
+        # 中央にテキストを描画（フォントが利用できない場合はスキップ）
+        try:
+            font = my_lib.pil_util.get_font(config.font, "jp_medium", 40)
+            text = "雨雲レーダー\n(ダミー)"
+            my_lib.pil_util.draw_text(img, text, (width // 2, height // 2), font, "center", "#666")
+        except Exception as e:
+            logging.warning("Font error in dummy mode: %s", e)
 
         return (img, 0.1)  # 成功として短時間で返す
 

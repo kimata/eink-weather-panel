@@ -427,14 +427,16 @@ class TestSlackNotificationBranch:
         try:
             # create_rain_cloud_img を直接呼び出して trial を制御
             face_map = {}
-            sub_panel_config = {
-                "is_future": False,
-                "title": "現在",
-                "width": 400,
-                "height": 300,
-                "offset_x": 0,
-                "offset_y": 0,
-            }
+            from weather_display.panel.rain_cloud import SubPanelConfig
+
+            sub_panel_config = SubPanelConfig(
+                is_future=False,
+                title="現在",
+                width=400,
+                height=300,
+                offset_x=0,
+                offset_y=0,
+            )
             try:
                 weather_display.panel.rain_cloud.create_rain_cloud_img(
                     config.rain_cloud,
@@ -533,15 +535,17 @@ class TestDriverNoneCoverage:
         mocker.patch("weather_display.panel.rain_cloud.time.sleep")
         mock_quit = mocker.patch("my_lib.selenium_util.quit_driver_gracefully")
 
+        from weather_display.panel.rain_cloud import SubPanelConfig
+
         face_map = {}
-        sub_panel_config = {
-            "is_future": False,
-            "title": "現在",
-            "width": 400,
-            "height": 300,
-            "offset_x": 0,
-            "offset_y": 0,
-        }
+        sub_panel_config = SubPanelConfig(
+            is_future=False,
+            title="現在",
+            width=400,
+            height=300,
+            offset_x=0,
+            offset_y=0,
+        )
 
         # 例外が発生するが、finally で driver が None なので quit は呼ばれない
         try:
@@ -608,15 +612,17 @@ class TestDriverNoneCoverage:
 
         mock_quit = mocker.patch("my_lib.selenium_util.quit_driver_gracefully")
 
+        from weather_display.panel.rain_cloud import SubPanelConfig
+
         face_map = {}
-        sub_panel_config = {
-            "is_future": False,
-            "title": "現在",
-            "width": 400,
-            "height": 300,
-            "offset_x": 0,
-            "offset_y": 0,
-        }
+        sub_panel_config = SubPanelConfig(
+            is_future=False,
+            title="現在",
+            width=400,
+            height=300,
+            offset_x=0,
+            offset_y=0,
+        )
 
         result = weather_display.panel.rain_cloud.create_rain_cloud_img(
             config.rain_cloud,
@@ -685,15 +691,17 @@ class TestDriverNoneCoverage:
 
         mock_quit = mocker.patch("my_lib.selenium_util.quit_driver_gracefully")
 
+        from weather_display.panel.rain_cloud import SubPanelConfig
+
         face_map = {}
-        sub_panel_config = {
-            "is_future": False,
-            "title": "現在",
-            "width": 400,
-            "height": 300,
-            "offset_x": 0,
-            "offset_y": 0,
-        }
+        sub_panel_config = SubPanelConfig(
+            is_future=False,
+            title="現在",
+            width=400,
+            height=300,
+            offset_x=0,
+            offset_y=0,
+        )
 
         result = weather_display.panel.rain_cloud.create_rain_cloud_img(
             config.rain_cloud,

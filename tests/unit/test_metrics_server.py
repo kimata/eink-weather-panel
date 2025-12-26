@@ -45,24 +45,24 @@ class TestStartAndTerm:
 
         handle = server.start(config, 5001)
 
-        assert "server" in handle
-        assert "thread" in handle
-        assert isinstance(handle["thread"], threading.Thread)
+        assert handle.server is not None
+        assert handle.thread is not None
+        assert isinstance(handle.thread, threading.Thread)
 
         # クリーンアップ
         server.term(handle)
 
     def test_term_shuts_down_server(self, config, mocker):
         """term がサーバーをシャットダウンすること"""
-        from weather_display.metrics import server
+        from weather_display.metrics.server import MetricsServerHandle, term
 
         mock_server = mocker.MagicMock()
         mock_thread = mocker.MagicMock()
         mock_thread.is_alive.return_value = False
 
-        handle = {"server": mock_server, "thread": mock_thread}
+        handle = MetricsServerHandle(server=mock_server, thread=mock_thread)
 
-        server.term(handle)
+        term(handle)
 
         mock_server.shutdown.assert_called_once()
         mock_server.server_close.assert_called_once()
@@ -70,15 +70,15 @@ class TestStartAndTerm:
 
     def test_term_logs_warning_on_timeout(self, config, mocker):
         """スレッドがタイムアウトした場合に警告をログすること"""
-        from weather_display.metrics import server
+        from weather_display.metrics.server import MetricsServerHandle, term
 
         mock_server = mocker.MagicMock()
         mock_thread = mocker.MagicMock()
         mock_thread.is_alive.return_value = True  # タイムアウトをシミュレート
 
-        handle = {"server": mock_server, "thread": mock_thread}
+        handle = MetricsServerHandle(server=mock_server, thread=mock_thread)
 
         # 例外は発生しないこと
-        server.term(handle)
+        term(handle)
 
         mock_thread.join.assert_called_once()

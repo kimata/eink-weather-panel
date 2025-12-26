@@ -51,7 +51,7 @@ class TestGetAirconPowerFromResults:
         """存在しないカラムでNoneを返すこと"""
         from weather_display.panel.sensor_graph_utils import get_aircon_power_from_results
 
-        aircon_map = {0: [0]}  # col 0 のみ
+        aircon_map: dict[int, int] = {0: 0}  # col 0 のみ
         results = []
 
         result = get_aircon_power_from_results(results, aircon_map, 1)  # col 1 は存在しない
@@ -165,7 +165,7 @@ class TestDrawLightIcon:
         tz = zoneinfo.ZoneInfo("Asia/Tokyo")
         time_machine.move_to(datetime.datetime.now(tz).replace(hour=12))
 
-        value_list = [100, 200, 300, 400]
+        value_list: list[float | None] = [100.0, 200.0, 300.0, 400.0]
 
         draw_light_icon(mock_ax, value_list, icon_config)
 
@@ -180,7 +180,7 @@ class TestDrawLightIcon:
         time_machine.move_to(datetime.datetime.now(tz).replace(hour=20))
 
         # 明るい値（照明点灯中 - 10lux以上）
-        value_list = [50, 100, 150, 200]
+        value_list: list[float | None] = [50.0, 100.0, 150.0, 200.0]
 
         draw_light_icon(mock_ax, value_list, icon_config)
 
@@ -195,7 +195,7 @@ class TestDrawLightIcon:
         time_machine.move_to(datetime.datetime.now(tz).replace(hour=20))
 
         # 暗い値（照明消灯中 - 10lux未満）
-        value_list = [1, 2, 3, 5]
+        value_list: list[float | None] = [1.0, 2.0, 3.0, 5.0]
 
         draw_light_icon(mock_ax, value_list, icon_config)
 
@@ -210,7 +210,7 @@ class TestDrawLightIcon:
         tz = zoneinfo.ZoneInfo("Asia/Tokyo")
         time_machine.move_to(datetime.datetime.now(tz).replace(hour=hour))
 
-        value_list = [100, 200, 300, 400]
+        value_list: list[float | None] = [100.0, 200.0, 300.0, 400.0]
 
         # エラーなく実行されること
         draw_light_icon(mock_ax, value_list, icon_config)
@@ -223,7 +223,7 @@ class TestDrawLightIcon:
         time_machine.move_to(datetime.datetime.now(tz).replace(hour=20))
 
         # EMPTY_VALUE で埋められたリスト（センサーデータが invalid の場合のキャッシュ）
-        value_list = [EMPTY_VALUE, EMPTY_VALUE, EMPTY_VALUE]
+        value_list: list[float | None] = [EMPTY_VALUE, EMPTY_VALUE, EMPTY_VALUE]
 
         draw_light_icon(mock_ax, value_list, icon_config)
 

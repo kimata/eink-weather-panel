@@ -87,17 +87,12 @@ class TestDrawWind:
 
     def test_draw_wind_zero_speed(self, config, wind_icons, wind_face):
         """wind.speed == 0 の場合 (lines 395-396)"""
-        from dataclasses import dataclass
+        from my_lib.weather import WindInfo
 
         from weather_display.panel.weather import draw_wind
 
-        @dataclass
-        class MockWind:
-            speed: int = 0
-            dir: str = "静穏"
-
         img = PIL.Image.new("RGBA", (800, 600), (255, 255, 255, 255))
-        wind = MockWind(speed=0, dir="静穏")
+        wind = WindInfo(speed=0, dir="静穏")
 
         result = draw_wind(
             img=img,
@@ -113,17 +108,12 @@ class TestDrawWind:
 
     def test_draw_wind_calm_direction(self, config, wind_icons, wind_face):
         """wind.dir == "静穏" の場合 (ROTATION_MAP[wind.dir] is None, line 414->430)"""
-        from dataclasses import dataclass
+        from my_lib.weather import WindInfo
 
         from weather_display.panel.weather import draw_wind
 
-        @dataclass
-        class MockWind:
-            speed: int = 1
-            dir: str = "静穏"
-
         img = PIL.Image.new("RGBA", (800, 600), (255, 255, 255, 255))
-        wind = MockWind(speed=1, dir="静穏")  # speed != 0 but dir is calm
+        wind = WindInfo(speed=1, dir="静穏")  # speed != 0 but dir is calm
 
         result = draw_wind(
             img=img,
@@ -139,17 +129,12 @@ class TestDrawWind:
 
     def test_draw_wind_speed_3(self, config, wind_icons, wind_face):
         """wind.speed == 3 の場合 (lines 403-405)"""
-        from dataclasses import dataclass
+        from my_lib.weather import WindInfo
 
         from weather_display.panel.weather import draw_wind
 
-        @dataclass
-        class MockWind:
-            speed: int = 3
-            dir: str = "北"
-
         img = PIL.Image.new("RGBA", (800, 600), (255, 255, 255, 255))
-        wind = MockWind(speed=3, dir="北")
+        wind = WindInfo(speed=3, dir="北")
 
         result = draw_wind(
             img=img,
@@ -191,35 +176,23 @@ class TestDrawWeatherInfo:
 
     def test_draw_weather_info_with_wbgt(self, config, weather_info_icons, weather_info_face_map, mocker):
         """is_wbgt_exist == True のケース (line 574)"""
-        from dataclasses import dataclass
+        from my_lib.weather import HourlyData, WeatherInfo, WindInfo
 
         from weather_display.panel.weather import draw_weather_info
 
-        @dataclass
-        class MockWeather:
-            icon: str = "sunny"
-            icon_url: str = "https://example.com/sunny.png"
-            text: str = "晴れ"
-
-        @dataclass
-        class MockWind:
-            speed: int = 2
-            dir: str = "北"
-
-        @dataclass
-        class MockHourInfo:
-            hour: int = 12
-            weather: MockWeather = None
-            temp: float = 30.0
-            precip: float = 0.0
-            humi: float = 70.0
-            wind: MockWind = None
-
-            def __post_init__(self):
-                if self.weather is None:
-                    self.weather = MockWeather()
-                if self.wind is None:
-                    self.wind = MockWind()
+        weather = WeatherInfo(
+            icon_url="https://example.com/sunny.png",
+            text="晴れ",
+        )
+        wind = WindInfo(speed=2, dir="北")
+        info = HourlyData(
+            hour=12,
+            weather=weather,
+            temp=30.0,
+            precip=0.0,
+            humi=70.0,
+            wind=wind,
+        )
 
         # Mock get_image to avoid network request
         mock_icon = PIL.Image.new("RGBA", (100, 100), (200, 200, 200, 255))
@@ -227,7 +200,6 @@ class TestDrawWeatherInfo:
 
         img = PIL.Image.new("RGBA", (800, 800), (255, 255, 255, 255))
         overlay = PIL.Image.new("RGBA", (800, 800), (0, 0, 0, 0))
-        info = MockHourInfo()
         wbgt = 28.5  # WBGT値が存在
 
         result = draw_weather_info(

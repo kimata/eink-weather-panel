@@ -102,7 +102,7 @@ def plot_item(  # noqa: PLR0913
     ax: matplotlib.axes.Axes,
     title: str | None,
     unit: str,
-    data: PlotData,
+    data: PlotData | None,
     xbegin_numeric: float,
     ylim: tuple[float, float],
     fmt: str,
