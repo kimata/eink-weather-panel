@@ -35,7 +35,7 @@ repos:
       hooks:
           - id: pyright
             name: Run pyright
-            entry: uv run pyright
+            entry: env PYRIGHT_PYTHON_FORCE_VERSION=latest uv run pyright
             language: system
             types: [python]
             pass_filenames: false
