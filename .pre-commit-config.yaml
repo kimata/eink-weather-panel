@@ -30,3 +30,12 @@ repos:
       rev: v1.37.1
       hooks:
           - id: yamllint
+
+    - repo: local
+      hooks:
+          - id: pyright
+            name: Run pyright
+            entry: uv run pyright
+            language: system
+            types: [python]
+            pass_filenames: false

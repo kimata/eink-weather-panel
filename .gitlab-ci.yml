@@ -81,6 +81,20 @@ build-image:
     # after_script:
     #     - docker buildx rm ${BUILDER} || true
 
+test-typecheck:
+    stage: test
+    needs: []
+    script:
+        - uv sync --locked --no-editable
+        - uv run pyright
+
+    cache:
+        - key:
+              files:
+                  - uv.lock
+          paths:
+              - ${UV_CACHE_DIR}
+
 test-walk-through:
     stage: test
     needs:
