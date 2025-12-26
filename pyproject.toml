@@ -37,6 +37,9 @@ dev = [
     "time-machine>=2.15.0",
     "pytest>=8.3.2",
     "pytest-timeout>=2.4.0",
+    "mypy>=1.14.0",
+    "types-pytz>=2024.1.0",
+    "types-paramiko>=3.4.0",
 ]
 
 [tool.uv]
@@ -106,3 +109,22 @@ directory = "htmlcov"
 venvPath = "."
 venv = ".venv"
 pythonVersion = "3.13"
+
+[tool.mypy]
+python_version = "3.13"
+warn_return_any = false
+warn_unused_configs = true
+ignore_missing_imports = true
+# 段階的に厳格化するため、最初は緩めの設定
+check_untyped_defs = false
+disallow_untyped_defs = false
+# 現在のエラーを一時的に無視（段階的に対応）
+disable_error_code = [
+    "var-annotated",    # Need type annotation for variable
+    "assignment",       # Incompatible types in assignment
+    "arg-type",         # Argument has incompatible type
+    "index",            # Value is not indexable
+    "return-value",     # Incompatible return value type
+    "operator",         # Unsupported operand type
+    "attr-defined",     # Has no attribute
+]
