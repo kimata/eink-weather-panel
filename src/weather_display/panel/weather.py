@@ -19,8 +19,8 @@ import locale
 import logging
 import math
 import pathlib
-import urllib
 import urllib.parse
+import urllib.request
 import zoneinfo
 from dataclasses import dataclass
 
@@ -157,7 +157,7 @@ def get_image(weather_info: WeatherInfo) -> PIL.Image.Image:
     h, w = img.shape[:2]
 
     # NOTE: 一旦4倍の解像度に増やす
-    sr = cv2.dnn_superres.DnnSuperResImpl_create()
+    sr = cv2.dnn_superres.DnnSuperResImpl_create()  # type: ignore[attr-defined]
 
     model_path = str(pathlib.Path(__file__).parent / "data" / "ESPCN_x4.pb")
 
@@ -424,7 +424,7 @@ def draw_wind(  # noqa: PLR0913
         arrow_icon = PIL.ImageEnhance.Brightness(icon["arrow"]).enhance(brightness)
         arrow_icon = arrow_icon.rotate(
             ROTATION_MAP[wind.dir],
-            resample=PIL.Image.BICUBIC,
+            resample=PIL.Image.Resampling.BICUBIC,
         )
 
         my_lib.pil_util.alpha_paste(
@@ -580,6 +580,7 @@ def draw_weather_info(  # noqa: PLR0913
     )
     next_pos_y += 30
     if is_wbgt_exist:
+        assert wbgt is not None
         next_pos_y = draw_temp(
             img,
             wbgt,
@@ -606,8 +607,8 @@ def draw_weather_info(  # noqa: PLR0913
 
 def draw_day_weather(  # noqa: PLR0913
     img: PIL.Image.Image,
-    info: list[object],
-    wbgt_info: list[float | None] | None,
+    info: list[HourlyData],
+    wbgt_info: list[int | None] | None,
     is_today: bool,
     pos_x: float,
     pos_y: float,
@@ -752,10 +753,10 @@ def draw_panel_weather_day(  # noqa: PLR0913
     img: PIL.Image.Image,
     pos_x: float,
     pos_y: float,
-    weather_day_info: list[object],
+    weather_day_info: list[HourlyData],
     clothing_info: int,
     sunset_info: str,
-    wbgt_info: list[float | None] | None,
+    wbgt_info: list[int | None] | None,
     is_today: bool,
     overlay: PIL.Image.Image,
     icon: dict[str, PIL.Image.Image],

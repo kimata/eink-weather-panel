@@ -197,6 +197,7 @@ class MetricsCollector:
                 logging.debug(
                     "Logged draw_panel metrics: total=%.3fs, panels=%d", total_elapsed_time, panel_count
                 )
+                assert draw_panel_id is not None
                 return draw_panel_id
 
         except Exception:
@@ -272,7 +273,9 @@ class MetricsCollector:
                 logging.debug(
                     "Logged display_image metrics: elapsed=%.3fs, success=%s", elapsed_time, success
                 )
-                return cursor.lastrowid
+                lastrowid = cursor.lastrowid
+                assert lastrowid is not None
+                return lastrowid
 
         except Exception:
             logging.exception("Failed to log display_image metrics")
@@ -565,7 +568,7 @@ class MetricsAnalyzer:
             scaler = StandardScaler()
             features_scaled = scaler.fit_transform(features)
 
-            isolation_forest = IsolationForest(contamination=contamination, random_state=42)
+            isolation_forest = IsolationForest(contamination=contamination, random_state=42)  # type: ignore[arg-type]
             anomaly_labels = isolation_forest.fit_predict(features_scaled)
 
             draw_panel_anomalies = []
@@ -600,7 +603,7 @@ class MetricsAnalyzer:
             scaler = StandardScaler()
             features_scaled = scaler.fit_transform(features)
 
-            isolation_forest = IsolationForest(contamination=contamination, random_state=42)
+            isolation_forest = IsolationForest(contamination=contamination, random_state=42)  # type: ignore[arg-type]
             anomaly_labels = isolation_forest.fit_predict(features_scaled)
 
             display_image_anomalies = []

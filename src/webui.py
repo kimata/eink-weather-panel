@@ -58,8 +58,11 @@ def create_app(config_file_normal, config_file_small, dummy_mode=False):
 
     import my_lib.webapp.config
 
+    import my_lib.config as config_module
+
+    config_data = config_module.load(config_file_normal, pathlib.Path(SCHEMA_CONFIG))
     my_lib.webapp.config.URL_PREFIX = "/panel"
-    my_lib.webapp.config.init(my_lib.config.load(config_file_normal, pathlib.Path(SCHEMA_CONFIG)))
+    my_lib.webapp.config.init(config_data)
 
     import my_lib.webapp.base
     import my_lib.webapp.util

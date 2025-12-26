@@ -231,6 +231,8 @@ def create_rain_fall_panel_impl(
 def create(config: AppConfig) -> tuple[PIL.Image.Image, float] | tuple[PIL.Image.Image, float, str]:
     logging.info("draw rain cloud panel")
 
+    assert config.rain_fall is not None
+
     start = time.perf_counter()
 
     context = my_lib.panel_config.DatabasePanelContext(
