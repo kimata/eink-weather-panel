@@ -3,6 +3,7 @@ image: gitlab.green-rabbit.net:5050/kimata/local-ubuntu:250706_043ea01d
 variables:
     UV_LINK_MODE: copy
     UV_CACHE_DIR: .uv-cache
+    PYRIGHT_PYTHON_FORCE_VERSION: latest
 
 default:
     before_script:
