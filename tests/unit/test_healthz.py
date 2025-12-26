@@ -33,11 +33,13 @@ class TestCheckLiveness:
         """単一ターゲットで正常にチェックできること"""
         from my_lib.healthz import HealthzTarget
 
+        import pathlib
+
         import healthz
 
         mock_check = mocker.patch("my_lib.healthz.check_liveness_all", return_value=[])
 
-        target = HealthzTarget(name="test", liveness_file="/tmp/test", interval=60)
+        target = HealthzTarget(name="test", liveness_file=pathlib.Path("/tmp/test"), interval=60)
         result = healthz.check_liveness([target])
 
         assert result is True
@@ -45,6 +47,8 @@ class TestCheckLiveness:
 
     def test_check_liveness_with_multiple_targets(self, mocker):
         """複数ターゲットで正常にチェックできること"""
+        import pathlib
+
         from my_lib.healthz import HealthzTarget
 
         import healthz
@@ -52,8 +56,8 @@ class TestCheckLiveness:
         mock_check = mocker.patch("my_lib.healthz.check_liveness_all", return_value=[])
 
         targets = [
-            HealthzTarget(name="target1", liveness_file="/tmp/test1", interval=60),
-            HealthzTarget(name="target2", liveness_file="/tmp/test2", interval=120),
+            HealthzTarget(name="target1", liveness_file=pathlib.Path("/tmp/test1"), interval=60),
+            HealthzTarget(name="target2", liveness_file=pathlib.Path("/tmp/test2"), interval=120),
         ]
         result = healthz.check_liveness(targets)
 

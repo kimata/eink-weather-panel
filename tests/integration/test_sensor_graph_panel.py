@@ -41,8 +41,8 @@ class TestSensorGraphPanelWithMockedData:
         @dataclass
         class MockSensorResult:
             valid: bool = True
-            time: list = None
-            value: list = None
+            time: list | None = None
+            value: list | None = None
 
             def __post_init__(self):
                 if self.time is None:
@@ -68,8 +68,8 @@ class TestSensorGraphPanelWithMockedData:
         @dataclass
         class InvalidResult:
             valid: bool = False
-            time: list = None
-            value: list = None
+            time: list | None = None
+            value: list | None = None
 
             def __post_init__(self):
                 if self.time is None:
@@ -112,15 +112,15 @@ class TestSensorGraphPanelError:
 class TestGetSharedAxisConfig:
     """get_shared_axis_config 関数のテスト"""
 
-    def test_get_shared_axis_config_returns_dict(self):
-        """辞書を返すこと"""
-        from weather_display.panel.sensor_graph import get_shared_axis_config
+    def test_get_shared_axis_config_returns_axis_config(self):
+        """AxisConfig を返すこと"""
+        from weather_display.panel.sensor_graph import AxisConfig, get_shared_axis_config
 
         result = get_shared_axis_config()
 
-        assert isinstance(result, dict)
-        assert "major_locator" in result
-        assert "major_formatter" in result
+        assert isinstance(result, AxisConfig)
+        assert result.major_locator is not None
+        assert result.major_formatter is not None
 
     def test_get_shared_axis_config_is_cached(self):
         """キャッシュされていること"""

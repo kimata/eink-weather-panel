@@ -141,7 +141,7 @@ class TestCleanup:
         """cleanup がメトリクスサーバーを停止すること"""
         import display_image
 
-        mocker.patch("weather_display.metrics.server.term")
+        mock_term = mocker.patch("weather_display.metrics.server.term")
         mocker.patch("my_lib.proc_util.kill_child")
         mocker.patch("sys.exit")
 
@@ -150,9 +150,7 @@ class TestCleanup:
         display_image.cleanup(handle)
 
         # term が呼ばれること
-        import weather_display.metrics.server
-
-        weather_display.metrics.server.term.assert_called_once()
+        mock_term.assert_called_once()
 
 
 class TestStart:

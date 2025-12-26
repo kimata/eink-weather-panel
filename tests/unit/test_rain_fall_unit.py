@@ -76,7 +76,7 @@ class TestGetRainfallStatus:
         @dataclass
         class InvalidResult:
             valid: bool = False
-            value: list = None
+            value: list | None = None
 
             def __post_init__(self):
                 if self.value is None:
@@ -99,7 +99,7 @@ class TestGetRainfallStatus:
         @dataclass
         class ValidRainResult:
             valid: bool = True
-            value: list = None
+            value: list | None = None
 
             def __post_init__(self):
                 if self.value is None:
@@ -108,7 +108,7 @@ class TestGetRainfallStatus:
         @dataclass
         class RainingResult:
             valid: bool = True
-            value: list = None
+            value: list | None = None
 
             def __post_init__(self):
                 if self.value is None:
@@ -122,8 +122,11 @@ class TestGetRainfallStatus:
         result = get_rainfall_status(config.rain_fall, config.influxdb)
 
         assert result is not None
-        assert result["raining"]["status"] is True
-        assert result["raining"]["start"] == now
+        assert isinstance(result, dict)
+        raining = result["raining"]
+        assert isinstance(raining, dict)
+        assert raining["status"] is True
+        assert raining["start"] == now
 
     def test_get_rainfall_status_not_raining(self, config, mocker):
         """降雨していない場合は start が None (line 97)"""
@@ -134,7 +137,7 @@ class TestGetRainfallStatus:
         @dataclass
         class ValidRainResult:
             valid: bool = True
-            value: list = None
+            value: list | None = None
 
             def __post_init__(self):
                 if self.value is None:
@@ -143,7 +146,7 @@ class TestGetRainfallStatus:
         @dataclass
         class NotRainingResult:
             valid: bool = True
-            value: list = None
+            value: list | None = None
 
             def __post_init__(self):
                 if self.value is None:
@@ -155,8 +158,11 @@ class TestGetRainfallStatus:
         result = get_rainfall_status(config.rain_fall, config.influxdb)
 
         assert result is not None
-        assert result["raining"]["status"] is False
-        assert result["raining"]["start"] is None
+        assert isinstance(result, dict)
+        raining = result["raining"]
+        assert isinstance(raining, dict)
+        assert raining["status"] is False
+        assert raining["start"] is None
 
 
 class TestGenAmountText:

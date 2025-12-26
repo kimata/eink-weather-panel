@@ -71,14 +71,14 @@ class TestPlotItem:
 
     def test_plot_item_with_empty_time_numeric(self, plot_setup, face_map, axis_config):
         """time_numeric が空の場合のフォールバックテスト"""
-        from weather_display.panel.sensor_graph import plot_item
+        from weather_display.panel.sensor_graph import PlotData, plot_item
 
         # time_numeric を含まないデータを渡す（フォールバック処理が発生）
-        data = {
-            "time": [],
-            "value": [],
-            "valid": False,
-        }
+        data = PlotData(
+            time=[],
+            value=[],
+            valid=False,
+        )
 
         plot_item(
             ax=plot_setup["ax"],
@@ -96,17 +96,17 @@ class TestPlotItem:
 
     def test_plot_item_with_datetime_time(self, plot_setup, face_map, axis_config):
         """datetime型の時間データを含むデータのテスト（フォールバック処理）"""
-        from weather_display.panel.sensor_graph import plot_item
+        from weather_display.panel.sensor_graph import PlotData, plot_item
 
         now = datetime.datetime.now(datetime.timezone.utc)
         time_list = [now - datetime.timedelta(hours=i) for i in range(10, 0, -1)]
 
         # time_numeric を含まないが time は含むデータ
-        data = {
-            "time": time_list,
-            "value": [20 + i for i in range(10)],
-            "valid": True,
-        }
+        data = PlotData(
+            time=time_list,
+            value=[20.0 + i for i in range(10)],
+            valid=True,
+        )
 
         plot_item(
             ax=plot_setup["ax"],
@@ -124,14 +124,18 @@ class TestPlotItem:
 
     def test_plot_item_with_numeric_time(self, plot_setup, face_map, axis_config):
         """数値型の時間データを含むデータのテスト（フォールバック処理）"""
-        from weather_display.panel.sensor_graph import plot_item
+        from weather_display.panel.sensor_graph import PlotData, plot_item
 
-        # time_numeric を含まないが time は数値リストのデータ
-        data = {
-            "time": [1.0, 2.0, 3.0, 4.0, 5.0],
-            "value": [20, 21, 22, 23, 24],
-            "valid": True,
-        }
+        now = datetime.datetime.now(datetime.timezone.utc)
+        time_list = [now - datetime.timedelta(hours=i) for i in range(5, 0, -1)]
+
+        # time_numeric で数値データを与える（time は datetime のまま）
+        data = PlotData(
+            time=time_list,
+            time_numeric=[1.0, 2.0, 3.0, 4.0, 5.0],
+            value=[20.0, 21.0, 22.0, 23.0, 24.0],
+            valid=True,
+        )
 
         plot_item(
             ax=plot_setup["ax"],
@@ -151,18 +155,18 @@ class TestPlotItem:
         """log スケールで None 値を含むデータのテスト"""
         import matplotlib.dates
 
-        from weather_display.panel.sensor_graph import plot_item
+        from weather_display.panel.sensor_graph import PlotData, plot_item
 
         now = datetime.datetime.now(datetime.timezone.utc)
         time_list = [now - datetime.timedelta(hours=i) for i in range(10, 0, -1)]
         time_numeric = list(matplotlib.dates.date2num(time_list))
 
-        data = {
-            "time": time_list,
-            "time_numeric": time_numeric,
-            "value": [0, None, 0.5, 1, 10, 100, 1000, 10000, 100000, None],
-            "valid": True,
-        }
+        data = PlotData(
+            time=time_list,
+            time_numeric=time_numeric,
+            value=[0, None, 0.5, 1, 10, 100, 1000, 10000, 100000, None],
+            valid=True,
+        )
 
         plot_item(
             ax=plot_setup["ax"],
