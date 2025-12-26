@@ -88,6 +88,7 @@ test-typecheck:
     script:
         - uv sync --locked --no-editable
         - uv run pyright
+        - uv run mypy src/
 
     cache:
         - key:
