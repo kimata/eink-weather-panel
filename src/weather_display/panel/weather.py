@@ -126,7 +126,9 @@ FONT_SPEC_NESTED: dict[str, dict[str, my_lib.font_util.FontSpec]] = {
 }
 
 
-def get_face_map(font_config: my_lib.panel_config.FontConfigProtocol) -> dict[str, dict[str, PIL.ImageFont.FreeTypeFont]]:
+def get_face_map(
+    font_config: my_lib.panel_config.FontConfigProtocol,
+) -> dict[str, dict[str, PIL.ImageFont.FreeTypeFont]]:
     return my_lib.font_util.build_pil_face_map_nested(font_config, FONT_SPEC_NESTED)
 
 
@@ -147,11 +149,7 @@ def get_image(weather_info: WeatherInfo) -> PIL.Image.Image:
     dump_path = str(
         pathlib.Path(__file__).parent
         / "img"
-        / (
-            weather_info.text
-            + "_"
-            + pathlib.Path(urllib.parse.urlparse(weather_info.icon_url).path).name
-        )
+        / (weather_info.text + "_" + pathlib.Path(urllib.parse.urlparse(weather_info.icon_url).path).name)
     )
 
     PIL.Image.fromarray(img).save(dump_path)
