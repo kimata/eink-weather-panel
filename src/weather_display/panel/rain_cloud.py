@@ -417,7 +417,7 @@ def create_rain_cloud_img(
     rain_cloud_config: RainCloudConfig,
     sub_panel_config: dict[str, object],
     face_map: dict[str, PIL.ImageFont.FreeTypeFont],
-    slack_config: my_lib.notify.slack.SlackConfigTypes,
+    slack_config: my_lib.notify.slack.SlackErrorOnlyConfig | my_lib.notify.slack.SlackEmptyConfig,
     trial: int,
 ) -> tuple[PIL.Image.Image, PIL.Image.Image]:
     logging.info("create rain cloud image (%s)", "future" if sub_panel_config["is_future"] else "current")
