@@ -21,6 +21,7 @@ import pathlib
 import threading
 import time
 import traceback
+from typing import TYPE_CHECKING
 
 import cv2
 import my_lib.chrome_util
@@ -37,8 +38,13 @@ import PIL.ImageDraw
 import PIL.ImageFont
 import selenium.webdriver.common.by
 import selenium.webdriver.support
+import selenium.webdriver.support.expected_conditions
 import selenium.webdriver.support.wait
 from my_lib.selenium_util import click_xpath  # NOTE: テスト時に mock する
+
+if TYPE_CHECKING:
+    from selenium.webdriver.remote.webdriver import WebDriver
+    from selenium.webdriver.support.wait import WebDriverWait
 
 from weather_display.config import AppConfig, RainCloudConfig
 
@@ -83,7 +89,7 @@ def get_face_map(font_config: my_lib.panel_config.FontConfigProtocol) -> dict[st
     return my_lib.font_util.build_pil_face_map(font_config, FONT_SPEC)
 
 
-def hide_label_and_icon(driver: object, wait: object) -> None:
+def hide_label_and_icon(driver: WebDriver, wait: WebDriverWait[WebDriver]) -> None:
     PARTS_LIST = [
         {"class": "jmatile-map-title", "mode": "none"},
         {"class": "leaflet-bar", "mode": "none"},
@@ -113,7 +119,7 @@ var elements = document.getElementsByClassName("{class_name}")
         )
 
 
-def change_setting(driver: object, wait: object) -> None:
+def change_setting(driver: WebDriver, wait: WebDriverWait[WebDriver]) -> None:
     click_xpath(
         driver,
         '//a[contains(@aria-label, "色の濃さ")]',
@@ -141,8 +147,8 @@ def change_setting(driver: object, wait: object) -> None:
 
 
 def shape_cloud_display(
-    driver: object,
-    wait: object,
+    driver: WebDriver,
+    wait: WebDriverWait[WebDriver],
     width: int,  # noqa: ARG001
     height: int,  # noqa: ARG001
     is_future: bool,
@@ -159,7 +165,7 @@ def shape_cloud_display(
     hide_label_and_icon(driver, wait)
 
 
-def change_window_size_fallback(driver: object, width: int, height: int) -> dict[str, int]:
+def change_window_size_fallback(driver: WebDriver, width: int, height: int) -> dict[str, int]:
     """従来のウィンドウサイズ調整ロジック（フォールバック用）"""
     logging.info("Using fallback window size adjustment")
 
@@ -216,7 +222,7 @@ def change_window_size_fallback(driver: object, width: int, height: int) -> dict
     return final_window_size
 
 
-def change_window_size(driver: object, width: int, height: int) -> dict[str, int]:
+def change_window_size(driver: WebDriver, width: int, height: int) -> dict[str, int]:
     """最適化されたウィンドウサイズ調整（キャッシュ使用+フォールバック）"""
     logging.info("target: %d x %d", width, height)
 
@@ -266,8 +272,8 @@ def change_window_size(driver: object, width: int, height: int) -> dict[str, int
 
 
 def fetch_cloud_image(  # noqa: PLR0913
-    driver: object,
-    wait: object,
+    driver: WebDriver,
+    wait: WebDriverWait[WebDriver],
     url: str,
     width: int,
     height: int,
