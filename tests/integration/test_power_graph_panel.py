@@ -37,8 +37,8 @@ class TestPowerGraphPanelWithMockedData:
         @dataclass
         class MockPowerResult:
             valid: bool = True
-            time: list = None
-            value: list = None
+            time: list | None = None
+            value: list | None = None
 
             def __post_init__(self):
                 if self.time is None:
@@ -114,8 +114,8 @@ class TestPowerGraphPanelError:
         @dataclass
         class EmptyResult:
             valid: bool = False
-            time: list = None
-            value: list = None
+            time: list | None = None
+            value: list | None = None
 
             def __post_init__(self):
                 if self.time is None:
@@ -139,8 +139,8 @@ class TestPowerGraphPanelError:
         @dataclass
         class InvalidResult:
             valid: bool = False
-            time: list = None
-            value: list = None
+            time: list | None = None
+            value: list | None = None
 
             def __post_init__(self):
                 if self.time is None:
@@ -167,8 +167,8 @@ class TestPowerGraphPanelError:
         @dataclass
         class MismatchedResult:
             valid: bool = True
-            time: list = None
-            value: list = None
+            time: list | None = None
+            value: list | None = None
 
             def __post_init__(self):
                 if self.time is None:
@@ -214,8 +214,8 @@ class TestPowerGraphPanelSlackError:
         @dataclass
         class EmptyResult:
             valid: bool = False
-            time: list = None
-            value: list = None
+            time: list | None = None
+            value: list | None = None
 
             def __post_init__(self):
                 if self.time is None:
@@ -245,8 +245,8 @@ class TestPowerGraphPanelInvalidDataLogging:
         @dataclass
         class ValidButEmptyTime:
             valid: bool = True
-            time: list = None
-            value: list = None
+            time: list | None = None
+            value: list | None = None
 
             def __post_init__(self):
                 if self.time is None:
@@ -275,8 +275,8 @@ class TestPowerGraphPanelInvalidDataLogging:
         @dataclass
         class ValidButEmptyValue:
             valid: bool = True
-            time: list = None
-            value: list = None
+            time: list | None = None
+            value: list | None = None
 
             def __post_init__(self):
                 if self.time is None:

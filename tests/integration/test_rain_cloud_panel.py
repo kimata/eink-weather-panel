@@ -61,13 +61,13 @@ class TestRainCloudPanelError:
         import weather_display.panel.rain_cloud
 
         # 2回だけエラーにする
+        call_count = [0]
+
         def click_xpath_mock(driver, xpath, wait=None, is_warn=True):
-            click_xpath_mock.i += 1
-            if click_xpath_mock.i <= 2:
+            call_count[0] += 1
+            if call_count[0] <= 2:
                 raise RuntimeError()
             return click_xpath_orig(driver, xpath, wait, is_warn)
-
-        click_xpath_mock.i = 0
 
         weather_display.panel.rain_cloud.PATIENT_COUNT = 1
         mocker.patch("weather_display.panel.rain_cloud.click_xpath", side_effect=click_xpath_mock)
@@ -85,13 +85,13 @@ class TestRainCloudPanelError:
         import weather_display.panel.rain_cloud
 
         # 1回だけ False を返す
+        call_count = [0]
+
         def xpath_exists_mock(driver, xpath):
-            xpath_exists_mock.i += 1
-            if xpath_exists_mock.i == 1:
+            call_count[0] += 1
+            if call_count[0] == 1:
                 return False
             return xpath_exists(driver, xpath)
-
-        xpath_exists_mock.i = 0
 
         mocker.patch("my_lib.selenium_util.xpath_exists", side_effect=xpath_exists_mock)
 
@@ -106,13 +106,13 @@ class TestRainCloudPanelError:
         import weather_display.panel.rain_cloud
 
         # 1回だけエラーにする
-        def create_driver_impl_mock(profile_name, data_path):
-            create_driver_impl_mock.i += 1
-            if create_driver_impl_mock.i == 1:
-                raise RuntimeError()
-            return create_driver_impl(profile_name, data_path)
+        call_count = [0]
 
-        create_driver_impl_mock.i = 0
+        def create_driver_impl_mock(profile_name, data_path, is_headless=True):
+            call_count[0] += 1
+            if call_count[0] == 1:
+                raise RuntimeError()
+            return create_driver_impl(profile_name, data_path, is_headless)
 
         mocker.patch("my_lib.selenium_util.create_driver_impl", side_effect=create_driver_impl_mock)
 

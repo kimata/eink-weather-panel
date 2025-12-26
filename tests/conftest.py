@@ -119,12 +119,12 @@ def client(app):
 
 
 # === センサーデータモック ===
-def _gen_sensor_data(value=None, valid=True):
+def _gen_sensor_data(value: list[float] | None = None, valid: bool = True):
     """センサーデータを生成するヘルパー（内部用）"""
     from my_lib.sensor_data import SensorDataResult
 
     if value is None:
-        value = [30, 34, 25, 20]
+        value = [30.0, 34.0, 25.0, 20.0]
 
     time_list = [
         datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(hours=i - len(value))
@@ -134,52 +134,60 @@ def _gen_sensor_data(value=None, valid=True):
     return SensorDataResult(value=value, time=time_list, valid=valid)
 
 
+class _FetchDataMock:
+    """センサーデータ取得のモッククラス"""
+
+    def __init__(self):
+        self.count: dict[str, int] = {}
+
+    def __call__(  # noqa: PLR0911, PLR0912, PLR0913
+        self,
+        db_config,  # noqa: ARG002
+        measure,  # noqa: ARG002
+        hostname,  # noqa: ARG002
+        field,
+        start="-30h",  # noqa: ARG002
+        stop="now()",  # noqa: ARG002
+        every_min=1,  # noqa: ARG002
+        window_min=3,  # noqa: ARG002
+        create_empty=True,  # noqa: ARG002
+        last=False,  # noqa: ARG002
+    ):
+        if field in self.count:
+            self.count[field] += 1
+        else:
+            self.count[field] = 1
+
+        count = self.count[field]
+
+        if field == "temp":
+            return _gen_sensor_data([30.0, 20.0, 15.0, 0.0])
+        elif field == "power":
+            if count % 3 == 1:
+                return _gen_sensor_data([1500.0, 500.0, 750.0, 0.0])
+            elif count % 3 == 2:
+                return _gen_sensor_data([20.0, 15.0, 10.0, 0.0])
+            else:
+                return _gen_sensor_data([1000.0, 750.0, 500.0, 0.0], False)
+        elif field == "lux":
+            if count % 3 == 0:
+                return _gen_sensor_data([0.0, 250.0, 400.0, 500.0])
+            elif count % 3 == 1:
+                return _gen_sensor_data([0.0, 4.0, 6.0, 8.0])
+            else:
+                return _gen_sensor_data([0.0, 25.0, 200.0, 500.0], False)
+        elif field == "solar_rad":
+            return _gen_sensor_data([300.0, 150.0, 50.0, 0.0])
+        else:
+            return _gen_sensor_data([30.0, 20.0, 15.0, 0.0])
+
+
 @pytest.fixture
 def mock_sensor_fetch_data(mocker):
     """センサーデータ取得のモック"""
 
     def create_mock():
-        def fetch_data_mock(  # noqa: PLR0911, PLR0912, PLR0913
-            db_config,  # noqa: ARG001
-            measure,  # noqa: ARG001
-            hostname,  # noqa: ARG001
-            field,
-            start="-30h",  # noqa: ARG001
-            stop="now()",  # noqa: ARG001
-            every_min=1,  # noqa: ARG001
-            window_min=3,  # noqa: ARG001
-            create_empty=True,  # noqa: ARG001
-            last=False,  # noqa: ARG001
-        ):
-            if field in fetch_data_mock.count:
-                fetch_data_mock.count[field] += 1
-            else:
-                fetch_data_mock.count[field] = 1
-
-            count = fetch_data_mock.count[field]
-
-            if field == "temp":
-                return _gen_sensor_data([30, 20, 15, 0])
-            elif field == "power":
-                if count % 3 == 1:
-                    return _gen_sensor_data([1500, 500, 750, 0])
-                elif count % 3 == 2:
-                    return _gen_sensor_data([20, 15, 10, 0])
-                else:
-                    return _gen_sensor_data([1000, 750, 500, 0], False)
-            elif field == "lux":
-                if count % 3 == 0:
-                    return _gen_sensor_data([0, 250, 400, 500])
-                elif count % 3 == 1:
-                    return _gen_sensor_data([0, 4, 6, 8])
-                else:
-                    return _gen_sensor_data([0, 25, 200, 500], False)
-            elif field == "solar_rad":
-                return _gen_sensor_data([300, 150, 50, 0])
-            else:
-                return _gen_sensor_data([30, 20, 15, 0])
-
-        fetch_data_mock.count = {}
+        fetch_data_mock = _FetchDataMock()
 
         async def fetch_data_parallel_mock(db_config, requests):
             results = []
