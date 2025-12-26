@@ -204,7 +204,7 @@ def draw_weather(  # noqa: PLR0913
     next_pos_y = my_lib.pil_util.draw_text(
         img,
         weather.text,
-        [pos_x + icon.size[0] / 2.0, next_pos_y],
+        (pos_x + icon.size[0] / 2.0, next_pos_y),
         face_map["weather"]["value"],
         "center",
     )[1]
@@ -251,7 +251,7 @@ def draw_text_info(  # noqa: PLR0913
         my_lib.pil_util.draw_text(
             img,
             tenth_text,
-            [value_pos_x, pos_y],
+            (value_pos_x, pos_y),
             face["value"],
             "right",
             color,
@@ -264,7 +264,7 @@ def draw_text_info(  # noqa: PLR0913
         my_lib.pil_util.draw_text(
             img,
             "0.",
-            [int_pos_x, int_pos_y],
+            (int_pos_x, int_pos_y),
             face["zero"],
             "right",
             color,
@@ -283,7 +283,7 @@ def draw_text_info(  # noqa: PLR0913
         my_lib.pil_util.draw_text(
             img,
             value_text,
-            [value_pos_x, pos_y],
+            (value_pos_x, pos_y),
             face["value"],
             "right",
             color,
@@ -307,7 +307,7 @@ def draw_text_info(  # noqa: PLR0913
     my_lib.pil_util.draw_text(
         img,
         unit,
-        [unit_pos_x, unit_pos_y],
+        (unit_pos_x, unit_pos_y),
         face["unit"],
         color,
     )
@@ -454,10 +454,10 @@ def draw_wind(  # noqa: PLR0913
     return my_lib.pil_util.draw_text(
         img,
         wind.dir,
-        [
+        (
             pos_x + my_lib.pil_util.text_size(img, face["value"], "10")[0],
             next_pos_y,
-        ],
+        ),
         face["dir"],
         "right",
         color=color,
@@ -497,7 +497,7 @@ def draw_hour(  # noqa: PLR0913
         my_lib.pil_util.draw_text(
             img,
             str(hour),
-            [pos_x, pos_y],
+            (pos_x, pos_y),
             face["value"],
             "center",
             "#FFF",
@@ -506,7 +506,7 @@ def draw_hour(  # noqa: PLR0913
         my_lib.pil_util.draw_text(
             img,
             str(hour),
-            [pos_x, pos_y],
+            (pos_x, pos_y),
             face["value"],
             "center",
         )
@@ -639,7 +639,7 @@ def draw_date(
     next_pos_y = my_lib.pil_util.draw_text(
         img,
         date.strftime("%B"),
-        [text_pos_x, pos_y],
+        (text_pos_x, pos_y),
         face["month"],
         "center",
         "#666",
@@ -647,7 +647,7 @@ def draw_date(
     next_pos_y = my_lib.pil_util.draw_text(
         img,
         str(date.day),
-        [text_pos_x, next_pos_y + 14],
+        (text_pos_x, next_pos_y + 14),
         face["day"],
         "center",
         "#666",
@@ -656,10 +656,10 @@ def draw_date(
     next_pos_y = my_lib.pil_util.draw_text(
         img,
         date.strftime("(%a)"),
-        [
+        (
             text_pos_x,
             next_pos_y + my_lib.pil_util.text_size(img, face["wday"], "(土)")[1] * 0.2,
-        ],
+        ),
         face["wday"],
         "center",
         "#666",
@@ -692,7 +692,7 @@ def draw_sunset(  # noqa: PLR0913
     return my_lib.pil_util.draw_text(
         img,
         sunset_info,
-        [pos_x + OFFSET, pos_y],
+        (pos_x + OFFSET, pos_y),
         face["value"],
         "center",
         "#000",
