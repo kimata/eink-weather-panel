@@ -21,6 +21,7 @@ import time
 import traceback
 
 import matplotlib  # noqa: ICN001
+import matplotlib.axes
 import matplotlib.ticker
 import my_lib.notify.slack
 import my_lib.plot_util
@@ -98,11 +99,11 @@ def plot_item(
         logging.error("Mismatched data lengths: x=%d, y=%d", len(x), len(y))
         return
 
-    ax.set_ylim(ylim)
-    ax.set_xlim([x[0], x[-1] + datetime.timedelta(minutes=15)])
+    ax.set_ylim((ylim[0], ylim[1]))
+    ax.set_xlim((x[0], x[-1] + datetime.timedelta(minutes=15)))  # type: ignore[arg-type]
 
     ax.plot(
-        x,
+        x,  # type: ignore[arg-type]
         y,
         color="#CCCCCC",
         marker="o",
@@ -115,7 +116,7 @@ def plot_item(
         linestyle="solid",
     )
 
-    ax.fill_between(x, y, 0, facecolor="#D0D0D0", alpha=0.5)
+    ax.fill_between(x, y, 0, facecolor="#D0D0D0", alpha=0.5)  # type: ignore[arg-type]
 
     text = "?" if not data.valid else fmt.format(next((item for item in reversed(y) if item), None))
 

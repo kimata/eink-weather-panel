@@ -121,6 +121,7 @@ def metrics_basic_stats():
     try:
         analyzer, error_response, error_code = _get_analyzer()
         if analyzer is None:
+            assert error_response is not None and error_code is not None
             return error_response, error_code
 
         basic_stats = analyzer.get_basic_statistics()
@@ -140,6 +141,7 @@ def metrics_hourly_patterns():
     try:
         analyzer, error_response, error_code = _get_analyzer()
         if analyzer is None:
+            assert error_response is not None and error_code is not None
             return error_response, error_code
 
         hourly_patterns = analyzer.get_hourly_patterns()
@@ -159,6 +161,7 @@ def metrics_trends():
     try:
         analyzer, error_response, error_code = _get_analyzer()
         if analyzer is None:
+            assert error_response is not None and error_code is not None
             return error_response, error_code
 
         trends = analyzer.get_performance_trends()
@@ -178,6 +181,7 @@ def metrics_panel_trends():
     try:
         analyzer, error_response, error_code = _get_analyzer()
         if analyzer is None:
+            assert error_response is not None and error_code is not None
             return error_response, error_code
 
         panel_trends = analyzer.get_panel_performance_trends()
@@ -197,6 +201,7 @@ def metrics_alerts():
     try:
         analyzer, error_response, error_code = _get_analyzer()
         if analyzer is None:
+            assert error_response is not None and error_code is not None
             return error_response, error_code
 
         alerts = analyzer.check_performance_alerts()
@@ -216,6 +221,7 @@ def metrics_anomalies():
     try:
         analyzer, error_response, error_code = _get_analyzer()
         if analyzer is None:
+            assert error_response is not None and error_code is not None
             return error_response, error_code
 
         anomalies = analyzer.detect_anomalies()

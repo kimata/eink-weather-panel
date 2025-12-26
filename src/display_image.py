@@ -28,6 +28,7 @@ import threading
 import time
 import traceback
 import zoneinfo
+from typing import TYPE_CHECKING
 
 import my_lib.footprint
 import my_lib.panel_util
@@ -39,6 +40,9 @@ import weather_display.metrics.collector
 import weather_display.metrics.server
 import weather_display.timing_filter
 from weather_display.config import AppConfig
+
+if TYPE_CHECKING:
+    import paramiko
 
 TIMEZONE = zoneinfo.ZoneInfo("Asia/Tokyo")
 
@@ -76,9 +80,9 @@ def execute(  # noqa: PLR0913
     small_mode: bool,
     test_mode: bool,
     is_one_time: bool,
-    prev_ssh: object = None,
+    prev_ssh: paramiko.SSHClient | None = None,
     timing_controller: weather_display.timing_filter.TimingController | None = None,
-) -> tuple[object, float, weather_display.timing_filter.TimingController | None]:
+) -> tuple[paramiko.SSHClient | None, float, weather_display.timing_filter.TimingController | None]:
     start_time = datetime.datetime.now(TIMEZONE)
     start = time.perf_counter()
     success = True
@@ -89,7 +93,7 @@ def execute(  # noqa: PLR0913
     try:
         weather_display.display.ssh_kill_and_close(prev_ssh, "fbi")
 
-        ssh = weather_display.display.ssh_connect(rasp_hostname, key_file_path)
+        ssh = weather_display.display.ssh_connect(rasp_hostname, str(key_file_path))
 
         weather_display.display.execute(ssh, config, config_file, small_mode, test_mode)
 
@@ -204,7 +208,7 @@ def start(
     logging.info("Stop worker")
 
 
-def cleanup(handle: object) -> None:
+def cleanup(handle: weather_display.metrics.server.MetricsServerHandle) -> None:
     # アクティブなスレッドを確認
     logging.info("Active threads before cleanup: %d", threading.active_count())
     for thread in threading.enumerate():

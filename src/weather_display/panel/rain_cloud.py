@@ -13,7 +13,7 @@ Options:
 
 from __future__ import annotations
 
-import concurrent
+import concurrent.futures
 import io
 import logging
 import os
@@ -21,6 +21,7 @@ import pathlib
 import threading
 import time
 import traceback
+from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 import cv2
@@ -48,6 +49,19 @@ if TYPE_CHECKING:
     from selenium.webdriver.support.wait import WebDriverWait
 
 from weather_display.config import AppConfig, RainCloudConfig
+
+
+@dataclass
+class SubPanelConfig:
+    """サブパネル設定"""
+
+    is_future: bool
+    title: str
+    width: int
+    height: int
+    offset_x: int
+    offset_y: int
+
 
 PATIENT_COUNT = 3
 
@@ -422,12 +436,12 @@ def get_driver_profile_name(is_future: bool) -> str:
 
 def create_rain_cloud_img(
     rain_cloud_config: RainCloudConfig,
-    sub_panel_config: dict[str, object],
+    sub_panel_config: SubPanelConfig,
     face_map: dict[str, PIL.ImageFont.FreeTypeFont],
-    slack_config: my_lib.notify.slack.SlackErrorOnlyConfig | my_lib.notify.slack.SlackEmptyConfig,
+    slack_config: my_lib.notify.slack.HasErrorConfig | my_lib.notify.slack.SlackEmptyConfig,
     trial: int,
 ) -> tuple[PIL.Image.Image, PIL.Image.Image]:
-    logging.info("create rain cloud image (%s)", "future" if sub_panel_config["is_future"] else "current")
+    logging.info("create rain cloud image (%s)", "future" if sub_panel_config.is_future else "current")
 
     driver = None
     img = None
@@ -436,7 +450,7 @@ def create_rain_cloud_img(
         # undetected_chromedriver のパッチ処理は並列実行時に競合するためロックで保護
         with _driver_creation_lock:
             driver = my_lib.selenium_util.create_driver(
-                get_driver_profile_name(sub_panel_config["is_future"]), DATA_PATH
+                get_driver_profile_name(sub_panel_config.is_future), DATA_PATH
             )
 
         wait = selenium.webdriver.support.wait.WebDriverWait(driver, 5)
@@ -446,9 +460,9 @@ def create_rain_cloud_img(
             driver,
             wait,
             rain_cloud_config.data.jma.url,
-            sub_panel_config["width"],
-            sub_panel_config["height"],
-            sub_panel_config["is_future"],
+            sub_panel_config.width,
+            sub_panel_config.height,
+            sub_panel_config.is_future,
         )
     except Exception:
         if driver and (trial >= PATIENT_COUNT):
@@ -478,7 +492,7 @@ def create_rain_cloud_img(
 
     img, bar = retouch_cloud_image(img, rain_cloud_config)
     img = draw_equidistant_circle(img)
-    img = draw_caption(img, sub_panel_config["title"], face_map)
+    img = draw_caption(img, sub_panel_config.title, face_map)
 
     return (img, bar)
 
@@ -497,7 +511,7 @@ def draw_legend(
             bar.size[0] * bar_size,
             bar.size[1] * bar_size,
         ),
-        PIL.Image.NEAREST,
+        PIL.Image.Resampling.NEAREST,
     )
     draw = PIL.ImageDraw.Draw(bar)
     for i in range(len(RAINFALL_INTENSITY_LEVEL)):
@@ -585,23 +599,23 @@ def create_rain_cloud_panel_impl(
         offset_x = 0
         offset_y = int(rain_cloud_config.panel.height / 2)
 
-    SUB_PANEL_CONFIG_LIST = [
-        {
-            "is_future": False,
-            "title": "現在",
-            "width": sub_width,
-            "height": sub_height,
-            "offset_x": 0,
-            "offset_y": 0,
-        },
-        {
-            "is_future": True,
-            "title": "１時間後",
-            "width": sub_width,
-            "height": sub_height,
-            "offset_x": offset_x,
-            "offset_y": offset_y,
-        },
+    SUB_PANEL_CONFIG_LIST: list[SubPanelConfig] = [
+        SubPanelConfig(
+            is_future=False,
+            title="現在",
+            width=sub_width,
+            height=sub_height,
+            offset_x=0,
+            offset_y=0,
+        ),
+        SubPanelConfig(
+            is_future=True,
+            title="１時間後",
+            width=sub_width,
+            height=sub_height,
+            offset_x=offset_x,
+            offset_y=offset_y,
+        ),
     ]
 
     img = PIL.Image.new(
@@ -629,12 +643,14 @@ def create_rain_cloud_panel_impl(
         for sub_panel_config in SUB_PANEL_CONFIG_LIST
     ]
 
+    bar: PIL.Image.Image | None = None
     for i, sub_panel_config in enumerate(SUB_PANEL_CONFIG_LIST):
         sub_img, bar = task_list[i].result()
-        img.paste(sub_img, (sub_panel_config["offset_x"], sub_panel_config["offset_y"]))
+        img.paste(sub_img, (sub_panel_config.offset_x, sub_panel_config.offset_y))
 
     executor.shutdown(True)
 
+    assert bar is not None  # SUB_PANEL_CONFIG_LIST は常に2要素
     return draw_legend(img, bar, rain_cloud_config, face_map)
 
 
@@ -655,11 +671,7 @@ def create(
         img = PIL.Image.new("RGBA", (width, height), (200, 200, 200, 255))
 
         # 中央にテキストを描画
-        try:
-            font = my_lib.pil_util.get_font(config.font, "jp_medium", 40)
-        except Exception:
-            font = None
-
+        font = my_lib.pil_util.get_font(config.font, "jp_medium", 40)
         text = "雨雲レーダー\n(ダミー)"
         my_lib.pil_util.draw_text(img, text, (width // 2, height // 2), font, "center", "#666")
 

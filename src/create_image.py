@@ -32,6 +32,7 @@ import my_lib.panel_util
 import my_lib.pil_util
 import my_lib.proc_util
 import PIL.Image
+import PIL.ImageDraw
 
 import weather_display.config
 import weather_display.metrics.collector
@@ -109,9 +110,10 @@ def draw_panel(
         panel_img = result[0]
         elapsed = result[1]
         has_error = len(result) > 2
-        error_message = result[2] if has_error else None
+        error_message: str | None = result[2] if has_error else None
 
         if has_error:
+            assert error_message is not None
             my_lib.panel_util.notify_error(
                 config.slack,
                 "weather_panel",

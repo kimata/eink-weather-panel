@@ -15,12 +15,21 @@ from __future__ import annotations
 
 import logging
 import threading
+from dataclasses import dataclass
 
 import flask
 import flask_cors
 import werkzeug.serving
 
 from weather_display.config import AppConfig
+
+
+@dataclass
+class MetricsServerHandle:
+    """メトリクスサーバーのハンドル"""
+
+    server: werkzeug.serving.BaseWSGIServer
+    thread: threading.Thread
 
 
 def create_app(config: AppConfig) -> flask.Flask:
@@ -39,7 +48,7 @@ def create_app(config: AppConfig) -> flask.Flask:
 
     app.config["CONFIG"] = config
 
-    app.json.compat = True
+    app.json.compat = True  # type: ignore[attr-defined]
 
     app.register_blueprint(weather_display.metrics.webapi.page.blueprint)
 
@@ -50,7 +59,7 @@ def create_app(config: AppConfig) -> flask.Flask:
     return app
 
 
-def start(config: AppConfig, port: int) -> dict[str, object]:
+def start(config: AppConfig, port: int) -> MetricsServerHandle:
     # NOTE: Flask は別のプロセスで実行
     server = werkzeug.serving.make_server(
         "0.0.0.0",  # noqa: S104
@@ -64,28 +73,25 @@ def start(config: AppConfig, port: int) -> dict[str, object]:
 
     thread.start()
 
-    return {
-        "server": server,
-        "thread": thread,
-    }
+    return MetricsServerHandle(server=server, thread=thread)
 
 
-def term(handle: dict[str, object]) -> None:
+def term(handle: MetricsServerHandle) -> None:
     logging.info("Stop metrics server")
     logging.info(
         "Metrics server thread state: alive=%s, daemon=%s",
-        handle["thread"].is_alive(),
-        handle["thread"].daemon,
+        handle.thread.is_alive(),
+        handle.thread.daemon,
     )
 
-    handle["server"].shutdown()
-    handle["server"].server_close()
+    handle.server.shutdown()
+    handle.server.server_close()
 
     # タイムアウト付きでスレッドの終了を待つ
-    handle["thread"].join(timeout=10)
-    if handle["thread"].is_alive():
+    handle.thread.join(timeout=10)
+    if handle.thread.is_alive():
         logging.error(
-            "Metrics server thread did not stop within timeout (thread name: %s)", handle["thread"].name
+            "Metrics server thread did not stop within timeout (thread name: %s)", handle.thread.name
         )
     else:
         logging.info("Metrics server thread stopped successfully")
@@ -110,11 +116,11 @@ if __name__ == "__main__":
 
     config = my_lib.config.load(config_file)
 
-    metrics_server_handle = start(config, port)
+    metrics_server_handle = start(config, port)  # type: ignore[arg-type]
 
     try:
         # サーバーを継続実行
-        metrics_server_handle["thread"].join()
+        metrics_server_handle.thread.join()
     except KeyboardInterrupt:
         logging.info("Stopping metrics server...")
         term(metrics_server_handle)
