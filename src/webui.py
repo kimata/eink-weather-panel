@@ -106,6 +106,7 @@ def create_app(config_file_normal, config_file_small, dummy_mode=False):
 if __name__ == "__main__":
     import docopt
 
+    assert __doc__ is not None
     args = docopt.docopt(__doc__)
 
     config_file_normal = args["-c"]
