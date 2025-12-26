@@ -16,6 +16,7 @@ from __future__ import annotations
 import asyncio
 import datetime
 import functools
+from dataclasses import dataclass, field
 import io
 import logging
 import os
@@ -28,13 +29,14 @@ import matplotlib.dates
 import matplotlib.font_manager
 import matplotlib.gridspec
 import matplotlib.pyplot  # noqa: ICN001
+import matplotlib.ticker
 import my_lib.font_util
 import my_lib.panel_config
 import my_lib.panel_util
 import my_lib.plot_util
 import pandas.plotting
 import PIL.Image
-from my_lib.sensor_data import DataRequest, fetch_data_parallel
+from my_lib.sensor_data import DataRequest, SensorDataResult, fetch_data_parallel
 
 from weather_display.config import (
     AppConfig,
@@ -55,13 +57,31 @@ pandas.plotting.register_matplotlib_converters()
 IMAGE_DPI = 100.0
 
 
+@dataclass
+class PlotData:
+    """グラフ描画用のデータ構造"""
+
+    valid: bool = False
+    time: list[datetime.datetime] = field(default_factory=list)
+    time_numeric: list[float] = field(default_factory=list)
+    value: list[float | None] = field(default_factory=list)
+
+
+@dataclass
+class AxisConfig:
+    """軸設定用のデータ構造"""
+
+    major_locator: matplotlib.ticker.Locator
+    major_formatter: matplotlib.ticker.Formatter
+
+
 @functools.lru_cache(maxsize=8)
-def get_shared_axis_config() -> dict[str, object]:
+def get_shared_axis_config() -> AxisConfig:
     """共通の軸設定を返す（キャッシュ付き）"""
-    return {
-        "major_locator": matplotlib.dates.DayLocator(interval=1),
-        "major_formatter": matplotlib.dates.DateFormatter("%-d"),
-    }
+    return AxisConfig(
+        major_locator=matplotlib.dates.DayLocator(interval=1),
+        major_formatter=matplotlib.dates.DateFormatter("%-d"),
+    )
 
 
 FONT_SPEC: dict[str, my_lib.font_util.FontSpec] = {
@@ -82,28 +102,28 @@ def plot_item(  # noqa: PLR0913
     ax: matplotlib.axes.Axes,
     title: str | None,
     unit: str,
-    data: dict[str, object],
+    data: PlotData,
     xbegin_numeric: float,
-    ylim: list[float],
+    ylim: tuple[float, float],
     fmt: str,
     scale: str,
     small: bool,
     face_map: dict[str, matplotlib.font_manager.FontProperties],
-    axis_config: dict[str, object],
+    axis_config: AxisConfig,
 ) -> None:
     logging.info("Plot %s", title)
 
     # データがNoneの場合のフォールバック
     if data is None:
         logging.warning("plot_item received invalid data: %s", type(data))
-        data = {"time": [], "time_numeric": [], "value": [], "valid": False}
+        data = PlotData()
 
     # 事前に数値化された時間データを使用
-    x = data.get("time_numeric") if "time_numeric" in data else data.get("time", [])
-    y_raw = data.get("value", [])
+    x = data.time_numeric if data.time_numeric else data.time
+    y_raw = data.value
     y = list(y_raw) if y_raw else []
 
-    if not data.get("valid", False):
+    if not data.valid:
         text = "?"
     else:
         # NOTE: 下記の next の記法だとカバレッジが正しく取れない
@@ -119,28 +139,28 @@ def plot_item(  # noqa: PLR0913
     ax.set_ylim(ylim)
 
     # 数値化済みの時間範囲を設定
-    time_numeric = data.get("time_numeric")
-    if time_numeric is not None and len(time_numeric) > 0:
+    time_numeric = data.time_numeric
+    if time_numeric and len(time_numeric) > 0:
         # 3時間分のマージンを数値で追加（3時間 = 3/24日）
-        ax.set_xlim([xbegin_numeric, time_numeric[-1] + 3 / 24])
+        ax.set_xlim((xbegin_numeric, time_numeric[-1] + 3 / 24))
     else:
         # フォールバック：従来の方式
         logging.warning("数値化済み時間データが利用できないため、フォールバック処理を実行します")
         if isinstance(x, list) and len(x) > 0:
             if isinstance(x[-1], datetime.datetime):
                 logging.warning("datetime型の時間データをその場で数値化して使用します")
-                ax.set_xlim([xbegin_numeric, matplotlib.dates.date2num(x[-1]) + 3 / 24])
+                ax.set_xlim((xbegin_numeric, float(matplotlib.dates.date2num(x[-1])) + 3 / 24))
             else:
                 logging.warning("時間データを数値として直接使用します")
-                ax.set_xlim([xbegin_numeric, x[-1] + 3 / 24])
+                ax.set_xlim((xbegin_numeric, float(x[-1]) + 3 / 24))
         else:
             # さらなるフォールバック
             logging.warning("時間データが無効なため、固定の時間範囲を設定します")
-            ax.set_xlim([xbegin_numeric, xbegin_numeric + 3])
+            ax.set_xlim((xbegin_numeric, xbegin_numeric + 3))
 
     ax.plot(
-        x,
-        y,
+        x,  # type: ignore[arg-type]  # matplotlib accepts list types
+        y,  # type: ignore[arg-type]
         color="#CCCCCC",
         marker="o",
         markevery=[len(y) - 1],
@@ -152,13 +172,19 @@ def plot_item(  # noqa: PLR0913
         linestyle="solid",
     )
 
-    ax.fill_between(x, y, 0, facecolor="#DDDDDD", alpha=0.5)
+    ax.fill_between(
+        x,  # type: ignore[arg-type]  # matplotlib accepts list types
+        y,  # type: ignore[arg-type]
+        0,
+        facecolor="#DDDDDD",
+        alpha=0.5,
+    )
 
     font = face_map["value_small"] if small else face_map["value"]
 
     # 共有された軸設定を使用
-    ax.xaxis.set_major_locator(axis_config["major_locator"])
-    ax.xaxis.set_major_formatter(axis_config["major_formatter"])
+    ax.xaxis.set_major_locator(axis_config.major_locator)
+    ax.xaxis.set_major_formatter(axis_config.major_formatter)
     for label in ax.get_xticklabels():
         label.set_fontproperties(face_map["xaxis"])
 
@@ -199,14 +225,9 @@ def create_sensor_graph_impl(  # noqa: C901, PLR0912, PLR0915
         fig.set_size_inches(width / IMAGE_DPI, height / IMAGE_DPI)
 
         # NOTE: 全データを並列で一度に取得してキャッシュ（最適化）
-        data_cache: dict[str, dict[int, dict[str, object]]] = {}
-        cache: dict[str, object] = {
-            "time": [],
-            "time_numeric": [],
-            "value": [],
-            "valid": False,
-        }
-        range_map: dict[str, list[float]] = {}
+        data_cache: dict[str, dict[int, PlotData]] = {}
+        cache: PlotData = PlotData()
+        range_map: dict[str, tuple[float, float]] = {}
         time_begin = datetime.datetime.now(datetime.timezone.utc)
 
         # 並列取得用のリクエストリストを準備
@@ -260,12 +281,17 @@ def create_sensor_graph_impl(  # noqa: C901, PLR0912, PLR0915
         for param in sensor_config.param_list:
             for col, room in enumerate(room_list):
                 # 複数のセンサーから最初の有効なデータを選択
-                data = None
+                data: SensorDataResult | None = None
                 for sensor in room.sensor:
                     request_key = (param.name, col, sensor.measure, sensor.hostname)
                     if request_key in request_map:  # pragma: no branch  # 同じデータから構築されるため常にTrue
                         request_index = request_map[request_key]
                         candidate_data = results[request_index]
+
+                        # BaseException をスキップ
+                        if isinstance(candidate_data, BaseException):
+                            logging.warning("Sensor data fetch failed: %s", candidate_data)
+                            continue
 
                         if candidate_data.valid:
                             data = candidate_data
@@ -277,31 +303,31 @@ def create_sensor_graph_impl(  # noqa: C901, PLR0912, PLR0915
                     request_key = (param.name, col, last_sensor.measure, last_sensor.hostname)
                     if request_key in request_map:  # pragma: no branch  # 同じデータから構築されるため常にTrue
                         request_index = request_map[request_key]
-                        data = results[request_index]
+                        last_result = results[request_index]
+                        if isinstance(last_result, SensorDataResult):
+                            data = last_result
 
-                # SensorDataResult を辞書に変換して time_numeric を追加できるようにする
-                if data:
-                    data_dict: dict[str, object] = {"valid": data.valid, "time": data.time, "value": data.value}
+                # SensorDataResult を PlotData に変換して time_numeric を追加
+                if data is not None:
+                    plot_data = PlotData(valid=data.valid, time=list(data.time), value=list(data.value))
                 else:  # pragma: no cover  # room.sensor が空の場合のみ
-                    data_dict = {"valid": False, "time": [], "value": []}
-                data_cache[param.name][col] = data_dict
+                    plot_data = PlotData()
+                data_cache[param.name][col] = plot_data
 
-                if data_dict.get("valid"):
+                if plot_data.valid:
                     # 日付を数値化（最適化）
-                    time_data = data_dict.get("time", [])
+                    time_data = plot_data.time
                     if time_data:
-                        data_dict["time_numeric"] = matplotlib.dates.date2num(time_data)
+                        plot_data.time_numeric = list(matplotlib.dates.date2num(time_data))
                         time_begin = min(time_begin, time_data[0])
-                    else:
-                        data_dict["time_numeric"] = []
 
-                    if not cache.get("time"):
-                        cache = {
-                            "time": time_data,
-                            "time_numeric": data_dict.get("time_numeric", []),
-                            "value": [EMPTY_VALUE for _ in range(len(time_data))],
-                            "valid": False,
-                        }
+                    if not cache.time:
+                        cache = PlotData(
+                            valid=False,
+                            time=time_data,
+                            time_numeric=plot_data.time_numeric,
+                            value=[EMPTY_VALUE for _ in range(len(time_data))],
+                        )
 
         # キャッシュからレンジを計算
         for param in sensor_config.param_list:
@@ -309,27 +335,27 @@ def create_sensor_graph_impl(  # noqa: C901, PLR0912, PLR0915
             param_max = -float("inf")
 
             for col in range(len(room_list)):
-                data = data_cache[param.name][col]
-                if not data.get("valid"):
+                cached_data = data_cache[param.name][col]
+                if not cached_data.valid:
                     continue
 
-                value_list = data.get("value", [])
+                value_list = cached_data.value
                 min_val = min([item for item in value_list if item is not None])
                 max_val = max([item for item in value_list if item is not None])
                 param_min = min(param_min, min_val)
                 param_max = max(param_max, max_val)
 
             # NOTE: 見やすくなるように、ちょっと広げる
-            range_map[param.name] = [
+            range_map[param.name] = (
                 max(0, param_min - (param_max - param_min) * 0.3),
                 param_max + (param_max - param_min) * 0.05,
-            ]
+            )
 
         # 共通の軸設定を取得（日付変換最適化）
         axis_config = get_shared_axis_config()
 
         # 開始時間を数値化
-        time_begin_numeric = matplotlib.dates.date2num(time_begin)
+        time_begin_numeric = float(matplotlib.dates.date2num(time_begin))
 
         # サブプロットを一括生成（最適化）
         num_rows = len(sensor_config.param_list)
@@ -351,22 +377,22 @@ def create_sensor_graph_impl(  # noqa: C901, PLR0912, PLR0915
 
             for col, room in enumerate(room_list):
                 # キャッシュからデータを取得（最適化）
-                data = data_cache[param.name][col]
-                if not data.get("valid"):
-                    data = cache
+                plot_data = data_cache[param.name][col]
+                if not plot_data.valid:
+                    plot_data = cache
 
                 # 一括生成したaxesを使用
                 ax_index = row * num_cols + col
                 ax = axes[ax_index]
 
                 title = room.label if row == 0 else None
-                graph_range = range_map[param.name] if param.range == "auto" else list(param.range)
+                graph_range = range_map[param.name] if param.range == "auto" else (param.range[0], param.range[1])
 
                 plot_item(
                     ax,
                     title,
                     param.unit,
-                    data,
+                    plot_data,
                     time_begin_numeric,
                     graph_range,
                     param.format,
@@ -384,8 +410,7 @@ def create_sensor_graph_impl(  # noqa: C901, PLR0912, PLR0915
                     )
 
                 if (param.name == "lux") and room.light_icon:
-                    value_list = data.get("value", [])
-                    draw_light_icon(ax, value_list, sensor_config.icon)
+                    draw_light_icon(ax, plot_data.value, sensor_config.icon)
 
         buf = io.BytesIO()
         # グレースケール画像を直接生成（最適化）
@@ -411,13 +436,17 @@ def create(config: AppConfig) -> tuple[PIL.Image.Image, float] | tuple[PIL.Image
     logging.info("draw sensor graph")
     start = time.perf_counter()
 
+    # NOTE: sensor_graph は通常モードでのみ呼ばれるため、sensor は常に存在する (config.schema で必須)
+    assert config.sensor is not None, "sensor configuration is required for normal mode"
+    sensor_config = config.sensor
+
     context = my_lib.panel_config.DatabasePanelContext(
         font_config=config.font,
         db_config=config.influxdb,
     )
 
     try:
-        img = create_sensor_graph_impl(config.sensor, context)
+        img = create_sensor_graph_impl(sensor_config, context)
         elapsed_time = time.perf_counter() - start
 
         return (img, elapsed_time)
@@ -426,7 +455,7 @@ def create(config: AppConfig) -> tuple[PIL.Image.Image, float] | tuple[PIL.Image
         elapsed_time = time.perf_counter() - start
 
         return (
-            my_lib.panel_util.create_error_image(config.sensor, context.font_config, error_message),
+            my_lib.panel_util.create_error_image(sensor_config, context.font_config, error_message),
             elapsed_time,
             error_message,
         )
