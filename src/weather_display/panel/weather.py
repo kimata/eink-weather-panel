@@ -36,7 +36,18 @@ import PIL.Image
 import PIL.ImageDraw
 import PIL.ImageEnhance
 import PIL.ImageFont
-from my_lib.weather import get_clothing_yahoo, get_wbgt, get_weather_yahoo
+from my_lib.weather import (
+    ClothingResult,
+    HourlyData,
+    SunsetResult,
+    WbgtResult,
+    WeatherInfo,
+    WeatherResult,
+    WindInfo,
+    get_clothing_yahoo,
+    get_wbgt,
+    get_weather_yahoo,
+)
 
 from weather_display.config import AppConfig, IconConfig, SunsetConfig, WbgtConfig, WeatherConfig
 
@@ -119,7 +130,7 @@ def get_face_map(font_config: my_lib.panel_config.FontConfigProtocol) -> dict[st
     return my_lib.font_util.build_pil_face_map_nested(font_config, FONT_SPEC_NESTED)
 
 
-def get_image(weather_info: object) -> PIL.Image.Image:
+def get_image(weather_info: WeatherInfo) -> PIL.Image.Image:
     tone = 32
     gamma = 0.24
 
@@ -186,7 +197,7 @@ def calc_misnar_formula(temp: float, humi: float, wind: float) -> float:
 
 def draw_weather(  # noqa: PLR0913
     img: PIL.Image.Image,
-    weather: object,
+    weather: WeatherInfo,
     overlay: PIL.Image.Image,
     pos_x: float,
     pos_y: float,
@@ -382,7 +393,7 @@ def draw_precip(  # noqa: PLR0913
 
 def draw_wind(  # noqa: PLR0913
     img: PIL.Image.Image,
-    wind: object,
+    wind: WindInfo,
     is_first: bool,
     pos_x: float,
     pos_y: float,
@@ -516,7 +527,7 @@ def draw_hour(  # noqa: PLR0913
 
 def draw_weather_info(  # noqa: PLR0913
     img: PIL.Image.Image,
-    info: object,
+    info: HourlyData,
     wbgt: float | None,
     is_wbgt_exist: bool,
     is_today: bool,
@@ -776,10 +787,10 @@ def draw_panel_weather(  # noqa: PLR0913
     img: PIL.Image.Image,
     weather_config: WeatherConfig,
     font_config: my_lib.panel_config.FontConfigProtocol,
-    weather_info: object,
-    clothing_info: object,
-    sunset_info: object,
-    wbgt_info: object,
+    weather_info: WeatherResult,
+    clothing_info: ClothingResult,
+    sunset_info: SunsetResult,
+    wbgt_info: WbgtResult,
     is_side_by_side: bool,
 ) -> None:
     icon: dict[str, PIL.Image.Image] = {}
@@ -845,7 +856,7 @@ def draw_panel_weather(  # noqa: PLR0913
 def create_weather_panel_impl(
     panel_config: my_lib.panel_config.PanelConfigProtocol,
     context: my_lib.panel_config.NormalPanelContext,
-    opt_config: object,
+    opt_config: OptConfig,
 ) -> PIL.Image.Image:
     # panel_config is WeatherConfig
     weather_config: WeatherConfig = panel_config  # type: ignore[assignment]
