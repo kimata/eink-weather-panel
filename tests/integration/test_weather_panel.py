@@ -87,11 +87,11 @@ class TestWeatherPanelWithMockedData:
         @dataclass
         class MockHourInfo:
             hour: int = 12
-            weather: MockWeather = None
+            weather: MockWeather | None = None
             temp: float = 25.0
             precip: float = 0.0
             humi: float = 50.0
-            wind: MockWind = None
+            wind: MockWind | None = None
 
             def __post_init__(self):
                 if self.weather is None:
@@ -101,7 +101,7 @@ class TestWeatherPanelWithMockedData:
 
         @dataclass
         class MockDayInfo:
-            data: list = None
+            data: list | None = None
 
             def __post_init__(self):
                 if self.data is None:
@@ -109,8 +109,8 @@ class TestWeatherPanelWithMockedData:
 
         @dataclass
         class MockWeatherInfo:
-            today: MockDayInfo = None
-            tomorrow: MockDayInfo = None
+            today: MockDayInfo | None = None
+            tomorrow: MockDayInfo | None = None
 
             def __post_init__(self):
                 if self.today is None:
@@ -124,8 +124,8 @@ class TestWeatherPanelWithMockedData:
 
         @dataclass
         class MockClothingInfo:
-            today: MockClothingDay = None
-            tomorrow: MockClothingDay = None
+            today: MockClothingDay | None = None
+            tomorrow: MockClothingDay | None = None
 
             def __post_init__(self):
                 if self.today is None:
@@ -140,8 +140,8 @@ class TestWeatherPanelWithMockedData:
 
         @dataclass
         class MockWbgtDaily:
-            today: list = None
-            tomorrow: list = None
+            today: list | None = None
+            tomorrow: list | None = None
 
             def __post_init__(self):
                 if self.today is None:
@@ -151,7 +151,7 @@ class TestWeatherPanelWithMockedData:
 
         @dataclass
         class MockWbgtInfo:
-            daily: MockWbgtDaily = None
+            daily: MockWbgtDaily | None = None
 
             def __post_init__(self):
                 if self.daily is None:

@@ -11,7 +11,7 @@ import threading
 import time
 import traceback
 import uuid
-from typing import Any, TypedDict
+from typing import Any, NotRequired, TypedDict
 
 import flask
 import my_lib.flask_util
@@ -25,7 +25,7 @@ class PanelData(TypedDict):
     log: queue.Queue[bytes | None]
     image: bytes | None
     time: float
-    future: concurrent.futures.Future[None] | None
+    future: NotRequired[concurrent.futures.Future[None] | None]
 
 
 thread_pool: concurrent.futures.ThreadPoolExecutor | None = None
