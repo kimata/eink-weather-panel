@@ -40,6 +40,7 @@ import selenium.webdriver.common.by
 import selenium.webdriver.support
 import selenium.webdriver.support.expected_conditions
 import selenium.webdriver.support.wait
+import my_lib.selenium_util
 from my_lib.selenium_util import click_xpath  # NOTE: テスト時に mock する
 
 if TYPE_CHECKING:

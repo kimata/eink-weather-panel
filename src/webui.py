@@ -24,6 +24,7 @@ import flask
 import flask_cors
 import my_lib.config
 import my_lib.logger
+import my_lib.proc_util
 
 import weather_display.metrics.webapi.page
 import weather_display.runner.webapi.run

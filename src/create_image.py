@@ -27,6 +27,7 @@ import threading
 import time
 import traceback
 
+import my_lib.panel_config
 import my_lib.panel_util
 import my_lib.pil_util
 import my_lib.proc_util
@@ -151,7 +152,7 @@ def draw_panel(
     draw_wall(config, img)
 
     # パネル配置順序とオフセット取得用マッピング
-    panel_configs: dict[str, my_lib.panel_util.PanelGeometry] = {
+    panel_configs: dict[str, my_lib.panel_config.PanelGeometry] = {
         "power": config.power.panel,
         "weather": config.weather.panel,
         "rain_cloud": config.rain_cloud.panel,
