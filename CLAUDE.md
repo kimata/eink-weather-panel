@@ -196,7 +196,7 @@ env RASP_HOSTNAME="hostname" uv run src/display_image.py
 ### Kubernetes
 
 - **Namespace**: `panel`
-- **Deployment**: `kubernetes/e-ink_weater_panel.yaml`
+- **Deployment**: `kubernetes/eink-weather-panel.yaml`
 - **Liveness probe**: `healthz.py` (120s initial delay, 60s period)
 - **Resource limits**: 512Mi minimum, 2Gi maximum memory
 
