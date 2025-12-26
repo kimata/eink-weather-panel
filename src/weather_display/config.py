@@ -11,10 +11,10 @@ from __future__ import annotations
 
 import pathlib
 from dataclasses import dataclass, field
-from typing import Any, Literal
+from typing import Any, Literal, cast
 
 import my_lib.config
-from my_lib.notify.slack import SlackConfigTypes, SlackEmptyConfig
+from my_lib.notify.slack import SlackEmptyConfig, SlackErrorOnlyConfig
 from my_lib.notify.slack import parse_config as parse_slack_config
 from my_lib.panel_config import FontConfig, IconConfig, PanelGeometry
 from my_lib.sensor_data import InfluxDBConfig
@@ -356,7 +356,7 @@ class AppConfig:
     sensor: SensorConfig | None = None
     rain_fall: RainFallConfig | None = None
     wall: WallConfig = field(default_factory=lambda: WallConfig(image=[]))
-    slack: SlackConfigTypes = field(default_factory=SlackEmptyConfig)
+    slack: SlackErrorOnlyConfig | SlackEmptyConfig = field(default_factory=SlackEmptyConfig)
     metrics: MetricsConfig | None = None
     webapp: WebAppConfig | None = None
 
@@ -632,7 +632,10 @@ def parse_config(data: dict[str, Any]) -> AppConfig:
         sensor=sensor,
         rain_fall=rain_fall,
         wall=wall,
-        slack=parse_slack_config(data.get("slack", {})),
+        slack=cast(
+            SlackErrorOnlyConfig | SlackEmptyConfig,
+            parse_slack_config(data.get("slack", {})),
+        ),
         metrics=_parse_metrics(data.get("metrics")),
         webapp=_parse_webapp(data.get("webapp")),
     )
