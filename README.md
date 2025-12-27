@@ -1,7 +1,7 @@
 # E-Ink Weather Panel
 
 [![Test Status](https://github.com/kimata/eink-weather-panel/actions/workflows/regression.yaml/badge.svg)](https://github.com/kimata/eink-weather-panel/actions/workflows/regression.yaml)
-[![Test Report](https://img.shields.io/badge/test-report-blue)](https://kimata.github.io/eink-weather-panel/report.html)
+[![Test Report](https://img.shields.io/badge/test-report-blue)](https://kimata.github.io/eink-weather-panel/pytest.html)
 [![Coverage Report](https://img.shields.io/badge/coverage-report-blue)](https://kimata.github.io/eink-weather-panel/coverage/)
 
 > **総合気象パネル for E-Ink Display**

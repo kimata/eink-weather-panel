@@ -82,7 +82,7 @@ jobs:
               run: |
                   uv sync
             - name: Run Tests
-              run: uv run pytest --numprocesses=auto --junit-xml=reports/junit.xml --html=reports/report.html --self-contained-html --cov=src --cov-report=html:reports/coverage tests/unit/ tests/integration/ tests/webapp/
+              run: uv run pytest --junit-xml=reports/junit.xml --cov-report=html:reports/coverage
             - name: Generate index.html
               if: always()
               run: |
@@ -105,7 +105,7 @@ jobs:
                   <body>
                       <h1>Test Reports</h1>
                       <ul>
-                          <li><a href="report.html">Test Results</a></li>
+                          <li><a href="pytest.html">Test Results</a></li>
                           <li><a href="coverage/">Coverage Report</a></li>
                       </ul>
                   </body>
