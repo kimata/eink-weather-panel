@@ -388,46 +388,6 @@ test-webapp:
             - reports/**
         reports:
             junit: reports/e2e-junit.xml
-pages:
-    stage: test
-    needs:
-        - test-walk-through
-    script:
-        - mkdir -p public/
-        - cp -r reports/* public/ || true
-        - cp -r htmlcov public/coverage || true
-        - |
-            cat > public/index.html << 'EOF'
-            <!DOCTYPE html>
-            <html lang="ja">
-            <head>
-                <meta charset="UTF-8">
-                <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                <title>Test Reports - eink-weather-panel</title>
-                <style>
-                    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 50px auto; padding: 20px; }
-                    h1 { color: #333; }
-                    ul { list-style: none; padding: 0; }
-                    li { margin: 10px 0; }
-                    a { color: #0366d6; text-decoration: none; font-size: 1.2em; }
-                    a:hover { text-decoration: underline; }
-                </style>
-            </head>
-            <body>
-                <h1>Test Reports</h1>
-                <ul>
-                    <li><a href="report.html">Test Results</a></li>
-                    <li><a href="coverage/">Coverage Report</a></li>
-                </ul>
-            </body>
-            </html>
-            EOF
-    artifacts:
-        paths:
-            - public
-
-    rules:
-        - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
 
 tag-latest:
     stage: tag-latest
