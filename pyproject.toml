@@ -6,11 +6,11 @@ authors = [
     { name = "KIMATA Tetsuya", email = "kimata@green-rabbit.net" }
 ]
 readme = "README.md"
-requires-python = ">= 3.10"
+requires-python = ">=3.11"
 
 dependencies = [
     "influxdb-client[ciso]>=1.44.0",
-    "my-lib @ git+https://github.com/kimata/my-py-lib@22ae346853c77824eeb5e3f7ef3581d251497fd7",
+    "my-lib @ git+https://github.com/kimata/my-py-lib@7533b141cb340a9d78b6371bd2cb29db77e10f42",
     "opencv-contrib-python-headless>=4.10.0.84",
     "matplotlib>=3.9.2",
     "pandas>=2.2.2",
@@ -38,8 +38,10 @@ dev = [
     "pytest-timeout>=2.4.0",
     "time-machine>=2.16.0",
     "mypy>=1.14.0",
+    "pyright>=1.1.0",
     "types-pytz>=2024.1.0",
     "types-paramiko>=3.4.0",
+    "types-pyyaml>=6.0.12",
 ]
 
 [tool.uv]
@@ -93,7 +95,7 @@ exclude_lines = [
 ]
 
 [tool.coverage.html]
-directory = "tests/evidence/coverage"
+directory = "reports/coverage"
 
 [tool.pyright]
 venvPath = "."
