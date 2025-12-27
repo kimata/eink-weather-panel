@@ -297,6 +297,26 @@ driver = create_driver(...)
 
 これにより、関数やクラスがどのモジュールに属しているかが明確になり、コードの可読性と保守性が向上する。
 
+### 型アノテーションと型情報のないライブラリ
+
+型情報を持たないライブラリを使用する場合、大量の `# type: ignore[union-attr]` を記載する代わりに、変数に `Any` 型を明示的に指定する：
+
+```python
+from typing import Any
+
+# 推奨: Any 型を明示して type: ignore を不要にする
+result: Any = some_untyped_lib.call()
+result.method1()
+result.method2()
+
+# 非推奨: 大量の type: ignore コメント
+result = some_untyped_lib.call()  # type: ignore[union-attr]
+result.method1()  # type: ignore[union-attr]
+result.method2()  # type: ignore[union-attr]
+```
+
+これにより、コードの可読性を維持しつつ型チェッカーのエラーを抑制できる。
+
 ### パネル作成パターン
 
 各パネルモジュールは以下のパターンに従う：
