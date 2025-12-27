@@ -101,6 +101,7 @@ directory = "reports/coverage"
 venvPath = "."
 venv = ".venv"
 pythonVersion = "3.13"
+include = ["src", "tests"]
 
 [tool.mypy]
 python_version = "3.13"
