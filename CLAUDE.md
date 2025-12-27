@@ -17,8 +17,11 @@ uv sync
 # Run main application locally
 env RASP_HOSTNAME="hostname" uv run src/display_image.py
 
-# Run basic functionality tests
-uv run pytest --timeout=240 -x tests/test_basic.py
+# Run unit tests
+uv run pytest --timeout=240 -x tests/unit
+
+# Run integration tests
+uv run pytest --timeout=240 -x tests/integration
 
 # Run all tests with coverage
 uv run pytest --cov=src --cov-report=html tests/
