@@ -1,6 +1,8 @@
 # E-Ink Weather Panel
 
 [![Test Status](https://github.com/kimata/eink-weather-panel/actions/workflows/regression.yaml/badge.svg)](https://github.com/kimata/eink-weather-panel/actions/workflows/regression.yaml)
+[![Test Report](https://img.shields.io/badge/test-report-blue)](https://kimata.github.io/eink-weather-panel/report.html)
+[![Coverage Report](https://img.shields.io/badge/coverage-report-blue)](https://kimata.github.io/eink-weather-panel/coverage/)
 
 > **総合気象パネル for E-Ink Display**
 > Raspberry Pi と E-Ink ディスプレイで構築する、包括的な気象情報表示システム
@@ -330,10 +332,6 @@ pre-commit run --all-files
 |------------------|------|
 | **GitHub Actions** | テスト実行、GitHub Pages へのレポート公開 |
 | **GitLab CI** | Docker ビルド、Kubernetes デプロイ |
-
-**レポート:**
-- [テスト結果](https://kimata.github.io/eink-weather-panel/report.html)
-- [カバレッジレポート](https://kimata.github.io/eink-weather-panel/coverage/)
 
 ## 開発者向け
 
