@@ -1,289 +1,315 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+このファイルは Claude Code がこのリポジトリで作業する際のガイダンスを提供します。
 
-## Project Overview
+## プロジェクト概要
 
-E-Ink Weather Panel is a Python application that generates comprehensive weather display images for e-ink displays connected to Raspberry Pi devices. The system integrates data from Yahoo Weather API, Japan Meteorological Agency rain radar, and InfluxDB sensor data to create multi-panel weather displays.
+E-Ink Weather Panel は、Raspberry Pi に接続された E-Ink ディスプレイ向けに気象情報表示画像を生成する Python アプリケーションです。Yahoo Weather API、気象庁雨雲レーダー、InfluxDB センサーデータを統合し、マルチパネルの気象ディスプレイを作成します。
 
-## Development Commands
+## 重要な注意事項
 
-### Python Environment (uv)
+### 外部ライブラリ (my_lib) の変更
+
+- `my_lib` のソースコードは `../my-py-lib` に存在する
+- リファクタリング等で `my_lib` の修正が必要な場合：
+  1. **必ず事前に何を変更したいか説明し、確認を取ること**
+  2. `../my-py-lib` で修正を行い、commit & push する
+  3. このリポジトリの `pyproject.toml` のコミットハッシュを更新する
+  4. `uv sync` を実行して依存関係を更新する
+
+### プロジェクト設定ファイルの変更
+
+- `pyproject.toml` をはじめとする一般的なプロジェクト管理ファイルは `../py-project` で管理している
+- 設定ファイルを変更したい場合：
+  1. **必ず事前に何を変更したいか説明し、確認を取ること**
+  2. `../py-project` を使って更新する
+  3. **このリポジトリの設定ファイルを直接編集しないこと**
+
+### ドキュメントの更新
+
+- コードを更新した際は、`README.md` や `CLAUDE.md` を更新する必要がないか検討すること
+- 特に以下の場合は更新を検討：
+  - 新機能の追加
+  - API やコマンドの変更
+  - アーキテクチャの変更
+  - 設定項目の追加・変更
+
+## 開発コマンド
+
+### Python 環境 (uv)
 
 ```bash
-# Install dependencies
+# 依存関係のインストール
 uv sync
 
-# Run main application locally
+# アプリケーションのローカル実行
 env RASP_HOSTNAME="hostname" uv run src/display_image.py
 
-# Run unit tests
+# ユニットテスト
 uv run pytest --timeout=240 -x tests/unit
 
-# Run integration tests
+# 統合テスト
 uv run pytest --timeout=240 -x tests/integration
 
-# Run all tests with coverage
+# カバレッジ付き全テスト
 uv run pytest --cov=src --cov-report=html tests/
 
-# Run specific test file
+# 特定のテストファイルを実行
 uv run pytest tests/unit/test_config.py
 
-# Run E2E tests (requires running webapp)
+# E2E テスト (webapp の起動が必要)
 uv run pytest tests/e2e/test_webapp.py --host <host-ip> --port <port>
 
-# Type check
+# 型チェック
 uv run pyright
 ```
 
-### React Frontend
+### React フロントエンド
 
 ```bash
 cd react
 
-# Install dependencies
+# 依存関係のインストール
 npm ci
 
-# Development server
+# 開発サーバー起動
 npm run dev
 
-# Build for production
+# 本番用ビルド
 npm run build
 
-# Lint code
+# Lint
 npm run lint
 ```
 
-### Docker Development
+### Docker 開発
 
 ```bash
-# Build frontend first
+# フロントエンドを先にビルド
 cd react && npm ci && npm run build && cd -
 
-# Run with Docker Compose
+# Docker Compose で実行
 docker compose run --build --rm weather_panel
 ```
 
-## Architecture
+## アーキテクチャ
 
-### Core Components
+### コアコンポーネント
 
-| File | Description |
-|------|-------------|
-| `src/create_image.py` | Image generation using multiprocessing pool for parallel panel rendering |
-| `src/display_image.py` | Main application loop, SSH connection management to Raspberry Pi |
-| `src/healthz.py` | Kubernetes liveness probe implementation |
-| `src/webui.py` | Flask-based web UI server for testing/viewing images |
-| `src/weather_display/display.py` | SSH connection management, image transfer, retry logic with `exec_patiently()` |
-| `src/weather_display/config.py` | Frozen dataclass-based configuration with YAML parsing |
+| ファイル | 説明 |
+|----------|------|
+| `src/create_image.py` | multiprocessing を使用した並列パネル描画による画像生成 |
+| `src/display_image.py` | メインループ、Raspberry Pi への SSH 接続管理 |
+| `src/healthz.py` | Kubernetes liveness probe |
+| `src/webui.py` | Flask ベースの Web UI サーバー |
+| `src/weather_display/display.py` | SSH 接続管理、画像転送、`exec_patiently()` によるリトライロジック |
+| `src/weather_display/config.py` | frozen dataclass ベースの YAML 設定パース |
 
-### Weather Display Panels (`src/weather_display/panel/`)
+### 気象パネル (`src/weather_display/panel/`)
 
-| File | Description | Data Source |
-|------|-------------|-------------|
-| `weather.py` | Weather forecast (24-48hr hourly), temperature, precipitation, wind, feel temperature | Yahoo Weather API |
-| `rain_cloud.py` | Rain radar images (current + 1 hour forecast) | Japan Meteorological Agency (via Selenium) |
-| `sensor_graph.py` | Multi-room sensor data visualization (temp, humidity, CO2, lux) with async fetching | InfluxDB |
-| `sensor_graph_utils.py` | Utility functions for icon drawing and air conditioner power detection | - |
-| `power_graph.py` | Power consumption monitoring graph with historical trends | InfluxDB |
-| `wbgt.py` | WBGT heat index display with 5-level face icons | Ministry of Environment API |
-| `rain_fall.py` | Current rainfall amount overlay with duration tracking | InfluxDB (rain gauge sensor) |
-| `time.py` | Current time display (Asia/Tokyo timezone) | System clock |
+| ファイル | 説明 | データソース |
+|----------|------|--------------|
+| `weather.py` | 天気予報 (24-48時間の時間別)、気温、降水量、風、体感温度 | Yahoo Weather API |
+| `rain_cloud.py` | 雨雲レーダー画像 (現在 + 1時間予報) | 気象庁 (Selenium 経由) |
+| `sensor_graph.py` | 複数部屋のセンサーデータ可視化 (温度、湿度、CO2、照度) | InfluxDB |
+| `sensor_graph_utils.py` | アイコン描画、エアコン電力検出のユーティリティ | - |
+| `power_graph.py` | 電力消費監視グラフ | InfluxDB |
+| `wbgt.py` | WBGT 暑さ指数表示 (5段階フェイスアイコン) | 環境省 API |
+| `rain_fall.py` | 現在の降水量オーバーレイ | InfluxDB (雨量センサー) |
+| `time.py` | 現在時刻表示 (Asia/Tokyo タイムゾーン) | システム時計 |
 
-### Supporting Modules
+### サポートモジュール
 
-| Module | Description |
-|--------|-------------|
-| `src/weather_display/timing_filter.py` | Kalman filter-based timing control for update synchronization |
-| `src/weather_display/metrics/server.py` | Flask-based metrics web server (runs on separate thread) |
-| `src/weather_display/metrics/collector.py` | SQLite-based metrics storage with anomaly detection (Isolation Forest) |
-| `src/weather_display/metrics/webapi/page.py` | Metrics dashboard web page |
-| `src/weather_display/metrics/webapi/page_js.py` | JavaScript for metrics dashboard |
-| `src/weather_display/runner/webapi/run.py` | Async subprocess execution of `create_image.py` with stdout/stderr streaming |
+| モジュール | 説明 |
+|------------|------|
+| `src/weather_display/timing_filter.py` | カルマンフィルタベースの更新同期タイミング制御 |
+| `src/weather_display/metrics/server.py` | Flask ベースのメトリクス Web サーバー (別スレッド) |
+| `src/weather_display/metrics/collector.py` | SQLite ベースのメトリクス保存と異常検知 (Isolation Forest) |
+| `src/weather_display/metrics/webapi/page.py` | メトリクスダッシュボード Web ページ |
+| `src/weather_display/metrics/webapi/page_js.py` | メトリクスダッシュボード用 JavaScript |
+| `src/weather_display/runner/webapi/run.py` | `create_image.py` の非同期サブプロセス実行 |
 
-### Configuration
+### 設定
 
-- **Python Version**: 3.13 (3.10+ required)
-- **Two display modes**: Normal (3200x1800) and Small (2200x1650)
-- **YAML configuration** with JSON schema validation
-- **Example configs**: `config.example.yaml` and `config-small.example.yaml`
-- **All configuration** parsed into frozen dataclasses for type safety and immutability
+- **Python バージョン**: 3.13 (3.10 以上必須)
+- **2つの表示モード**: 標準 (3200x1800) と小型 (2200x1650)
+- **YAML 設定** (JSON Schema バリデーション付き)
+- **設定例**: `config.example.yaml` と `config-small.example.yaml`
+- **全設定は frozen dataclass** にパースされ、型安全性と不変性を保証
 
-### Data Flow
+### データフロー
 
-1. `display_image.py` starts main loop and metrics server
-2. Spawns `create_image.py` as subprocess for each update cycle
-3. `create_image.py` uses `multiprocessing.Pool` to generate 7 panels (normal) or 4 panels (small) in parallel
-4. Generated image is piped to Raspberry Pi via SSH and displayed using `fbi`
+1. `display_image.py` がメインループとメトリクスサーバーを起動
+2. 更新サイクルごとに `create_image.py` をサブプロセスとして生成
+3. `create_image.py` が `multiprocessing.Pool` を使用して 7 パネル (標準) または 4 パネル (小型) を並列生成
+4. 生成画像を SSH 経由で Raspberry Pi にパイプし、`fbi` で表示
 
-### Error Codes
+### エラーコード
 
-| Code | Constant | Description |
-|------|----------|-------------|
-| 220 | `ERROR_CODE_MINOR` | Panel generation error (display continues) |
-| 222 | `ERROR_CODE_MAJOR` | Display failure (critical error) |
+| コード | 定数 | 説明 |
+|--------|------|------|
+| 220 | `ERROR_CODE_MINOR` | パネル生成エラー (表示は継続) |
+| 222 | `ERROR_CODE_MAJOR` | 表示失敗 (クリティカルエラー) |
 
-### External Dependencies
+### 外部依存関係
 
-- **my-py-lib**: Custom library for Slack notifications, InfluxDB access, image utilities, Selenium helpers
-- **Selenium/Chrome**: Used by `rain_cloud.py` for JMA radar scraping (headless Chrome required)
-- **InfluxDB**: Time-series database for sensor data (config via `my_lib.sensor_data.InfluxDBConfig`)
+- **my-py-lib**: Slack 通知、InfluxDB アクセス、画像ユーティリティ、Selenium ヘルパーのカスタムライブラリ
+- **Selenium/Chrome**: `rain_cloud.py` で気象庁レーダースクレイピングに使用 (ヘッドレス Chrome 必須)
+- **InfluxDB**: センサーデータ用時系列データベース (`my_lib.sensor_data.InfluxDBConfig` で設定)
 
-## Testing Strategy
+## テスト戦略
 
-### Test Structure
+### テスト構造
 
 ```
 tests/
-├── conftest.py              # Shared fixtures and helpers
-├── test_basic.py            # Comprehensive integration tests
-├── unit/                    # Unit tests
-│   ├── test_config.py           # Configuration parsing
-│   ├── test_timing_filter.py    # Kalman filter logic
-│   ├── test_sensor_graph_utils.py  # Utility functions
-│   ├── test_rain_fall_utils.py  # Rainfall formatting
-│   ├── test_weather_calc.py     # Feel temperature calculation
-│   ├── test_metrics_collector.py  # Metrics and anomaly detection
-│   ├── test_display.py          # SSH display control
-│   ├── test_healthz.py          # Health check
-│   └── test_webapi_run.py       # Web API subprocess runner
-├── integration/             # Integration tests
-│   ├── test_create_image.py     # Image generation workflow
-│   ├── test_display_image.py    # Display control
-│   ├── test_weather_panel.py    # Weather panel
-│   ├── test_sensor_graph_panel.py  # Sensor graph
-│   ├── test_power_graph_panel.py   # Power graph
-│   ├── test_rain_cloud_panel.py    # Rain cloud (Selenium)
-│   ├── test_rain_fall_panel.py     # Rain fall
+├── conftest.py              # 共有フィクスチャとヘルパー
+├── unit/                    # ユニットテスト
+│   ├── test_config.py           # 設定パース
+│   ├── test_timing_filter.py    # カルマンフィルタロジック
+│   ├── test_sensor_graph_utils.py  # ユーティリティ関数
+│   ├── test_rain_fall_utils.py  # 降水量フォーマット
+│   ├── test_weather_calc.py     # 体感温度計算
+│   ├── test_metrics_collector.py  # メトリクスと異常検知
+│   ├── test_display.py          # SSH ディスプレイ制御
+│   ├── test_healthz.py          # ヘルスチェック
+│   └── test_webapi_run.py       # Web API サブプロセス実行
+├── integration/             # 統合テスト
+│   ├── test_create_image.py     # 画像生成ワークフロー
+│   ├── test_display_image.py    # ディスプレイ制御
+│   ├── test_weather_panel.py    # 天気パネル
+│   ├── test_sensor_graph_panel.py  # センサーグラフ
+│   ├── test_power_graph_panel.py   # 電力グラフ
+│   ├── test_rain_cloud_panel.py    # 雨雲レーダー (Selenium)
+│   ├── test_rain_fall_panel.py     # 降水量
 │   └── test_wbgt_panel.py          # WBGT
-├── webapp/                  # Web API tests
-│   └── test_api.py              # Flask API endpoints
-└── e2e/                     # End-to-end tests (Playwright)
-    └── test_webapp.py           # Web UI E2E tests
+├── webapp/                  # Web API テスト
+│   └── test_api.py              # Flask API エンドポイント
+└── e2e/                     # E2E テスト (Playwright)
+    └── test_webapp.py           # Web UI E2E テスト
 ```
 
-### Key Test Fixtures (conftest.py)
+### 主要テストフィクスチャ (conftest.py)
 
-| Fixture | Description |
-|---------|-------------|
-| `config` / `config_small` | Load example configuration files |
-| `ssh_mock` | Mock SSH connections to Raspberry Pi |
-| `mock_sensor_fetch_data` | Mock InfluxDB data fetching |
-| `image_checker` | Helper for saving and validating generated images |
-| `slack_checker` | Verify Slack notification behavior |
+| フィクスチャ | 説明 |
+|--------------|------|
+| `config` / `config_small` | 設定例ファイルのロード |
+| `ssh_mock` | Raspberry Pi への SSH 接続モック |
+| `mock_sensor_fetch_data` | InfluxDB データ取得モック |
+| `image_checker` | 生成画像の保存・検証ヘルパー |
+| `slack_checker` | Slack 通知の動作検証 |
 
-### Running Tests
+### テスト実行
 
-- Tests run with `DUMMY_MODE=true` by default to avoid real API calls
-- Coverage reports are generated in `htmlcov/`
-- Test reports (HTML, images) stored in `reports/`
+- テストはデフォルトで `DUMMY_MODE=true` で実行 (実 API 呼び出しを回避)
+- カバレッジレポートは `htmlcov/` に生成
+- テストレポート (HTML、画像) は `reports/` に保存
 
-## Deployment
+## デプロイ
 
-### Local
+### ローカル
 
-Direct Python execution with uv:
 ```bash
 env RASP_HOSTNAME="hostname" uv run src/display_image.py
 ```
 
 ### Docker
 
-- **Base**: Ubuntu 24.04
-- **Localization**: Japanese (ja_JP.UTF-8)
-- **Package Manager**: uv
-- **Init System**: tini
-- **Chrome**: Installed for Selenium-based rain radar scraping
-- **Entry point**: `tini` + `uv run src/display_image.py`
+- **ベース**: Ubuntu 24.04
+- **ロケール**: Japanese (ja_JP.UTF-8)
+- **パッケージマネージャ**: uv
+- **init システム**: tini
+- **Chrome**: Selenium ベースのレーダースクレイピング用にインストール済み
+- **エントリポイント**: `tini` + `uv run src/display_image.py`
 
 ### Kubernetes
 
 - **Namespace**: `panel`
 - **Deployment**: `kubernetes/eink-weather-panel.yaml`
-- **Liveness probe**: `healthz.py` (120s initial delay, 60s period)
-- **Resource limits**: 512Mi minimum, 2Gi maximum memory
+- **Liveness probe**: `healthz.py` (初期遅延 120秒、周期 60秒)
+- **リソース制限**: 最小 512Mi、最大 2Gi メモリ
 
-### Environment Variables
+### 環境変数
 
-| Variable | Description |
-|----------|-------------|
-| `RASP_HOSTNAME` | Target Raspberry Pi hostname (required) |
-| `SSH_KEY` | Path to SSH private key (default: `key/panel.id_rsa`) |
-| `INFLUXDB_TOKEN` | InfluxDB authentication token |
-| `DUMMY_MODE` | Set to "true" to use cached/dummy data |
+| 変数 | 説明 |
+|------|------|
+| `RASP_HOSTNAME` | ターゲット Raspberry Pi のホスト名 (必須) |
+| `SSH_KEY` | SSH 秘密鍵のパス (デフォルト: `key/panel.id_rsa`) |
+| `INFLUXDB_TOKEN` | InfluxDB 認証トークン |
+| `DUMMY_MODE` | `true` でキャッシュ/ダミーデータを使用 |
 
-## React Frontend
+## React フロントエンド
 
-### Structure (`react/`)
+### 構造 (`react/`)
 
-| File | Description |
-|------|-------------|
-| `src/App.tsx` | Main application component |
-| `src/main.tsx` | Entry point |
-| `src/App.css`, `src/index.css` | Styling |
-| `vite.config.ts` | Vite build configuration |
+| ファイル | 説明 |
+|----------|------|
+| `src/App.tsx` | メインアプリケーションコンポーネント |
+| `src/main.tsx` | エントリポイント |
+| `src/App.css`, `src/index.css` | スタイリング |
+| `vite.config.ts` | Vite ビルド設定 |
 
-### Key Dependencies
+### 主要依存関係
 
-- React 18.3.1 with TypeScript
-- Vite for build tooling
+- React 18.3.1 (TypeScript)
+- Vite (ビルドツール)
 - Bootstrap 5.3.1 (react-bootstrap)
-- react-zoom-pan-pinch for image viewing
+- react-zoom-pan-pinch (画像表示)
 
-## Key Dependencies
+## 主要依存関係
 
-### Backend (Python)
+### バックエンド (Python)
 
-| Category | Packages |
-|----------|----------|
-| Image Processing | PIL/Pillow, matplotlib, opencv-contrib-python-headless |
-| Data | influxdb-client, pandas, scipy, scikit-learn |
-| Web Scraping | selenium, undetected-chromedriver |
+| カテゴリ | パッケージ |
+|----------|------------|
+| 画像処理 | PIL/Pillow, matplotlib, opencv-contrib-python-headless |
+| データ | influxdb-client, pandas, scipy, scikit-learn |
+| Web スクレイピング | selenium, undetected-chromedriver |
 | SSH | paramiko |
-| Web Server | flask, flask-cors |
+| Web サーバー | flask, flask-cors |
 
-### Development
+### 開発
 
-| Category | Packages |
-|----------|----------|
-| Testing | pytest, pytest-cov, pytest-html, pytest-mock, pytest-xdist, pytest-timeout |
-| Browser Testing | playwright, pytest-playwright |
-| Time Mocking | time-machine |
-| Quality | pre-commit, pyright |
+| カテゴリ | パッケージ |
+|----------|------------|
+| テスト | pytest, pytest-cov, pytest-html, pytest-mock, pytest-xdist, pytest-timeout |
+| ブラウザテスト | playwright, pytest-playwright |
+| 時刻モック | time-machine |
+| 品質 | pre-commit, pyright |
 
-## Code Patterns
+## コードパターン
 
-### Panel Creation Pattern
+### パネル作成パターン
 
-Each panel module follows this pattern:
+各パネルモジュールは以下のパターンに従う：
 
 ```python
 def create(config: AppConfig) -> tuple[PIL.Image.Image, float] | tuple[PIL.Image.Image, float, str]:
     """
-    Returns:
-        - (image, elapsed_time) on success
-        - (image, elapsed_time, error_message) on error
+    戻り値:
+        - (image, elapsed_time): 成功時
+        - (image, elapsed_time, error_message): エラー時
     """
 ```
 
-### Error Handling
+### エラーハンドリング
 
-- Panels use `my_lib.panel_util.draw_panel_patiently()` for retry logic
-- Errors are logged and optionally sent to Slack
-- Failed panels show error images instead of crashing the entire display
-- Display module uses `exec_patiently()` for SSH command retry
+- パネルは `my_lib.panel_util.draw_panel_patiently()` でリトライロジックを使用
+- エラーはログに記録され、オプションで Slack に通知
+- 失敗したパネルはエラー画像を表示 (全体のクラッシュを防止)
+- display モジュールは `exec_patiently()` で SSH コマンドをリトライ
 
-### Configuration Access
+### 設定アクセス
 
-Configuration uses frozen dataclasses:
+設定は frozen dataclass を使用：
 ```python
-config.weather.panel.width  # Panel dimensions
-config.influxdb.url         # InfluxDB connection
-config.font.path            # Font directory
+config.weather.panel.width  # パネルサイズ
+config.influxdb.url         # InfluxDB 接続
+config.font.path            # フォントディレクトリ
 ```
 
-### Multiprocessing Strategy
+### マルチプロセシング戦略
 
-- `create_image.py` spawns `multiprocessing.Pool` to generate panels in parallel
-- Each panel runs in separate process to avoid matplotlib thread issues
-- Metrics collected per-panel with elapsed time and error status
+- `create_image.py` が `multiprocessing.Pool` を生成してパネルを並列生成
+- 各パネルは別プロセスで実行 (matplotlib のスレッド問題を回避)
+- パネルごとに処理時間とエラー状態のメトリクスを収集
