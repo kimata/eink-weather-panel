@@ -10,7 +10,7 @@ requires-python = ">= 3.10"
 
 dependencies = [
     "influxdb-client[ciso]>=1.44.0",
-    "my-lib @ git+https://github.com/kimata/my-py-lib@cd1d75aaea279a4e5c9f84e2632f331745f45075",
+    "my-lib @ git+https://github.com/kimata/my-py-lib@22ae346853c77824eeb5e3f7ef3581d251497fd7",
     "opencv-contrib-python-headless>=4.10.0.84",
     "matplotlib>=3.9.2",
     "pandas>=2.2.2",
@@ -45,10 +45,6 @@ dev = [
 [tool.uv]
 default-groups = ["dev"]
 
-[tool.uv.sources]
-my-lib = { path = "/home/kimata/github/my-py-lib", editable = true }
-
-
 [tool.ruff]
 line-length = 110
 
@@ -60,9 +56,6 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/weather_display"]
-
-
-
 
 [tool.hatch.metadata]
 allow-direct-references = true
