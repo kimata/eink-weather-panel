@@ -279,6 +279,24 @@ env RASP_HOSTNAME="hostname" uv run src/display_image.py
 
 ## コードパターン
 
+### インポートスタイル
+
+`from xxx import yyy` は基本的に使用せず、`import xxx` としてモジュールをインポートし、参照時は `xxx.yyy` と完全修飾名で記述する：
+
+```python
+# 推奨
+import my_lib.selenium_util
+
+driver = my_lib.selenium_util.create_driver(...)
+
+# 非推奨
+from my_lib.selenium_util import create_driver
+
+driver = create_driver(...)
+```
+
+これにより、関数やクラスがどのモジュールに属しているかが明確になり、コードの可読性と保守性が向上する。
+
 ### パネル作成パターン
 
 各パネルモジュールは以下のパターンに従う：
