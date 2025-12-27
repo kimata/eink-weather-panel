@@ -57,10 +57,11 @@ class TestWebappE2E:
         expect(page.get_by_test_id("button")).to_be_enabled(timeout=240000)
 
         # ログにエラーがないことを確認
+        # ログフォーマット: "YYYY-MM-DD HH:MM:SS LEVEL [file:line func] message"
+        # ログレベルの ERROR のみをチェックし、例外クラス名 (ConnectionResetError 等) は無視
         log_list = page.locator('//div[contains(@data-testid,"log")]/small/span')
         for i in range(log_list.count()):
-            expect(log_list.nth(i)).not_to_contain_text("ERROR")
-            expect(log_list.nth(i)).not_to_contain_text("Error")
+            expect(log_list.nth(i)).not_to_contain_text(" ERROR ")
 
         # 生成された画像を取得
         img_elem = page.get_by_test_id("image")
