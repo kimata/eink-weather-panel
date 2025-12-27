@@ -121,7 +121,7 @@ test-walk-through:
         - build-react
         - test-prepare
     script:
-        - uv run pytest --cov-report=term-missing --cov-report=xml:reports/coverage.xml
+        - uv run pytest
 
     coverage: '/TOTAL.*\s+(\d+%)/'
 
