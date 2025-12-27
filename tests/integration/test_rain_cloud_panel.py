@@ -101,20 +101,20 @@ class TestRainCloudPanelError:
 
     def test_rain_cloud_panel_selenium_error(self, config, image_checker, mocker):
         """Seleniumエラー時のハンドリング"""
-        from my_lib.selenium_util import create_driver_impl
+        from my_lib.selenium_util import create_driver
 
         import weather_display.panel.rain_cloud
 
         # 1回だけエラーにする
         call_count = [0]
 
-        def create_driver_impl_mock(profile_name, data_path, is_headless=True):
+        def create_driver_mock(profile_name, data_path, is_headless=True, use_subprocess=True):
             call_count[0] += 1
             if call_count[0] == 1:
                 raise RuntimeError()
-            return create_driver_impl(profile_name, data_path, is_headless)
+            return create_driver(profile_name, data_path, is_headless, use_subprocess)
 
-        mocker.patch("my_lib.selenium_util.create_driver_impl", side_effect=create_driver_impl_mock)
+        mocker.patch("my_lib.selenium_util.create_driver", side_effect=create_driver_mock)
 
         result = weather_display.panel.rain_cloud.create(config)
 
