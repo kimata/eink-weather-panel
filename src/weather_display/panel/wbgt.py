@@ -101,12 +101,10 @@ def draw_wbgt(
 
 
 def create_wbgt_panel_impl(
-    panel_config: my_lib.panel_config.PanelConfigProtocol,
+    wbgt_config: WbgtConfig,
     context: my_lib.panel_config.NormalPanelContext,
     opt_config: object = None,  # noqa: ARG001
 ) -> PIL.Image.Image:
-    # panel_config is WbgtConfig
-    wbgt_config: WbgtConfig = panel_config  # type: ignore[assignment]
 
     face_map = get_face_map(context.font_config)
 

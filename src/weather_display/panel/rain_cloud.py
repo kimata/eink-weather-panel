@@ -581,12 +581,10 @@ def draw_legend(
 
 
 def create_rain_cloud_panel_impl(
-    panel_config: my_lib.panel_config.PanelConfigProtocol,
+    rain_cloud_config: RainCloudConfig,
     context: my_lib.panel_config.NormalPanelContext,
     is_threaded: object = True,
 ) -> PIL.Image.Image:
-    # panel_config is RainCloudConfig
-    rain_cloud_config: RainCloudConfig = panel_config  # type: ignore[assignment]
 
     if context.is_side_by_side:
         sub_width = int(rain_cloud_config.panel.width / 2)
