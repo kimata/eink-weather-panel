@@ -853,20 +853,16 @@ def draw_panel_weather(  # noqa: PLR0913
 
 
 def create_weather_panel_impl(
-    panel_config: my_lib.panel_config.PanelConfigProtocol,
+    weather_config: WeatherConfig,
     context: my_lib.panel_config.NormalPanelContext,
     opt_config: OptConfig,
 ) -> PIL.Image.Image:
-    # panel_config is WeatherConfig
-    weather_config: WeatherConfig = panel_config  # type: ignore[assignment]
-    opt: OptConfig = opt_config  # type: ignore[assignment]
-
     # NOTE: APIコールを並列化して高速化
     with concurrent.futures.ThreadPoolExecutor(max_workers=4) as executor:
         weather_future = executor.submit(get_weather_yahoo, weather_config.data.yahoo.url)
         clothing_future = executor.submit(get_clothing_yahoo, weather_config.data.yahoo.url)
-        sunset_future = executor.submit(my_lib.weather.get_sunset_nao, opt.sunset.data.nao.pref)
-        wbgt_future = executor.submit(get_wbgt, opt.wbgt.data.env_go.url)
+        sunset_future = executor.submit(my_lib.weather.get_sunset_nao, opt_config.sunset.data.nao.pref)
+        wbgt_future = executor.submit(get_wbgt, opt_config.wbgt.data.env_go.url)
 
         # すべての結果を取得
         weather_info = weather_future.result()
