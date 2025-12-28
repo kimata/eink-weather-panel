@@ -45,6 +45,7 @@ def draw_time(
     pos_y: int,
     face: dict[str, PIL.ImageFont.FreeTypeFont],
 ) -> None:
+    # NOTE: 画像生成から表示完了まで約1分かかるため、表示時点の時刻を表示するために1分加算
     time_text = (
         datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=9), "JST"))
         + datetime.timedelta(minutes=1)
