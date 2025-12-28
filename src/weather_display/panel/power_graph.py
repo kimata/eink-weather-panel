@@ -45,6 +45,12 @@ pandas.plotting.register_matplotlib_converters()
 IMAGE_DPI = 100.0
 
 
+class EmptyDataError(Exception):
+    """センサーデータが空の場合に発生するエラー"""
+
+    pass
+
+
 FONT_SPEC: dict[str, my_lib.font_util.FontSpec] = {
     "title": ("jp_bold", 60),
     "value": ("en_cond_bold", 80),
@@ -93,7 +99,7 @@ def plot_item(
         )
         # 空データエラーをSlackに通知
         error_msg = f"Empty data in power_graph: x={len(x)}, y={len(y)}"
-        raise ValueError(error_msg)
+        raise EmptyDataError(error_msg)
 
     if len(x) != len(y):
         logging.error("Mismatched data lengths: x=%d, y=%d", len(x), len(y))
@@ -235,14 +241,12 @@ def create_power_graph_impl(
         matplotlib.pyplot.subplots_adjust(hspace=0, wspace=0)
         fig.tight_layout()
 
-        buf = io.BytesIO()
-        matplotlib.pyplot.savefig(buf, format="png", dpi=IMAGE_DPI, transparent=True)
+        with io.BytesIO() as buf:
+            matplotlib.pyplot.savefig(buf, format="png", dpi=IMAGE_DPI, transparent=True)
 
-        buf.seek(0)
+            buf.seek(0)
 
-        img = PIL.Image.open(buf).copy()
-
-        buf.close()
+            img = PIL.Image.open(buf).copy()
 
         return img
     finally:
@@ -270,7 +274,7 @@ def create(config: AppConfig) -> tuple[PIL.Image.Image, float] | tuple[PIL.Image
         error_message = traceback.format_exc()
 
         # 空データエラーの場合はSlack通知
-        if "Empty data in power_graph" in str(e):
+        if isinstance(e, EmptyDataError):
             try:
                 slack_message = f"Power Graph Data Error: {e!s}\n\n詳細:\n{error_message}"
                 my_lib.notify.slack.error(
