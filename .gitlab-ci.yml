@@ -394,6 +394,8 @@ tag-latest:
     needs:
         - generate-tag
         - build-image
+        - job: test-typecheck
+          artifacts: false
         - job: test-walk-through
           artifacts: false
         - job: test-display
@@ -418,6 +420,8 @@ deploy:
     needs:
         - generate-tag
         - build-image
+        - job: test-typecheck
+          artifacts: false
         - job: test-walk-through
           artifacts: false
         - job: test-display
