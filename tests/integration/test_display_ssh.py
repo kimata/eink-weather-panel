@@ -10,7 +10,21 @@ import time
 import uuid
 from pathlib import Path
 
+import paramiko
 import pytest
+
+
+def generate_ssh_key_pair(key_path: Path, pub_key_path: Path) -> None:
+    """paramiko を使用して SSH キーペアを生成"""
+    # RSA キーを生成
+    key = paramiko.RSAKey.generate(2048)
+
+    # 秘密鍵を保存
+    key.write_private_key_file(str(key_path))
+
+    # 公開鍵を OpenSSH 形式で保存
+    pub_key_str = f"{key.get_name()} {key.get_base64()} test@test\n"
+    pub_key_path.write_text(pub_key_str)
 
 
 def wait_for_ssh_ready(host: str, port: int, timeout: int = 60) -> bool:
@@ -60,12 +74,8 @@ def ssh_server(request):
         key_path = Path(tmpdir) / "test_ssh_key"
         pub_key_path = Path(tmpdir) / "test_ssh_key.pub"
 
-        # テスト用の SSH キーを生成
-        subprocess.run(
-            ["ssh-keygen", "-t", "rsa", "-f", str(key_path), "-N", ""],
-            check=True,
-            capture_output=True,
-        )
+        # テスト用の SSH キーを生成（paramiko を使用）
+        generate_ssh_key_pair(key_path, pub_key_path)
 
         # SSH サーバーコンテナを起動
         result = subprocess.run(
@@ -143,8 +153,9 @@ class TestSshConnectIntegration:
             )
 
         assert ssh is not None
-        assert ssh.get_transport() is not None
-        assert ssh.get_transport().is_active()
+        transport = ssh.get_transport()
+        assert transport is not None
+        assert transport.is_active()
 
         # 実際にコマンドを実行
         stdin, stdout, stderr = ssh.exec_command("echo 'hello'")
