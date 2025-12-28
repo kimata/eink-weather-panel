@@ -3,7 +3,6 @@
 """
 SSH 接続の統合テスト（Docker ベース）
 """
-import socket
 import subprocess
 import tempfile
 import time
@@ -27,18 +26,28 @@ def generate_ssh_key_pair(key_path: Path, pub_key_path: Path) -> None:
     pub_key_path.write_text(pub_key_str)
 
 
-def wait_for_ssh_ready(host: str, port: int, timeout: int = 60) -> bool:
-    """SSH サーバーが SSH プロトコルバナーを返すまで待機"""
+def wait_for_ssh_auth_ready(
+    host: str, port: int, username: str, key_path: str, timeout: int = 60
+) -> bool:
+    """SSH サーバーが認証可能になるまで待機"""
     start = time.time()
     while time.time() - start < timeout:
         try:
-            with socket.create_connection((host, port), timeout=5) as sock:
-                # SSH プロトコルバナーを読み取る
-                sock.settimeout(5)
-                banner = sock.recv(256)
-                if banner.startswith(b"SSH-"):
-                    return True
-        except (OSError, ConnectionRefusedError, TimeoutError):
+            ssh = paramiko.SSHClient()
+            ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+            with open(key_path) as f:
+                ssh.connect(
+                    host,
+                    port=port,
+                    username=username,
+                    pkey=paramiko.RSAKey.from_private_key(f),
+                    allow_agent=False,
+                    look_for_keys=False,
+                    timeout=5,
+                )
+            ssh.close()
+            return True
+        except Exception:
             pass
         time.sleep(2)
     return False
@@ -106,8 +115,10 @@ def ssh_server(request):
         if result.returncode != 0:
             pytest.skip(f"Failed to start SSH server: {result.stderr}")
 
-        # サーバー起動を待機
-        if not wait_for_ssh_ready("localhost", port, timeout=30):
+        # サーバー起動を待機（実際に認証できるまで待つ）
+        if not wait_for_ssh_auth_ready(
+            "localhost", port, "testuser", str(key_path), timeout=60
+        ):
             subprocess.run(["docker", "rm", "-f", container_name], check=False, capture_output=True)
             pytest.skip("SSH server did not become ready in time")
 
