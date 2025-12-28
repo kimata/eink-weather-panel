@@ -412,18 +412,16 @@ def create_sensor_graph_impl(  # noqa: C901, PLR0912, PLR0915
                 if (param.name == "lux") and room.light_icon:
                     draw_light_icon(ax, plot_data.value, sensor_config.icon)
 
-        buf = io.BytesIO()
-        # グレースケール画像を直接生成（最適化）
-        matplotlib.pyplot.savefig(buf, format="png", dpi=IMAGE_DPI, facecolor="white", transparent=False)
+        with io.BytesIO() as buf:
+            # グレースケール画像を直接生成（最適化）
+            matplotlib.pyplot.savefig(buf, format="png", dpi=IMAGE_DPI, facecolor="white", transparent=False)
 
-        buf.seek(0)
+            buf.seek(0)
 
-        img = PIL.Image.open(buf).copy()
-        # 既にグレースケールカラーマップ使用中のため、Lモードに変換
-        if img.mode != "L":  # pragma: no branch  # savefig は常に RGB を返すため
-            img = img.convert("L")
-
-        buf.close()
+            img = PIL.Image.open(buf).copy()
+            # 既にグレースケールカラーマップ使用中のため、Lモードに変換
+            if img.mode != "L":  # pragma: no branch  # savefig は常に RGB を返すため
+                img = img.convert("L")
 
         return img
     finally:
