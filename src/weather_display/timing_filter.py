@@ -87,11 +87,13 @@ class TimingController:
         elif diff_sec < -30:
             diff_sec = diff_sec + 60
 
-        # 次の目標時刻までの時間を計算
-        # 推定実行時間を考慮してスリープ時間を決定
+        # NOTE: 毎分の target_second 秒（デフォルト0秒）に表示更新が完了するよう調整
+        # current_second を引くことで、次の分の 0 秒を基準にスリープ時間を計算
+        # 例: update_interval=60, current_second=45, estimated_elapsed=10 の場合
+        #     sleep_time = 60 - 10 - 45 = 5秒後に次の分の 0 秒に到達
         sleep_time = self.update_interval - estimated_elapsed - current_second
 
-        # 目標秒に合わせる調整
+        # 目標秒に合わせる調整（target_second が 0 以外の場合）
         if self.target_second > 0:
             sleep_time += self.target_second
 
