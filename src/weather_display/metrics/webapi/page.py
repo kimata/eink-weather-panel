@@ -41,7 +41,7 @@ def metrics_data():
     try:
         # 設定ファイルからデータベースパスを取得
         config_file = flask.current_app.config.get("CONFIG_FILE_NORMAL", "config.yaml")
-        config = my_lib.config.load(config_file, pathlib.Path("config.schema"))
+        config = my_lib.config.load(config_file, pathlib.Path("schema/config.schema"))
 
         # 設定からデータベースパスを取得
         db_path = config.get("metrics", {}).get("data", "data/metrics.db")
@@ -93,7 +93,7 @@ def metrics_data():
 def _get_analyzer():
     """メトリクス分析器を初期化する共通関数"""
     config_file = flask.current_app.config.get("CONFIG_FILE_NORMAL", "config.yaml")
-    config = my_lib.config.load(config_file, pathlib.Path("config.schema"))
+    config = my_lib.config.load(config_file, pathlib.Path("schema/config.schema"))
     db_path = config.get("metrics", {}).get("data", "data/metrics.db")
 
     if not pathlib.Path(db_path).exists():

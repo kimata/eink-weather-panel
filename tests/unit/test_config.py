@@ -37,7 +37,7 @@ class TestConfigLoad:
 
         config = weather_display.config.load(
             "config.example.yaml",
-            pathlib.Path("config.schema"),
+            pathlib.Path("schema/config.schema"),
         )
 
         assert config is not None

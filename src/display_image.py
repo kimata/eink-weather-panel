@@ -46,8 +46,8 @@ if TYPE_CHECKING:
 
 TIMEZONE = zoneinfo.ZoneInfo("Asia/Tokyo")
 
-SCHEMA_CONFIG = "config.schema"
-SCHEMA_CONFIG_SMALL = "config-small.schema"
+SCHEMA_CONFIG = "schema/config.schema"
+SCHEMA_CONFIG_SMALL = "schema/config-small.schema"
 
 
 NOTIFY_THRESHOLD = 2

@@ -21,7 +21,7 @@ from my_lib.healthz import HealthzTarget
 
 import weather_display.config
 
-SCHEMA_CONFIG = "config.schema"
+SCHEMA_CONFIG = "schema/config.schema"
 
 
 def check_liveness(target_list: list[HealthzTarget]) -> bool:
