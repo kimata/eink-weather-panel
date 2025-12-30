@@ -85,7 +85,8 @@ def plot_item(
 
     # 空リストチェック
     if not x or not y:
-        logging.warning("Empty data detected in plot_item: x=%d, y=%d", len(x), len(y))
+        diagnostic = data.get_diagnostic_message()
+        logging.warning("Empty data detected in plot_item: x=%d, y=%d, diagnostic=%s", len(x), len(y), diagnostic)
         # 空データの場合は何も描画せずに戻る
         ax.text(
             0.5,
@@ -97,8 +98,12 @@ def plot_item(
             fontsize=12,
             color="red",
         )
-        # 空データエラーをSlackに通知
-        error_msg = f"Empty data in power_graph: x={len(x)}, y={len(y)}"
+        # 空データエラーをSlackに通知（診断情報を含む）
+        error_msg = (
+            f"Empty data in power_graph: x={len(x)}, y={len(y)}\n"
+            f"診断: {diagnostic}\n"
+            f"詳細: raw_record_count={data.raw_record_count}, null_count={data.null_count}"
+        )
         raise EmptyDataError(error_msg)
 
     if len(x) != len(y):
