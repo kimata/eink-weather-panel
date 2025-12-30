@@ -211,7 +211,7 @@ class TestPowerGraphPanelError:
         now = datetime.datetime.now(datetime.timezone.utc)
         time_list = [now - datetime.timedelta(hours=i) for i in range(10)]
         # 意図的に時間と異なる長さのデータを作成
-        value_list = [500 + i * 10 for i in range(5)]  # 短い
+        value_list = [500.0 + i * 10.0 for i in range(5)]  # 短い
 
         mismatched_result = SensorDataResult(
             value=value_list,
