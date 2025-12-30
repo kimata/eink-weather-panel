@@ -45,8 +45,8 @@ import weather_display.panel.wbgt
 import weather_display.panel.weather
 from weather_display.config import AppConfig
 
-SCHEMA_CONFIG = "config.schema"
-SCHEMA_CONFIG_SMALL = "config-small.schema"
+SCHEMA_CONFIG = "schema/config.schema"
+SCHEMA_CONFIG_SMALL = "schema/config-small.schema"
 
 # 一部の描画でエラー
 ERROR_CODE_MINOR = 220

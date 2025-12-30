@@ -29,7 +29,7 @@ import my_lib.proc_util
 import weather_display.metrics.webapi.page
 import weather_display.runner.webapi.run
 
-SCHEMA_CONFIG = "config.schema"
+SCHEMA_CONFIG = "schema/config.schema"
 
 
 def term():
