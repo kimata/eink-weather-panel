@@ -1,6 +1,6 @@
 # E-Ink Weather Panel
 
-[![Test Status](https://github.com/kimata/eink-weather-panel/actions/workflows/regression.yaml/badge.svg)](https://github.com/kimata/eink-weather-panel/actions/workflows/regression.yaml)
+[![Test Status](https://github.com/kimata/eink-weather-panel/actions/workflows/test.yaml/badge.svg)](https://github.com/kimata/eink-weather-panel/actions/workflows/test.yaml)
 [![Test Report](https://img.shields.io/badge/test-report-blue)](https://kimata.github.io/eink-weather-panel/pytest.html)
 [![Coverage Status](https://coveralls.io/repos/github/kimata/eink-weather-panel/badge.svg?branch=main)](https://coveralls.io/github/kimata/eink-weather-panel?branch=main)
 
