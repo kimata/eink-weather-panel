@@ -106,49 +106,95 @@ class TestPowerGraphPanelError:
         assert "Traceback" in result[2]
 
     def test_power_graph_panel_empty_data_error(self, config, image_checker, mocker):
-        """空データ時にエラー画像を返すこと"""
-        from dataclasses import dataclass
+        """空データ時にエラー画像を返すこと（診断情報を含む）"""
+        from my_lib.sensor_data import SensorDataResult
 
         import weather_display.panel.power_graph
 
-        @dataclass
-        class EmptyResult:
-            valid: bool = False
-            time: list | None = None
-            value: list | None = None
+        # 接続エラーを模擬
+        empty_result = SensorDataResult(
+            value=[],
+            time=[],
+            valid=False,
+            raw_record_count=0,
+            null_count=0,
+            error_message="Connection timeout",
+        )
 
-            def __post_init__(self):
-                if self.time is None:
-                    self.time = []
-                if self.value is None:
-                    self.value = []
-
-        mocker.patch.object(weather_display.panel.power_graph, "fetch_data", return_value=EmptyResult())
+        mocker.patch.object(weather_display.panel.power_graph, "fetch_data", return_value=empty_result)
 
         result = weather_display.panel.power_graph.create(config)
 
         # エラー時は3要素のタプルを返す
         assert len(result) == 3
+        # 診断情報が含まれていること
+        assert "診断:" in result[2]
+        assert "接続エラー" in result[2]
 
-    def test_power_graph_panel_invalid_data(self, config, image_checker, mocker):
-        """無効なデータ時にエラー画像を返すこと"""
-        from dataclasses import dataclass
+    def test_power_graph_panel_empty_data_no_records(self, config, image_checker, mocker):
+        """クエリ結果が空の場合のエラー（診断情報を含む）"""
+        from my_lib.sensor_data import SensorDataResult
 
         import weather_display.panel.power_graph
 
-        @dataclass
-        class InvalidResult:
-            valid: bool = False
-            time: list | None = None
-            value: list | None = None
+        # クエリ結果が空を模擬
+        empty_result = SensorDataResult(
+            value=[],
+            time=[],
+            valid=False,
+            raw_record_count=0,
+            null_count=0,
+            error_message=None,
+        )
 
-            def __post_init__(self):
-                if self.time is None:
-                    self.time = []
-                if self.value is None:
-                    self.value = []
+        mocker.patch.object(weather_display.panel.power_graph, "fetch_data", return_value=empty_result)
 
-        mocker.patch.object(weather_display.panel.power_graph, "fetch_data", return_value=InvalidResult())
+        result = weather_display.panel.power_graph.create(config)
+
+        assert len(result) == 3
+        assert "診断:" in result[2]
+        assert "データなし" in result[2]
+
+    def test_power_graph_panel_all_null_data(self, config, image_checker, mocker):
+        """全レコードがNoneの場合のエラー（診断情報を含む）"""
+        from my_lib.sensor_data import SensorDataResult
+
+        import weather_display.panel.power_graph
+
+        # 全レコードがNoneを模擬
+        null_result = SensorDataResult(
+            value=[],
+            time=[],
+            valid=False,
+            raw_record_count=100,
+            null_count=100,
+            error_message=None,
+        )
+
+        mocker.patch.object(weather_display.panel.power_graph, "fetch_data", return_value=null_result)
+
+        result = weather_display.panel.power_graph.create(config)
+
+        assert len(result) == 3
+        assert "診断:" in result[2]
+        assert "全データがNone" in result[2]
+
+    def test_power_graph_panel_invalid_data(self, config, image_checker, mocker):
+        """無効なデータ時にエラー画像を返すこと"""
+        from my_lib.sensor_data import SensorDataResult
+
+        import weather_display.panel.power_graph
+
+        invalid_result = SensorDataResult(
+            value=[],
+            time=[],
+            valid=False,
+            raw_record_count=0,
+            null_count=0,
+            error_message=None,
+        )
+
+        mocker.patch.object(weather_display.panel.power_graph, "fetch_data", return_value=invalid_result)
 
         result = weather_display.panel.power_graph.create(config)
 
@@ -156,28 +202,26 @@ class TestPowerGraphPanelError:
 
     def test_power_graph_panel_mismatched_data_lengths(self, config, image_checker, mocker):
         """データ長が一致しない時も処理を継続すること"""
-        from dataclasses import dataclass
-
         import datetime
+
+        from my_lib.sensor_data import SensorDataResult
 
         import weather_display.panel.power_graph
 
         now = datetime.datetime.now(datetime.timezone.utc)
+        time_list = [now - datetime.timedelta(hours=i) for i in range(10)]
+        # 意図的に時間と異なる長さのデータを作成
+        value_list = [500 + i * 10 for i in range(5)]  # 短い
 
-        @dataclass
-        class MismatchedResult:
-            valid: bool = True
-            time: list | None = None
-            value: list | None = None
+        mismatched_result = SensorDataResult(
+            value=value_list,
+            time=time_list,
+            valid=True,
+            raw_record_count=10,
+            null_count=0,
+        )
 
-            def __post_init__(self):
-                if self.time is None:
-                    self.time = [now - datetime.timedelta(hours=i) for i in range(10)]
-                if self.value is None:
-                    # 意図的に時間と異なる長さのデータを作成
-                    self.value = [500 + i * 10 for i in range(5)]  # 短い
-
-        mocker.patch.object(weather_display.panel.power_graph, "fetch_data", return_value=MismatchedResult())
+        mocker.patch.object(weather_display.panel.power_graph, "fetch_data", return_value=mismatched_result)
 
         result = weather_display.panel.power_graph.create(config)
 
@@ -207,23 +251,20 @@ class TestPowerGraphPanelSlackError:
 
     def test_power_graph_panel_slack_notification_error(self, config, image_checker, mocker):
         """Slack通知エラー時も正常に動作すること"""
-        from dataclasses import dataclass
+        from my_lib.sensor_data import SensorDataResult
 
         import weather_display.panel.power_graph
 
-        @dataclass
-        class EmptyResult:
-            valid: bool = False
-            time: list | None = None
-            value: list | None = None
+        empty_result = SensorDataResult(
+            value=[],
+            time=[],
+            valid=False,
+            raw_record_count=0,
+            null_count=0,
+            error_message="Test error",
+        )
 
-            def __post_init__(self):
-                if self.time is None:
-                    self.time = []
-                if self.value is None:
-                    self.value = []
-
-        mocker.patch.object(weather_display.panel.power_graph, "fetch_data", return_value=EmptyResult())
+        mocker.patch.object(weather_display.panel.power_graph, "fetch_data", return_value=empty_result)
         mocker.patch("my_lib.notify.slack.error", side_effect=Exception("Slack error"))
 
         result = weather_display.panel.power_graph.create(config)
@@ -238,26 +279,23 @@ class TestPowerGraphPanelInvalidDataLogging:
     def test_power_graph_panel_valid_but_empty_time(self, config, caplog, mocker):
         """valid=True だが time が空の場合に警告ログが出力されること (lines 219-220)"""
         import logging
-        from dataclasses import dataclass
+
+        from my_lib.sensor_data import SensorDataResult
 
         import weather_display.panel.power_graph
 
-        @dataclass
-        class ValidButEmptyTime:
-            valid: bool = True
-            time: list | None = None
-            value: list | None = None
+        empty_time_result = SensorDataResult(
+            value=[100, 200, 300],
+            time=[],  # 空
+            valid=True,
+            raw_record_count=3,
+            null_count=0,
+        )
 
-            def __post_init__(self):
-                if self.time is None:
-                    self.time = []  # 空
-                if self.value is None:
-                    self.value = [100, 200, 300]
-
-        mocker.patch.object(weather_display.panel.power_graph, "fetch_data", return_value=ValidButEmptyTime())
+        mocker.patch.object(weather_display.panel.power_graph, "fetch_data", return_value=empty_time_result)
 
         with caplog.at_level(logging.WARNING):
-            result = weather_display.panel.power_graph.create(config)
+            weather_display.panel.power_graph.create(config)
 
         # 警告ログが出力されること
         assert "time data is empty" in caplog.text
@@ -266,28 +304,26 @@ class TestPowerGraphPanelInvalidDataLogging:
         """valid=True だが value が空の場合に警告ログが出力されること (lines 221-222)"""
         import datetime
         import logging
-        from dataclasses import dataclass
+
+        from my_lib.sensor_data import SensorDataResult
 
         import weather_display.panel.power_graph
 
         now = datetime.datetime.now(datetime.timezone.utc)
+        time_list = [now - datetime.timedelta(hours=i) for i in range(10)]
 
-        @dataclass
-        class ValidButEmptyValue:
-            valid: bool = True
-            time: list | None = None
-            value: list | None = None
+        empty_value_result = SensorDataResult(
+            value=[],  # 空
+            time=time_list,
+            valid=True,
+            raw_record_count=10,
+            null_count=0,
+        )
 
-            def __post_init__(self):
-                if self.time is None:
-                    self.time = [now - datetime.timedelta(hours=i) for i in range(10)]
-                if self.value is None:
-                    self.value = []  # 空
-
-        mocker.patch.object(weather_display.panel.power_graph, "fetch_data", return_value=ValidButEmptyValue())
+        mocker.patch.object(weather_display.panel.power_graph, "fetch_data", return_value=empty_value_result)
 
         with caplog.at_level(logging.WARNING):
-            result = weather_display.panel.power_graph.create(config)
+            weather_display.panel.power_graph.create(config)
 
         # 警告ログが出力されること
         assert "value data is empty" in caplog.text
