@@ -88,8 +88,7 @@ test-prepare:
     needs: []
 
     script:
-        # NOTE: git 依存関係はキャッシュが古くなる可能性があるため、常にリフレッシュする
-        - uv sync --locked --no-editable --refresh-package my-lib
+        - uv sync --locked --no-editable
 
     cache:
         - key:
