@@ -6,6 +6,7 @@
 import datetime
 import zoneinfo
 
+import my_lib.weather
 import pytest
 
 
@@ -190,9 +191,8 @@ class TestWeatherPanelError:
         """API エラー時にエラー画像を返すこと"""
         import weather_display.panel.weather
 
-        # weather.py で from import しているため、モジュール内でパッチする
         mocker.patch.object(
-            weather_display.panel.weather, "get_weather_yahoo", side_effect=RuntimeError("API Error")
+            my_lib.weather, "get_weather_yahoo", side_effect=RuntimeError("API Error")
         )
 
         result = weather_display.panel.weather.create(config)
@@ -206,7 +206,7 @@ class TestWeatherPanelError:
         import weather_display.panel.weather
 
         mocker.patch.object(
-            weather_display.panel.weather, "get_weather_yahoo", side_effect=TimeoutError("Timeout")
+            my_lib.weather, "get_weather_yahoo", side_effect=TimeoutError("Timeout")
         )
 
         result = weather_display.panel.weather.create(config)

@@ -229,7 +229,7 @@ class TestFetchDataParallel:
         """無効な設定でも例外を適切に処理すること"""
         import asyncio
 
-        from weather_display.panel.sensor_graph import DataRequest, fetch_data_parallel
+        import my_lib.sensor_data
 
         # InfluxDB設定をモックして接続エラーを発生させる
         mocker.patch(
@@ -238,7 +238,7 @@ class TestFetchDataParallel:
         )
 
         requests = [
-            DataRequest(
+            my_lib.sensor_data.DataRequest(
                 measure="test_measure",
                 hostname="test_host",
                 field="temp",
@@ -250,7 +250,7 @@ class TestFetchDataParallel:
         # 例外が発生してもNoneリストが返ること
         async def run_test():
             influxdb_config = mocker.MagicMock()
-            return await fetch_data_parallel(influxdb_config, requests)
+            return await my_lib.sensor_data.fetch_data_parallel(influxdb_config, requests)
 
         results = asyncio.get_event_loop().run_until_complete(run_test())
 
@@ -276,7 +276,7 @@ class TestSensorDataEdgeCases:
             return results
 
         mocker.patch(
-            "weather_display.panel.sensor_graph.fetch_data_parallel",
+            "my_lib.sensor_data.fetch_data_parallel",
             side_effect=mock_fetch_parallel,
         )
 
@@ -295,7 +295,7 @@ class TestSensorDataEdgeCases:
             return [None for _ in requests]
 
         mocker.patch(
-            "weather_display.panel.sensor_graph.fetch_data_parallel",
+            "my_lib.sensor_data.fetch_data_parallel",
             side_effect=mock_fetch_parallel,
         )
 

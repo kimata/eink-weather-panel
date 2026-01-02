@@ -5,6 +5,7 @@
 """
 import datetime
 
+import my_lib.sensor_data
 import pytest
 
 
@@ -50,9 +51,10 @@ class TestPowerGraphPanelWithMockedData:
 
     def test_power_graph_panel_with_mock_data(self, config, image_checker, mocker, mock_power_data):
         """モックデータで消費電力グラフを生成できること"""
+        import my_lib.sensor_data
         import weather_display.panel.power_graph
 
-        mocker.patch.object(weather_display.panel.power_graph, "fetch_data", return_value=mock_power_data())
+        mocker.patch.object(my_lib.sensor_data, "fetch_data", return_value=mock_power_data())
 
         result = weather_display.panel.power_graph.create(config)
 
@@ -67,7 +69,7 @@ class TestPowerGraphPanelWithMockedData:
         mock_result = mock_power_data()
         mock_result.value = [2000 + i * 50 for i in range(60)]
 
-        mocker.patch.object(weather_display.panel.power_graph, "fetch_data", return_value=mock_result)
+        mocker.patch.object(my_lib.sensor_data, "fetch_data", return_value=mock_result)
 
         result = weather_display.panel.power_graph.create(config)
 
@@ -80,7 +82,7 @@ class TestPowerGraphPanelWithMockedData:
         mock_result = mock_power_data()
         mock_result.value = [100 + i for i in range(60)]
 
-        mocker.patch.object(weather_display.panel.power_graph, "fetch_data", return_value=mock_result)
+        mocker.patch.object(my_lib.sensor_data, "fetch_data", return_value=mock_result)
 
         result = weather_display.panel.power_graph.create(config)
 
@@ -96,7 +98,7 @@ class TestPowerGraphPanelError:
 
         # power_graph.py で from import しているため、モジュール内でパッチする
         mocker.patch.object(
-            weather_display.panel.power_graph, "fetch_data", side_effect=RuntimeError("Fetch error")
+            my_lib.sensor_data, "fetch_data", side_effect=RuntimeError("Fetch error")
         )
 
         result = weather_display.panel.power_graph.create(config)
@@ -121,7 +123,7 @@ class TestPowerGraphPanelError:
             error_message="Connection timeout",
         )
 
-        mocker.patch.object(weather_display.panel.power_graph, "fetch_data", return_value=empty_result)
+        mocker.patch.object(my_lib.sensor_data, "fetch_data", return_value=empty_result)
 
         result = weather_display.panel.power_graph.create(config)
 
@@ -147,7 +149,7 @@ class TestPowerGraphPanelError:
             error_message=None,
         )
 
-        mocker.patch.object(weather_display.panel.power_graph, "fetch_data", return_value=empty_result)
+        mocker.patch.object(my_lib.sensor_data, "fetch_data", return_value=empty_result)
 
         result = weather_display.panel.power_graph.create(config)
 
@@ -171,7 +173,7 @@ class TestPowerGraphPanelError:
             error_message=None,
         )
 
-        mocker.patch.object(weather_display.panel.power_graph, "fetch_data", return_value=null_result)
+        mocker.patch.object(my_lib.sensor_data, "fetch_data", return_value=null_result)
 
         result = weather_display.panel.power_graph.create(config)
 
@@ -194,7 +196,7 @@ class TestPowerGraphPanelError:
             error_message=None,
         )
 
-        mocker.patch.object(weather_display.panel.power_graph, "fetch_data", return_value=invalid_result)
+        mocker.patch.object(my_lib.sensor_data, "fetch_data", return_value=invalid_result)
 
         result = weather_display.panel.power_graph.create(config)
 
@@ -221,7 +223,7 @@ class TestPowerGraphPanelError:
             null_count=0,
         )
 
-        mocker.patch.object(weather_display.panel.power_graph, "fetch_data", return_value=mismatched_result)
+        mocker.patch.object(my_lib.sensor_data, "fetch_data", return_value=mismatched_result)
 
         result = weather_display.panel.power_graph.create(config)
 
@@ -264,7 +266,7 @@ class TestPowerGraphPanelSlackError:
             error_message="Test error",
         )
 
-        mocker.patch.object(weather_display.panel.power_graph, "fetch_data", return_value=empty_result)
+        mocker.patch.object(my_lib.sensor_data, "fetch_data", return_value=empty_result)
         mocker.patch("my_lib.notify.slack.error", side_effect=Exception("Slack error"))
 
         result = weather_display.panel.power_graph.create(config)
@@ -292,7 +294,7 @@ class TestPowerGraphPanelInvalidDataLogging:
             null_count=0,
         )
 
-        mocker.patch.object(weather_display.panel.power_graph, "fetch_data", return_value=empty_time_result)
+        mocker.patch.object(my_lib.sensor_data, "fetch_data", return_value=empty_time_result)
 
         with caplog.at_level(logging.WARNING):
             weather_display.panel.power_graph.create(config)
@@ -320,7 +322,7 @@ class TestPowerGraphPanelInvalidDataLogging:
             null_count=0,
         )
 
-        mocker.patch.object(weather_display.panel.power_graph, "fetch_data", return_value=empty_value_result)
+        mocker.patch.object(my_lib.sensor_data, "fetch_data", return_value=empty_value_result)
 
         with caplog.at_level(logging.WARNING):
             weather_display.panel.power_graph.create(config)

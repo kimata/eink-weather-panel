@@ -6,6 +6,7 @@
 import datetime
 import zoneinfo
 
+import my_lib.sensor_data
 import pytest
 
 
@@ -80,7 +81,7 @@ class TestSensorGraphPanelWithMockedData:
         async def mock_fetch(*args):
             return [InvalidResult() for _ in range(20)]
 
-        mocker.patch.object(weather_display.panel.sensor_graph, "fetch_data_parallel", side_effect=mock_fetch)
+        mocker.patch.object(my_lib.sensor_data, "fetch_data_parallel", side_effect=mock_fetch)
 
         result = weather_display.panel.sensor_graph.create(config)
 
@@ -95,9 +96,8 @@ class TestSensorGraphPanelError:
         """データ取得エラー時にエラー画像を返すこと"""
         import weather_display.panel.sensor_graph
 
-        # sensor_graph.py で from import しているため、モジュール内でパッチする
         mocker.patch.object(
-            weather_display.panel.sensor_graph,
+            my_lib.sensor_data,
             "fetch_data_parallel",
             side_effect=RuntimeError("Fetch error"),
         )
