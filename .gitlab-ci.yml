@@ -363,7 +363,7 @@ test-webapp:
         - docker logs ${CI_JOB_NAME}-${CI_JOB_ID} > flask_log.txt
 
         - >
-            uv run pytest tests/e2e/test_webapp.py
+            uv run pytest tests/e2e/test_webapp.py --no-cov
             --host ${DOCKER_GATEWAY} --port ${APP_PORT}
             --junit-xml=reports/e2e-junit.xml
 
