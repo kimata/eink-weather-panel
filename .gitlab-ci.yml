@@ -12,7 +12,6 @@ default:
 stages:
     - generate-tag
     - build
-    - pre-test
     - test
     - tag-latest
     - deploy
@@ -84,7 +83,7 @@ build-image:
     #     - docker buildx rm ${BUILDER} || true
 
 test-prepare:
-    stage: pre-test
+    stage: build
 
     needs: []
 
