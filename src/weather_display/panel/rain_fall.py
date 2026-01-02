@@ -30,7 +30,7 @@ import PIL.ImageDraw
 import PIL.ImageFont
 import pytz
 
-from weather_display.config import AppConfig, IconConfig, RainFallConfig
+import weather_display.config
 
 DATA_PATH = pathlib.Path("data")
 WINDOW_SIZE_CACHE = DATA_PATH / "window_size.cache"
@@ -51,7 +51,7 @@ def get_face_map(font_config: my_lib.panel_config.FontConfigProtocol) -> dict[st
 
 
 def get_rainfall_status(
-    rain_fall_config: RainFallConfig,
+    rain_fall_config: weather_display.config.RainFallConfig,
     db_config: my_lib.sensor_data.InfluxDBConfig,
 ) -> dict[str, object] | None:
     START = "-3m"
@@ -130,7 +130,7 @@ def gen_start_text(start_time: datetime.datetime) -> str:
 def draw_rainfall(
     img: PIL.Image.Image,
     rainfall_status: dict[str, object],
-    icon_config: IconConfig,
+    icon_config: weather_display.config.IconConfig,
     face_map: dict[str, PIL.ImageFont.FreeTypeFont],
 ) -> PIL.Image.Image:
     raining = rainfall_status["raining"]
@@ -206,7 +206,7 @@ def draw_rainfall(
 
 
 def create_rain_fall_panel_impl(
-    rain_fall_config: RainFallConfig,
+    rain_fall_config: weather_display.config.RainFallConfig,
     context: my_lib.panel_config.DatabasePanelContext,
 ) -> PIL.Image.Image:
     face_map = get_face_map(context.font_config)
@@ -228,7 +228,7 @@ def create_rain_fall_panel_impl(
     return img
 
 
-def create(config: AppConfig) -> tuple[PIL.Image.Image, float] | tuple[PIL.Image.Image, float, str]:
+def create(config: weather_display.config.AppConfig) -> tuple[PIL.Image.Image, float] | tuple[PIL.Image.Image, float, str]:
     logging.info("draw rain fall panel")
 
     assert config.rain_fall is not None
@@ -261,7 +261,6 @@ if __name__ == "__main__":
     import docopt
     import my_lib.logger
 
-    from weather_display.config import load
 
     assert __doc__ is not None
     args = docopt.docopt(__doc__)
@@ -272,7 +271,7 @@ if __name__ == "__main__":
 
     my_lib.logger.init("test", level=logging.DEBUG if debug_mode else logging.INFO)
 
-    config = load(config_file)
+    config = weather_display.config.load(config_file)
 
     img = create(config)[0]
 

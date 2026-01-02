@@ -25,9 +25,7 @@ import PIL.Image
 import PIL.ImageDraw
 import PIL.ImageEnhance
 import PIL.ImageFont
-from my_lib.weather import get_wbgt
-
-from weather_display.config import AppConfig, WbgtConfig, WbgtIconConfig
+import weather_display.config
 
 
 FONT_SPEC: dict[str, my_lib.font_util.FontSpec] = {
@@ -44,8 +42,8 @@ def get_face_map(font_config: my_lib.panel_config.FontConfigProtocol) -> dict[st
 def draw_wbgt(
     img: PIL.Image.Image,
     wbgt: float,
-    wbgt_config: WbgtConfig,
-    icon_config: WbgtIconConfig,
+    wbgt_config: weather_display.config.WbgtConfig,
+    icon_config: weather_display.config.WbgtIconConfig,
     face_map: dict[str, PIL.ImageFont.FreeTypeFont],
 ) -> PIL.Image.Image:
     title = "暑さ指数:"
@@ -101,7 +99,7 @@ def draw_wbgt(
 
 
 def create_wbgt_panel_impl(
-    wbgt_config: WbgtConfig,
+    wbgt_config: weather_display.config.WbgtConfig,
     context: my_lib.panel_config.NormalPanelContext,
     opt_config: object = None,  # noqa: ARG001
 ) -> PIL.Image.Image:
@@ -114,7 +112,7 @@ def create_wbgt_panel_impl(
         (255, 255, 255, 0),
     )
 
-    wbgt = get_wbgt(wbgt_config.data.env_go.url).current
+    wbgt = my_lib.weather.get_wbgt(wbgt_config.data.env_go.url).current
 
     if wbgt is None:
         return img
@@ -124,7 +122,7 @@ def create_wbgt_panel_impl(
     return img
 
 
-def create(config: AppConfig, is_side_by_side: bool = True) -> tuple[PIL.Image.Image, float] | tuple[PIL.Image.Image, float, str]:
+def create(config: weather_display.config.AppConfig, is_side_by_side: bool = True) -> tuple[PIL.Image.Image, float] | tuple[PIL.Image.Image, float, str]:
     logging.info("draw WBGT panel")
 
     context = my_lib.panel_config.NormalPanelContext(
@@ -143,7 +141,6 @@ if __name__ == "__main__":
     import docopt
     import my_lib.logger
 
-    from weather_display.config import load
 
     assert __doc__ is not None
     args = docopt.docopt(__doc__)
@@ -154,7 +151,7 @@ if __name__ == "__main__":
 
     my_lib.logger.init("test", level=logging.DEBUG if debug_mode else logging.INFO)
 
-    config = load(config_file)
+    config = weather_display.config.load(config_file)
 
     img = create(config)[0]
 

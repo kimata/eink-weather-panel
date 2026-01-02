@@ -39,7 +39,6 @@ import weather_display.display
 import weather_display.metrics.collector
 import weather_display.metrics.server
 import weather_display.timing_filter
-from weather_display.config import AppConfig
 
 if TYPE_CHECKING:
     import paramiko
@@ -73,7 +72,7 @@ def sig_handler(num: int, frame: object) -> None:  # noqa: ARG001
 
 
 def execute(  # noqa: PLR0913
-    config: AppConfig,
+    config: weather_display.config.AppConfig,
     rasp_hostname: str,
     key_file_path: pathlib.Path | str,
     config_file: str,
@@ -152,7 +151,7 @@ def execute(  # noqa: PLR0913
 
 
 def start(
-    config: AppConfig,
+    config: weather_display.config.AppConfig,
     rasp_hostname: str,
     key_file_path: pathlib.Path | str,
     config_file: str,

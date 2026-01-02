@@ -36,9 +36,8 @@ import my_lib.font_util
 import my_lib.panel_config
 import my_lib.panel_util
 import pandas.plotting
-from my_lib.sensor_data import SensorDataResult, fetch_data
-
-from weather_display.config import AppConfig, PowerConfig
+import my_lib.sensor_data
+import weather_display.config
 
 pandas.plotting.register_matplotlib_converters()
 
@@ -67,7 +66,7 @@ def get_face_map(font_config: my_lib.panel_config.FontConfigProtocol) -> dict[st
 def plot_item(
     ax: matplotlib.axes.Axes,
     unit: str,
-    data: SensorDataResult,
+    data: my_lib.sensor_data.SensorDataResult,
     ylim: list[int],
     fmt: str,
     face_map: dict[str, matplotlib.font_manager.FontProperties],
@@ -176,7 +175,7 @@ def plot_item(
 
 
 def create_power_graph_impl(
-    power_config: PowerConfig,
+    power_config: weather_display.config.PowerConfig,
     context: my_lib.panel_config.DatabasePanelContext,
 ) -> PIL.Image.Image:
     face_map = get_face_map(context.font_config)
@@ -208,7 +207,7 @@ def create_power_graph_impl(
             period_stop,
         )
 
-        data = fetch_data(
+        data = my_lib.sensor_data.fetch_data(
             context.db_config,
             power_config.data.sensor.measure,
             power_config.data.sensor.hostname,
@@ -260,7 +259,7 @@ def create_power_graph_impl(
         matplotlib.pyplot.close(fig)
 
 
-def create(config: AppConfig) -> tuple[PIL.Image.Image, float] | tuple[PIL.Image.Image, float, str]:
+def create(config: weather_display.config.AppConfig) -> tuple[PIL.Image.Image, float] | tuple[PIL.Image.Image, float, str]:
     logging.info("draw power graph")
 
     start = time.perf_counter()
@@ -304,7 +303,6 @@ if __name__ == "__main__":
     import my_lib.logger
     import my_lib.pil_util
 
-    from weather_display.config import load
 
     assert __doc__ is not None
     args = docopt.docopt(__doc__)
@@ -315,7 +313,7 @@ if __name__ == "__main__":
 
     my_lib.logger.init("test", level=logging.DEBUG if debug_mode else logging.INFO)
 
-    config = load(config_file)
+    config = weather_display.config.load(config_file)
     result = create(config)
 
     if len(result) > 2:

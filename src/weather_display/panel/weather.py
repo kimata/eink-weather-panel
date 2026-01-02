@@ -36,20 +36,8 @@ import PIL.Image
 import PIL.ImageDraw
 import PIL.ImageEnhance
 import PIL.ImageFont
-from my_lib.weather import (
-    ClothingResult,
-    HourlyData,
-    SunsetResult,
-    WbgtResult,
-    WeatherInfo,
-    WeatherResult,
-    WindInfo,
-    get_clothing_yahoo,
-    get_wbgt,
-    get_weather_yahoo,
-)
 
-from weather_display.config import AppConfig, IconConfig, SunsetConfig, WbgtConfig, WeatherConfig
+import weather_display.config
 
 TIMEZONE = zoneinfo.ZoneInfo("Asia/Tokyo")
 
@@ -84,8 +72,8 @@ ROTATION_MAP = {
 class OptConfig:
     """オプション設定"""
 
-    sunset: SunsetConfig
-    wbgt: WbgtConfig
+    sunset: weather_display.config.SunsetConfig
+    wbgt: weather_display.config.WbgtConfig
 
 
 FONT_SPEC_NESTED: dict[str, dict[str, my_lib.font_util.FontSpec]] = {
@@ -132,7 +120,7 @@ def get_face_map(
     return my_lib.font_util.build_pil_face_map_nested(font_config, FONT_SPEC_NESTED)
 
 
-def get_image(weather_info: WeatherInfo) -> PIL.Image.Image:
+def get_image(weather_info: my_lib.weather.WeatherInfo) -> PIL.Image.Image:
     tone = 32
     gamma = 0.24
 
@@ -195,7 +183,7 @@ def calc_misnar_formula(temp: float, humi: float, wind: float) -> float:
 
 def draw_weather(  # noqa: PLR0913
     img: PIL.Image.Image,
-    weather: WeatherInfo,
+    weather: my_lib.weather.WeatherInfo,
     overlay: PIL.Image.Image,
     pos_x: float,
     pos_y: float,
@@ -391,7 +379,7 @@ def draw_precip(  # noqa: PLR0913
 
 def draw_wind(  # noqa: PLR0913
     img: PIL.Image.Image,
-    wind: WindInfo,
+    wind: my_lib.weather.WindInfo,
     is_first: bool,
     pos_x: float,
     pos_y: float,
@@ -525,7 +513,7 @@ def draw_hour(  # noqa: PLR0913
 
 def draw_weather_info(  # noqa: PLR0913
     img: PIL.Image.Image,
-    info: HourlyData,
+    info: my_lib.weather.HourlyData,
     wbgt: float | None,
     is_wbgt_exist: bool,
     is_today: bool,
@@ -607,7 +595,7 @@ def draw_weather_info(  # noqa: PLR0913
 
 def draw_day_weather(  # noqa: PLR0913
     img: PIL.Image.Image,
-    info: list[HourlyData],
+    info: list[my_lib.weather.HourlyData],
     wbgt_info: list[int | None] | None,
     is_today: bool,
     pos_x: float,
@@ -753,7 +741,7 @@ def draw_panel_weather_day(  # noqa: PLR0913
     img: PIL.Image.Image,
     pos_x: float,
     pos_y: float,
-    weather_day_info: list[HourlyData],
+    weather_day_info: list[my_lib.weather.HourlyData],
     clothing_info: int,
     sunset_info: str,
     wbgt_info: list[int | None] | None,
@@ -784,12 +772,12 @@ def draw_panel_weather_day(  # noqa: PLR0913
 
 def draw_panel_weather(  # noqa: PLR0913
     img: PIL.Image.Image,
-    weather_config: WeatherConfig,
+    weather_config: weather_display.config.WeatherConfig,
     font_config: my_lib.panel_config.FontConfigProtocol,
-    weather_info: WeatherResult,
-    clothing_info: ClothingResult,
-    sunset_info: SunsetResult,
-    wbgt_info: WbgtResult,
+    weather_info: my_lib.weather.WeatherResult,
+    clothing_info: my_lib.weather.ClothingResult,
+    sunset_info: my_lib.weather.SunsetResult,
+    wbgt_info: my_lib.weather.WbgtResult,
     is_side_by_side: bool,
 ) -> None:
     icon: dict[str, PIL.Image.Image] = {}
@@ -853,16 +841,16 @@ def draw_panel_weather(  # noqa: PLR0913
 
 
 def create_weather_panel_impl(
-    weather_config: WeatherConfig,
+    weather_config: weather_display.config.WeatherConfig,
     context: my_lib.panel_config.NormalPanelContext,
     opt_config: OptConfig,
 ) -> PIL.Image.Image:
     # NOTE: APIコールを並列化して高速化
     with concurrent.futures.ThreadPoolExecutor(max_workers=4) as executor:
-        weather_future = executor.submit(get_weather_yahoo, weather_config.data.yahoo.url)
-        clothing_future = executor.submit(get_clothing_yahoo, weather_config.data.yahoo.url)
+        weather_future = executor.submit(my_lib.weather.get_weather_yahoo, weather_config.data.yahoo.url)
+        clothing_future = executor.submit(my_lib.weather.get_clothing_yahoo, weather_config.data.yahoo.url)
         sunset_future = executor.submit(my_lib.weather.get_sunset_nao, opt_config.sunset.data.nao.pref)
-        wbgt_future = executor.submit(get_wbgt, opt_config.wbgt.data.env_go.url)
+        wbgt_future = executor.submit(my_lib.weather.get_wbgt, opt_config.wbgt.data.env_go.url)
 
         # すべての結果を取得
         weather_info = weather_future.result()
@@ -891,7 +879,7 @@ def create_weather_panel_impl(
 
 
 def create(
-    config: AppConfig, is_side_by_side: bool = True
+    config: weather_display.config.AppConfig, is_side_by_side: bool = True
 ) -> tuple[PIL.Image.Image, float] | tuple[PIL.Image.Image, float, str]:
     logging.info("draw weather panel")
 
@@ -915,8 +903,6 @@ if __name__ == "__main__":
     import docopt
     import my_lib.logger
 
-    from weather_display.config import load
-
     assert __doc__ is not None
     args = docopt.docopt(__doc__)
 
@@ -926,7 +912,7 @@ if __name__ == "__main__":
 
     my_lib.logger.init("test", level=logging.DEBUG if debug_mode else logging.INFO)
 
-    config = load(config_file)
+    config = weather_display.config.load(config_file)
 
     opt_config = OptConfig(sunset=config.sunset, wbgt=config.wbgt)
     context = my_lib.panel_config.NormalPanelContext(

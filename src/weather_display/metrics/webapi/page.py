@@ -10,8 +10,7 @@ import my_lib.flask_util
 import my_lib.webapp.config
 
 import weather_display.metrics.collector
-
-from . import page_js
+import weather_display.metrics.webapi.page_js
 
 blueprint = flask.Blueprint(
     "metrics",
@@ -783,7 +782,7 @@ def generate_metrics_html(  # noqa: PLR0913
         });
 
         """
-        + page_js.generate_chart_javascript()
+        + weather_display.metrics.webapi.page_js.generate_chart_javascript()
         + """
     </script>
 </html>

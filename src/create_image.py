@@ -43,7 +43,6 @@ import weather_display.panel.sensor_graph
 import weather_display.panel.time
 import weather_display.panel.wbgt
 import weather_display.panel.weather
-from weather_display.config import AppConfig
 
 SCHEMA_CONFIG = "schema/config.schema"
 SCHEMA_CONFIG_SMALL = "schema/config-small.schema"
@@ -54,7 +53,7 @@ ERROR_CODE_MINOR = 220
 ERROR_CODE_MAJOR = 222
 
 
-def draw_wall(config: AppConfig, img: PIL.Image.Image) -> None:
+def draw_wall(config: weather_display.config.AppConfig, img: PIL.Image.Image) -> None:
     for wall_image in config.wall.image:
         my_lib.pil_util.alpha_paste(
             img,
@@ -64,7 +63,7 @@ def draw_wall(config: AppConfig, img: PIL.Image.Image) -> None:
 
 
 def draw_panel(
-    config: AppConfig,
+    config: weather_display.config.AppConfig,
     img: PIL.Image.Image,
     is_small_mode: bool = False,
     is_test_mode: bool = False,
@@ -182,7 +181,7 @@ def draw_panel(
 
 
 def create_image(
-    config: AppConfig,
+    config: weather_display.config.AppConfig,
     small_mode: bool = False,
     dummy_mode: bool = False,
     test_mode: bool = False,
