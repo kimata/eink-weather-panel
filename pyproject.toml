@@ -10,7 +10,7 @@ requires-python = ">=3.11"
 
 dependencies = [
     "influxdb-client[ciso]>=1.44.0",
-    "my-lib @ git+https://github.com/kimata/my-py-lib@49fda6c4c056251deeac6ed70d47c519fc1e2038",
+    "my-lib @ git+https://github.com/kimata/my-py-lib@0edb22758eca60440655590846299f8406be70c2",
     "opencv-contrib-python-headless>=4.10.0.84",
     "matplotlib>=3.9.2",
     "pandas>=2.2.2",
@@ -109,7 +109,7 @@ include = ["src", "tests"]
 reportMissingImports = false
 
 [tool.mypy]
-python_version = "3.13"
+python_version = "3.12"
 warn_return_any = false
 warn_unused_configs = true
 ignore_missing_imports = true
@@ -125,4 +125,8 @@ disable_error_code = [
     "return-value",     # Incompatible return value type
     "operator",         # Unsupported operand type
     "attr-defined",     # Has no attribute
+]
+exclude = [
+    "^tests/",
+    "^.venv/",
 ]
