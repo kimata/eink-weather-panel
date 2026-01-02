@@ -41,7 +41,7 @@ def page(page):
 @pytest.fixture
 def browser_context_args(browser_context_args, request):
     """ブラウザコンテキストに動画録画設定を追加"""
-    video_dir = EVIDENCE_DIR / "video" / request.node.name
+    video_dir = pathlib.Path("reports/videos") / request.node.name
     video_dir.mkdir(parents=True, exist_ok=True)
 
     return {
