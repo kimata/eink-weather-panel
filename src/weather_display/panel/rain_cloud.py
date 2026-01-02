@@ -42,13 +42,12 @@ import selenium.webdriver.support
 import selenium.webdriver.support.expected_conditions
 import selenium.webdriver.support.wait
 import my_lib.selenium_util
-from my_lib.selenium_util import click_xpath  # NOTE: テスト時に mock する
 
 if TYPE_CHECKING:
     from selenium.webdriver.remote.webdriver import WebDriver
     from selenium.webdriver.support.wait import WebDriverWait
 
-from weather_display.config import AppConfig, RainCloudConfig
+import weather_display.config
 
 
 @dataclass
@@ -135,25 +134,25 @@ var elements = document.getElementsByClassName("{class_name}")
 
 
 def change_setting(driver: WebDriver, wait: WebDriverWait[WebDriver]) -> None:
-    click_xpath(
+    my_lib.selenium_util.click_xpath(
         driver,
         '//a[contains(@aria-label, "色の濃さ")]',
         wait,
         True,
     )
-    click_xpath(
+    my_lib.selenium_util.click_xpath(
         driver,
         '//span[contains(text(), "濃い")]',
         wait,
         True,
     )
-    click_xpath(
+    my_lib.selenium_util.click_xpath(
         driver,
         '//a[contains(@aria-label, "地図を切り替え")]',
         wait,
         True,
     )
-    click_xpath(
+    my_lib.selenium_util.click_xpath(
         driver,
         '//span[contains(text(), "地名なし")]',
         wait,
@@ -169,7 +168,7 @@ def shape_cloud_display(
     is_future: bool,
 ) -> None:
     if is_future:
-        click_xpath(
+        my_lib.selenium_util.click_xpath(
             driver,
             '//div[@class="jmatile-control"]//div[contains(text(), " +1時間 ")]',
             wait,
@@ -315,7 +314,7 @@ def fetch_cloud_image(  # noqa: PLR0913
 
 def retouch_cloud_image(
     png_data: bytes,
-    rain_cloud_config: RainCloudConfig,
+    rain_cloud_config: weather_display.config.RainCloudConfig,
 ) -> tuple[PIL.Image.Image, PIL.Image.Image]:
     logging.info("retouch image")
 
@@ -435,7 +434,7 @@ def get_driver_profile_name(is_future: bool) -> str:
 
 
 def create_rain_cloud_img(
-    rain_cloud_config: RainCloudConfig,
+    rain_cloud_config: weather_display.config.RainCloudConfig,
     sub_panel_config: SubPanelConfig,
     face_map: dict[str, PIL.ImageFont.FreeTypeFont],
     slack_config: my_lib.notify.slack.HasErrorConfig | my_lib.notify.slack.SlackEmptyConfig,
@@ -500,7 +499,7 @@ def create_rain_cloud_img(
 def draw_legend(
     img: PIL.Image.Image,
     bar: PIL.Image.Image,
-    rain_cloud_config: RainCloudConfig,
+    rain_cloud_config: weather_display.config.RainCloudConfig,
     face_map: dict[str, PIL.ImageFont.FreeTypeFont],
 ) -> PIL.Image.Image:
     PADDING = 20
@@ -581,7 +580,7 @@ def draw_legend(
 
 
 def create_rain_cloud_panel_impl(
-    rain_cloud_config: RainCloudConfig,
+    rain_cloud_config: weather_display.config.RainCloudConfig,
     context: my_lib.panel_config.NormalPanelContext,
     is_threaded: object = True,
 ) -> PIL.Image.Image:
@@ -653,7 +652,7 @@ def create_rain_cloud_panel_impl(
 
 
 def create(
-    config: AppConfig, is_side_by_side: bool = True, is_threaded: bool = True
+    config: weather_display.config.AppConfig, is_side_by_side: bool = True, is_threaded: bool = True
 ) -> tuple[PIL.Image.Image, float] | tuple[PIL.Image.Image, float, str]:
     logging.info("draw rain cloud panel")
 
@@ -709,7 +708,6 @@ if __name__ == "__main__":
     import docopt
     import my_lib.logger
 
-    from weather_display.config import load
 
     assert __doc__ is not None
     args = docopt.docopt(__doc__)
@@ -720,7 +718,7 @@ if __name__ == "__main__":
 
     my_lib.logger.init("test", level=logging.DEBUG if debug_mode else logging.INFO)
 
-    config = load(config_file)
+    config = weather_display.config.load(config_file)
     context = my_lib.panel_config.NormalPanelContext(
         font_config=config.font,
         slack_config=my_lib.notify.slack.SlackEmptyConfig(),

@@ -18,7 +18,7 @@ import my_lib.proc_util
 import paramiko
 
 import create_image
-from weather_display.config import AppConfig
+import weather_display.config
 
 T = TypeVar("T")
 
@@ -140,7 +140,7 @@ def _cleanup_ssh_channels(
 
 def execute(
     ssh: paramiko.SSHClient,
-    config: AppConfig,
+    config: weather_display.config.AppConfig,
     config_file: str,
     small_mode: bool,
     test_mode: bool,

@@ -25,7 +25,7 @@ import PIL.ImageDraw
 import PIL.ImageEnhance
 import PIL.ImageFont
 
-from weather_display.config import AppConfig, TimeConfig
+import weather_display.config
 
 
 FONT_SPEC_NESTED: dict[str, dict[str, my_lib.font_util.FontSpec]] = {
@@ -68,7 +68,7 @@ def draw_time(
 
 def draw_panel_time(
     img: PIL.Image.Image,
-    time_config: TimeConfig,
+    time_config: weather_display.config.TimeConfig,
     font_config: my_lib.panel_config.FontConfigProtocol,
 ) -> None:
     face_map = get_face_map(font_config)
@@ -82,7 +82,7 @@ def draw_panel_time(
     )
 
 
-def create(config: AppConfig) -> tuple[PIL.Image.Image, float]:
+def create(config: weather_display.config.AppConfig) -> tuple[PIL.Image.Image, float]:
     logging.info("draw time panel")
     start = time.perf_counter()
 
@@ -102,7 +102,6 @@ if __name__ == "__main__":
     import docopt
     import my_lib.logger
 
-    from weather_display.config import load
 
     assert __doc__ is not None
     args = docopt.docopt(__doc__)
@@ -113,7 +112,7 @@ if __name__ == "__main__":
 
     my_lib.logger.init("test", level=logging.DEBUG if debug_mode else logging.INFO)
 
-    config = load(config_file)
+    config = weather_display.config.load(config_file)
     img = create(config)[0]
 
     logging.info("Save %s.", out_file)

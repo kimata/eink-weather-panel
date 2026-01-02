@@ -36,19 +36,10 @@ import my_lib.panel_util
 import my_lib.plot_util
 import pandas.plotting
 import PIL.Image
-from my_lib.sensor_data import DataRequest, SensorDataResult, fetch_data_parallel
 
-from weather_display.config import (
-    AppConfig,
-    SensorConfig,
-)
-from weather_display.panel.sensor_graph_utils import (
-    EMPTY_VALUE,
-    draw_aircon_icon,
-    draw_light_icon,
-    get_aircon_power_from_results,
-    get_aircon_power_requests,
-)
+import my_lib.sensor_data
+import weather_display.config
+import weather_display.panel.sensor_graph_utils
 
 matplotlib.use("Agg")
 
@@ -208,7 +199,7 @@ def plot_item(  # noqa: PLR0913
 
 
 def create_sensor_graph_impl(  # noqa: C901, PLR0912, PLR0915
-    sensor_config: SensorConfig,
+    sensor_config: weather_display.config.SensorConfig,
     context: my_lib.panel_config.DatabasePanelContext,
 ) -> PIL.Image.Image:
     face_map = get_face_map(context.font_config)
@@ -231,7 +222,7 @@ def create_sensor_graph_impl(  # noqa: C901, PLR0912, PLR0915
         time_begin = datetime.datetime.now(datetime.timezone.utc)
 
         # 並列取得用のリクエストリストを準備
-        fetch_requests: list[DataRequest] = []
+        fetch_requests: list[my_lib.sensor_data.DataRequest] = []
         request_map: dict[tuple[str, int, str, str], int] = {}  # (param_name, col, measure, hostname) -> request_index
 
         for param in sensor_config.param_list:
@@ -249,7 +240,7 @@ def create_sensor_graph_impl(  # noqa: C901, PLR0912, PLR0915
                         period_stop = "now()"
 
                     fetch_requests.append(
-                        DataRequest(
+                        my_lib.sensor_data.DataRequest(
                             measure=sensor.measure,
                             hostname=sensor.hostname,
                             field=param.name,
@@ -259,7 +250,7 @@ def create_sensor_graph_impl(  # noqa: C901, PLR0912, PLR0915
                     )
 
         # エアコン電力取得用のリクエストも追加
-        aircon_requests, aircon_map = get_aircon_power_requests(room_list)
+        aircon_requests, aircon_map = weather_display.panel.sensor_graph_utils.get_aircon_power_requests(room_list)
 
         all_requests = fetch_requests + aircon_requests
         aircon_results_offset = len(fetch_requests)
@@ -269,7 +260,7 @@ def create_sensor_graph_impl(  # noqa: C901, PLR0912, PLR0915
             "Fetching sensor data in parallel (%d requests, %d aircon)", len(fetch_requests), len(aircon_requests)
         )
         parallel_start = time.perf_counter()
-        all_results = asyncio.run(fetch_data_parallel(context.db_config, all_requests))
+        all_results = asyncio.run(my_lib.sensor_data.fetch_data_parallel(context.db_config, all_requests))
         parallel_time = time.perf_counter() - parallel_start
         logging.info("Parallel fetch completed in %.2f seconds", parallel_time)
 
@@ -281,7 +272,7 @@ def create_sensor_graph_impl(  # noqa: C901, PLR0912, PLR0915
         for param in sensor_config.param_list:
             for col, room in enumerate(room_list):
                 # 複数のセンサーから最初の有効なデータを選択
-                data: SensorDataResult | None = None
+                data: my_lib.sensor_data.SensorDataResult | None = None
                 for sensor in room.sensor:
                     request_key = (param.name, col, sensor.measure, sensor.hostname)
                     if request_key in request_map:  # pragma: no branch  # 同じデータから構築されるため常にTrue
@@ -304,7 +295,7 @@ def create_sensor_graph_impl(  # noqa: C901, PLR0912, PLR0915
                     if request_key in request_map:  # pragma: no branch  # 同じデータから構築されるため常にTrue
                         request_index = request_map[request_key]
                         last_result = results[request_index]
-                        if isinstance(last_result, SensorDataResult):
+                        if isinstance(last_result, my_lib.sensor_data.SensorDataResult):
                             data = last_result
 
                 # SensorDataResult を PlotData に変換して time_numeric を追加
@@ -326,7 +317,7 @@ def create_sensor_graph_impl(  # noqa: C901, PLR0912, PLR0915
                             valid=False,
                             time=time_data,
                             time_numeric=plot_data.time_numeric,
-                            value=[EMPTY_VALUE for _ in range(len(time_data))],
+                            value=[weather_display.panel.sensor_graph_utils.EMPTY_VALUE for _ in range(len(time_data))],
                         )
 
         # キャッシュからレンジを計算
@@ -403,14 +394,14 @@ def create_sensor_graph_impl(  # noqa: C901, PLR0912, PLR0915
                 )
 
                 if (param.name == "temp") and room.aircon is not None:
-                    draw_aircon_icon(
+                    weather_display.panel.sensor_graph_utils.draw_aircon_icon(
                         ax,
-                        get_aircon_power_from_results(aircon_results, aircon_map, col),
+                        weather_display.panel.sensor_graph_utils.get_aircon_power_from_results(aircon_results, aircon_map, col),
                         sensor_config.icon,
                     )
 
                 if (param.name == "lux") and room.light_icon:
-                    draw_light_icon(ax, plot_data.value, sensor_config.icon)
+                    weather_display.panel.sensor_graph_utils.draw_light_icon(ax, plot_data.value, sensor_config.icon)
 
         with io.BytesIO() as buf:
             # グレースケール画像を直接生成（最適化）
@@ -430,7 +421,7 @@ def create_sensor_graph_impl(  # noqa: C901, PLR0912, PLR0915
         matplotlib.pyplot.close(fig)
 
 
-def create(config: AppConfig) -> tuple[PIL.Image.Image, float] | tuple[PIL.Image.Image, float, str]:
+def create(config: weather_display.config.AppConfig) -> tuple[PIL.Image.Image, float] | tuple[PIL.Image.Image, float, str]:
     logging.info("draw sensor graph")
     start = time.perf_counter()
 
@@ -464,7 +455,6 @@ if __name__ == "__main__":
     import docopt
     import my_lib.logger
 
-    from weather_display.config import load
 
     assert __doc__ is not None
     args = docopt.docopt(__doc__)
@@ -475,7 +465,7 @@ if __name__ == "__main__":
 
     my_lib.logger.init("test", level=logging.DEBUG if debug_mode else logging.INFO)
 
-    config = load(config_file)
+    config = weather_display.config.load(config_file)
     result = create(config)
 
     if len(result) > 2:

@@ -13,11 +13,10 @@ import matplotlib.axes
 import matplotlib.offsetbox
 import matplotlib.pyplot  # noqa: ICN001
 
-from collections.abc import Sequence
+import collections.abc
 
-from my_lib.sensor_data import DataRequest, SensorDataResult
-
-from weather_display.config import RoomConfig, SensorIconConfig
+import my_lib.sensor_data
+import weather_display.config
 
 # エアコン動作判定の閾値（W）
 AIRCON_WORK_THRESHOLD = 30
@@ -26,9 +25,9 @@ AIRCON_WORK_THRESHOLD = 30
 EMPTY_VALUE = -100.0
 
 
-def get_aircon_power_requests(room_list: list[RoomConfig]) -> tuple[list[DataRequest], dict[int, int]]:
+def get_aircon_power_requests(room_list: list[weather_display.config.RoomConfig]) -> tuple[list[my_lib.sensor_data.DataRequest], dict[int, int]]:
     """エアコン電力取得用のリクエストリストを生成"""
-    aircon_requests: list[DataRequest] = []
+    aircon_requests: list[my_lib.sensor_data.DataRequest] = []
     aircon_map: dict[int, int] = {}
 
     if os.environ.get("DUMMY_MODE", "false") == "true":
@@ -43,7 +42,7 @@ def get_aircon_power_requests(room_list: list[RoomConfig]) -> tuple[list[DataReq
             request_index = len(aircon_requests)
             aircon_map[col] = request_index
             aircon_requests.append(
-                DataRequest(
+                my_lib.sensor_data.DataRequest(
                     measure=room.aircon.measure,
                     hostname=room.aircon.hostname,
                     field="power",
@@ -57,7 +56,7 @@ def get_aircon_power_requests(room_list: list[RoomConfig]) -> tuple[list[DataReq
 
 
 def get_aircon_power_from_results(
-    results: Sequence[SensorDataResult | BaseException],
+    results: collections.abc.Sequence[my_lib.sensor_data.SensorDataResult | BaseException],
     aircon_map: dict[int, int],
     col: int,
 ) -> float | None:
@@ -77,7 +76,7 @@ def get_aircon_power_from_results(
 def draw_aircon_icon(
     ax: matplotlib.axes.Axes,
     power: float | None,
-    icon_config: SensorIconConfig,
+    icon_config: weather_display.config.SensorIconConfig,
 ) -> None:
     """エアコン動作中アイコンを描画"""
     if (power is None) or (power < AIRCON_WORK_THRESHOLD):
@@ -103,7 +102,7 @@ def draw_aircon_icon(
 def draw_light_icon(
     ax: matplotlib.axes.Axes,
     lux_list: list[float | None],
-    icon_config: SensorIconConfig,
+    icon_config: weather_display.config.SensorIconConfig,
 ) -> None:
     """照明状態アイコンを描画"""
     # NOTE: 下記の next の記法だとカバレッジが正しく取れない

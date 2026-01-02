@@ -17,14 +17,13 @@ import pathlib
 import sys
 
 import my_lib.healthz
-from my_lib.healthz import HealthzTarget
 
 import weather_display.config
 
 SCHEMA_CONFIG = "schema/config.schema"
 
 
-def check_liveness(target_list: list[HealthzTarget]) -> bool:
+def check_liveness(target_list: list[my_lib.healthz.HealthzTarget]) -> bool:
     failed = my_lib.healthz.check_liveness_all(target_list)
     return len(failed) == 0
 
@@ -44,7 +43,7 @@ if __name__ == "__main__":
     config = weather_display.config.load(config_file, pathlib.Path(SCHEMA_CONFIG))
 
     target_list = [
-        HealthzTarget(
+        my_lib.healthz.HealthzTarget(
             name="display",
             liveness_file=config.liveness.file.display,
             interval=config.panel.update.interval,

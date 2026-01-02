@@ -21,7 +21,7 @@ import flask
 import flask_cors
 import werkzeug.serving
 
-from weather_display.config import AppConfig
+import weather_display.config
 
 
 @dataclass
@@ -32,7 +32,7 @@ class MetricsServerHandle:
     thread: threading.Thread
 
 
-def create_app(config: AppConfig) -> flask.Flask:
+def create_app(config: weather_display.config.AppConfig) -> flask.Flask:
     import my_lib.webapp.config
 
     my_lib.webapp.config.URL_PREFIX = "/weather_panel"
@@ -59,7 +59,7 @@ def create_app(config: AppConfig) -> flask.Flask:
     return app
 
 
-def start(config: AppConfig, port: int) -> MetricsServerHandle:
+def start(config: weather_display.config.AppConfig, port: int) -> MetricsServerHandle:
     # NOTE: Flask は別のプロセスで実行
     server = werkzeug.serving.make_server(
         "0.0.0.0",  # noqa: S104

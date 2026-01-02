@@ -14,12 +14,19 @@ from dataclasses import dataclass, field
 from typing import Any, Literal, cast
 
 import my_lib.config
-from my_lib.notify.slack import SlackEmptyConfig, SlackErrorOnlyConfig
-from my_lib.notify.slack import parse_config as parse_slack_config
-from my_lib.panel_config import FontConfig, IconConfig, PanelGeometry
-from my_lib.sensor_data import InfluxDBConfig
+import my_lib.notify.slack
+import my_lib.panel_config
+import my_lib.sensor_data
+import my_lib.webapp.config
 
 # my_lib から re-export
+FontConfig = my_lib.panel_config.FontConfig
+IconConfig = my_lib.panel_config.IconConfig
+PanelGeometry = my_lib.panel_config.PanelGeometry
+InfluxDBConfig = my_lib.sensor_data.InfluxDBConfig
+SlackEmptyConfig = my_lib.notify.slack.SlackEmptyConfig
+SlackErrorOnlyConfig = my_lib.notify.slack.SlackErrorOnlyConfig
+
 __all__ = [
     "FontConfig",
     "IconConfig",
@@ -320,24 +327,6 @@ class MetricsConfig:
     data: pathlib.Path
 
 
-# === WebApp ===
-@dataclass(frozen=True)
-class TimezoneConfig:
-    """タイムゾーン設定"""
-
-    offset: str
-    name: str
-    zone: str
-
-
-@dataclass(frozen=True)
-class WebAppConfig:
-    """Web アプリケーション設定"""
-
-    timezone: TimezoneConfig
-    static_dir_path: pathlib.Path
-
-
 # === メイン設定クラス ===
 @dataclass(frozen=True)
 class AppConfig:
@@ -358,7 +347,7 @@ class AppConfig:
     wall: WallConfig = field(default_factory=lambda: WallConfig(image=[]))
     slack: SlackErrorOnlyConfig | SlackEmptyConfig = field(default_factory=SlackEmptyConfig)
     metrics: MetricsConfig | None = None
-    webapp: WebAppConfig | None = None
+    webapp: my_lib.webapp.config.WebappConfig | None = None
 
 
 # === パース関数 ===
@@ -590,20 +579,11 @@ def _parse_metrics(data: dict[str, str] | None) -> MetricsConfig | None:
     return MetricsConfig(data=pathlib.Path(data["data"]))
 
 
-def _parse_webapp(data: dict[str, Any] | None) -> WebAppConfig | None:
+def _parse_webapp(data: dict[str, Any] | None) -> my_lib.webapp.config.WebappConfig | None:
     if data is None:
         return None
 
-    timezone_data = data["timezone"]
-
-    return WebAppConfig(
-        timezone=TimezoneConfig(
-            offset=timezone_data["offset"],
-            name=timezone_data["name"],
-            zone=timezone_data["zone"],
-        ),
-        static_dir_path=pathlib.Path(data["static_dir_path"]),
-    )
+    return my_lib.webapp.config.WebappConfig.from_dict(data)
 
 
 def parse_config(data: dict[str, Any]) -> AppConfig:
@@ -634,7 +614,7 @@ def parse_config(data: dict[str, Any]) -> AppConfig:
         wall=wall,
         slack=cast(
             SlackErrorOnlyConfig | SlackEmptyConfig,
-            parse_slack_config(data.get("slack", {})),
+            my_lib.notify.slack.parse_config(data.get("slack", {})),
         ),
         metrics=_parse_metrics(data.get("metrics")),
         webapp=_parse_webapp(data.get("webapp")),
