@@ -314,7 +314,7 @@ test-display-small:
     variables:
         RASP_HOSTNAME: rasp-display-2
         DISPLAY_IMAGE_ARGS: "-S -c config-small.yaml"
-test-webapp:
+test-webui:
     stage: test
     needs:
         - generate-tag
@@ -401,7 +401,7 @@ tag-latest:
           artifacts: false
         - job: test-display-small
           artifacts: false
-        - job: test-webapp
+        - job: test-webui
           artifacts: false
 
     script:
@@ -427,7 +427,7 @@ deploy:
           artifacts: false
         - job: test-display-small
           artifacts: false
-        - job: test-webapp
+        - job: test-webui
           artifacts: false
 
     image:
