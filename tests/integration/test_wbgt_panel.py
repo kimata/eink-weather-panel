@@ -6,6 +6,7 @@ WBGT パネルの統合テスト
 import datetime
 import zoneinfo
 
+import my_lib.weather
 import pytest
 
 
@@ -57,7 +58,7 @@ class TestWbgtPanelVariations:
         """各WBGT値で正しくパネルを生成できること"""
         import weather_display.panel.wbgt
 
-        mocker.patch.object(weather_display.panel.wbgt, "get_wbgt", return_value=mock_wbgt_data(wbgt_value))
+        mocker.patch.object(my_lib.weather, "get_wbgt", return_value=mock_wbgt_data(wbgt_value))
 
         result = weather_display.panel.wbgt.create(config)
 
@@ -70,7 +71,7 @@ class TestWbgtPanelVariations:
         """WBGT 21未満（安全レベル）で正しく描画されること"""
         import weather_display.panel.wbgt
 
-        mocker.patch.object(weather_display.panel.wbgt, "get_wbgt", return_value=mock_wbgt_data(15))
+        mocker.patch.object(my_lib.weather, "get_wbgt", return_value=mock_wbgt_data(15))
 
         result = weather_display.panel.wbgt.create(config)
         assert result[0] is not None
@@ -79,7 +80,7 @@ class TestWbgtPanelVariations:
         """WBGT 21-25（注意レベル）で正しく描画されること"""
         import weather_display.panel.wbgt
 
-        mocker.patch.object(weather_display.panel.wbgt, "get_wbgt", return_value=mock_wbgt_data(23))
+        mocker.patch.object(my_lib.weather, "get_wbgt", return_value=mock_wbgt_data(23))
 
         result = weather_display.panel.wbgt.create(config)
         assert result[0] is not None
@@ -88,7 +89,7 @@ class TestWbgtPanelVariations:
         """WBGT 25-28（警戒レベル）で正しく描画されること"""
         import weather_display.panel.wbgt
 
-        mocker.patch.object(weather_display.panel.wbgt, "get_wbgt", return_value=mock_wbgt_data(26))
+        mocker.patch.object(my_lib.weather, "get_wbgt", return_value=mock_wbgt_data(26))
 
         result = weather_display.panel.wbgt.create(config)
         assert result[0] is not None
@@ -97,7 +98,7 @@ class TestWbgtPanelVariations:
         """WBGT 28-31（厳重警戒レベル）で正しく描画されること"""
         import weather_display.panel.wbgt
 
-        mocker.patch.object(weather_display.panel.wbgt, "get_wbgt", return_value=mock_wbgt_data(29))
+        mocker.patch.object(my_lib.weather, "get_wbgt", return_value=mock_wbgt_data(29))
 
         result = weather_display.panel.wbgt.create(config)
         assert result[0] is not None
@@ -106,7 +107,7 @@ class TestWbgtPanelVariations:
         """WBGT 31以上（危険レベル）で正しく描画されること"""
         import weather_display.panel.wbgt
 
-        mocker.patch.object(weather_display.panel.wbgt, "get_wbgt", return_value=mock_wbgt_data(35))
+        mocker.patch.object(my_lib.weather, "get_wbgt", return_value=mock_wbgt_data(35))
 
         result = weather_display.panel.wbgt.create(config)
         assert result[0] is not None
@@ -148,7 +149,7 @@ class TestWbgtPanelError:
             current = None
             daily = type("obj", (object,), {"today": [], "tommorow": []})()
 
-        mocker.patch.object(weather_display.panel.wbgt, "get_wbgt", return_value=MockWbgtInfo())
+        mocker.patch.object(my_lib.weather, "get_wbgt", return_value=MockWbgtInfo())
 
         result = weather_display.panel.wbgt.create(config)
 
