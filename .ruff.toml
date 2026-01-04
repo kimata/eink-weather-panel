@@ -20,6 +20,7 @@ select = [
 ]
 ignore = [
     "RUF001", "RUF002", "RUF003",  # 日本語文字の誤検知防止
+    "SIM300",  # Yoda 条件式（範囲チェック a < x < b の書き方を許容）
 ]
 
 fixable = ["ALL"]

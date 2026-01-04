@@ -74,21 +74,21 @@ CLOUD_IMAGE_XPATH = '//div[contains(@id, "jmatile_map_")]'
 
 RAINFALL_INTENSITY_LEVEL = [
     # NOTE: 白
-    {"func": lambda h, s: (160 < h) & (h < 180) & (s < 20), "value": 1},  # noqa: SIM300
+    {"func": lambda h, s: (160 < h) & (h < 180) & (s < 20), "value": 1},
     # NOTE: 薄水色
-    {"func": lambda h, s: (140 < h) & (h < 150) & (90 < s) & (s < 100), "value": 5},  # noqa: SIM300
+    {"func": lambda h, s: (140 < h) & (h < 150) & (90 < s) & (s < 100), "value": 5},
     # NOTE: 水色
-    {"func": lambda h, s: (145 < h) & (h < 155) & (210 < s) & (s < 230), "value": 10},  # noqa: SIM300
+    {"func": lambda h, s: (145 < h) & (h < 155) & (210 < s) & (s < 230), "value": 10},
     # NOTE: 青色
-    {"func": lambda h, s: (155 < h) & (h < 165) & (230 < s), "value": 20},  # noqa: SIM300
+    {"func": lambda h, s: (155 < h) & (h < 165) & (230 < s), "value": 20},
     # NOTE: 黄色
-    {"func": lambda h, s: (35 < h) & (h < 45), "value": 30},  # noqa: SIM300
+    {"func": lambda h, s: (35 < h) & (h < 45), "value": 30},
     # NOTE: 橙色
-    {"func": lambda h, s: (20 < h) & (h < 30), "value": 50},  # noqa: SIM300
+    {"func": lambda h, s: (20 < h) & (h < 30), "value": 50},
     # NOTE: 赤色
-    {"func": lambda h, s: (0 < h) & (h < 8), "value": 80},  # noqa: SIM300
+    {"func": lambda h, s: (0 < h) & (h < 8), "value": 80},
     # NOTE: 紫色
-    {"func": lambda h, s: (225 < h) & (h < 235) & (240 < s)},  # noqa: SIM300
+    {"func": lambda h, s: (225 < h) & (h < 235) & (240 < s)},
 ]
 
 
