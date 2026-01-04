@@ -19,7 +19,7 @@ async function loadMetricsData() {
             renderAlerts,
             false,
             ++currentSection,
-            totalSections,
+            totalSections
         );
         await loadAndRenderSection(
             "basic-stats",
@@ -27,7 +27,7 @@ async function loadMetricsData() {
             renderBasicStats,
             false,
             ++currentSection,
-            totalSections,
+            totalSections
         );
         await loadAndRenderSection(
             "hourly-patterns",
@@ -35,7 +35,7 @@ async function loadMetricsData() {
             renderHourlyPatterns,
             false,
             ++currentSection,
-            totalSections,
+            totalSections
         );
         await loadAndRenderSection(
             "diff-sec",
@@ -43,7 +43,7 @@ async function loadMetricsData() {
             renderDiffSec,
             false,
             ++currentSection,
-            totalSections,
+            totalSections
         ); // 同じデータを使用
         await loadAndRenderSection(
             "trends",
@@ -51,7 +51,7 @@ async function loadMetricsData() {
             renderTrends,
             false,
             ++currentSection,
-            totalSections,
+            totalSections
         );
         await loadAndRenderSection(
             "panel-trends",
@@ -59,7 +59,7 @@ async function loadMetricsData() {
             renderPanelTrends,
             false,
             ++currentSection,
-            totalSections,
+            totalSections
         );
         await loadAndRenderSection(
             "anomalies",
@@ -67,7 +67,7 @@ async function loadMetricsData() {
             renderAnomalies,
             true,
             ++currentSection,
-            totalSections,
+            totalSections
         ); // 最後のセクション
 
         // 進捗表示を非表示
@@ -90,7 +90,7 @@ async function loadAndRenderSection(
     renderFunc,
     isLast = false,
     currentStep = 0,
-    totalSteps = 0,
+    totalSteps = 0
 ) {
     const container = document.getElementById(`${sectionId}-container`);
     if (!container) return;
@@ -119,7 +119,7 @@ async function loadAndRenderSection(
                 throw new Error(
                     `メトリクスデータベースが見つかりません。<br>
                     ${errorData.message}<br>
-                    <small>${errorData.details}</small>`,
+                    <small>${errorData.details}</small>`
                 );
             }
             throw new Error(`データの取得に失敗しました (${response.status})`);
