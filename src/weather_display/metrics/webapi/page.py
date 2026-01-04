@@ -120,7 +120,7 @@ def metrics_basic_stats():
     try:
         analyzer, error_response, error_code = _get_analyzer()
         if analyzer is None:
-            assert error_response is not None and error_code is not None
+            assert error_response is not None and error_code is not None  # noqa: S101
             return error_response, error_code
 
         basic_stats = analyzer.get_basic_statistics()
@@ -140,7 +140,7 @@ def metrics_hourly_patterns():
     try:
         analyzer, error_response, error_code = _get_analyzer()
         if analyzer is None:
-            assert error_response is not None and error_code is not None
+            assert error_response is not None and error_code is not None  # noqa: S101
             return error_response, error_code
 
         hourly_patterns = analyzer.get_hourly_patterns()
@@ -160,7 +160,7 @@ def metrics_trends():
     try:
         analyzer, error_response, error_code = _get_analyzer()
         if analyzer is None:
-            assert error_response is not None and error_code is not None
+            assert error_response is not None and error_code is not None  # noqa: S101
             return error_response, error_code
 
         trends = analyzer.get_performance_trends()
@@ -180,7 +180,7 @@ def metrics_panel_trends():
     try:
         analyzer, error_response, error_code = _get_analyzer()
         if analyzer is None:
-            assert error_response is not None and error_code is not None
+            assert error_response is not None and error_code is not None  # noqa: S101
             return error_response, error_code
 
         panel_trends = analyzer.get_panel_performance_trends()
@@ -200,7 +200,7 @@ def metrics_alerts():
     try:
         analyzer, error_response, error_code = _get_analyzer()
         if analyzer is None:
-            assert error_response is not None and error_code is not None
+            assert error_response is not None and error_code is not None  # noqa: S101
             return error_response, error_code
 
         alerts = analyzer.check_performance_alerts()
@@ -220,7 +220,7 @@ def metrics_anomalies():
     try:
         analyzer, error_response, error_code = _get_analyzer()
         if analyzer is None:
-            assert error_response is not None and error_code is not None
+            assert error_response is not None and error_code is not None  # noqa: S101
             return error_response, error_code
 
         anomalies = analyzer.detect_anomalies()
@@ -559,7 +559,7 @@ def generate_metrics_html_skeleton():
     """
 
 
-def generate_metrics_html(  # noqa: PLR0913
+def generate_metrics_html(
     basic_stats, hourly_patterns, anomalies, trends, alerts, panel_trends, performance_stats, data_range
 ):
     """Bulma CSSを使用した包括的なメトリクスHTMLを生成。"""
@@ -789,7 +789,7 @@ def generate_metrics_html(  # noqa: PLR0913
     """
     )
 
-    return html  # noqa: RET504
+    return html
 
 
 def generate_alerts_section(alerts):
@@ -939,7 +939,7 @@ def generate_basic_stats_section(basic_stats):
     """
 
 
-def generate_hourly_patterns_section(hourly_patterns):  # noqa: ARG001
+def generate_hourly_patterns_section(hourly_patterns):
     """時間別パターンセクションのHTML生成。"""
     return """
     <div class="section" id="hourly-patterns">
@@ -1012,7 +1012,7 @@ def generate_hourly_patterns_section(hourly_patterns):  # noqa: ARG001
     """
 
 
-def generate_trends_section(trends):  # noqa: ARG001
+def generate_trends_section(trends):
     """パフォーマンス推移セクションのHTML生成。"""
     return """
     <div class="section" id="performance-trends">
@@ -1073,7 +1073,7 @@ def generate_trends_section(trends):  # noqa: ARG001
     """
 
 
-def generate_anomalies_section(anomalies, performance_stats):  # noqa: C901, PLR0912, PLR0915
+def generate_anomalies_section(anomalies, performance_stats):
     """異常検知セクションのHTML生成。"""
     draw_panel_anomalies = anomalies.get("draw_panel", {})
     display_image_anomalies = anomalies.get("display_image", {})
@@ -1389,7 +1389,7 @@ def generate_diff_sec_section():
     """
 
 
-def generate_panel_trends_section(panel_trends):  # noqa: ARG001
+def generate_panel_trends_section(panel_trends):
     """パネル別処理時間推移セクションのHTML生成。"""
     return """
     <div class="section" id="panel-trends">

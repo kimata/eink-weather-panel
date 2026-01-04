@@ -3,8 +3,8 @@
 """
 センサーグラフパネルの統合テスト
 """
+
 import datetime
-import zoneinfo
 
 import my_lib.sensor_data
 import pytest
@@ -35,9 +35,9 @@ class TestSensorGraphPanelWithMockedData:
 
         import matplotlib.dates
 
-        now = datetime.datetime.now(datetime.timezone.utc)
+        now = datetime.datetime.now(datetime.UTC)
         time_list = [now - datetime.timedelta(hours=i) for i in range(60, 0, -1)]
-        time_numeric = matplotlib.dates.date2num(time_list)
+        _ = matplotlib.dates.date2num(time_list)
 
         @dataclass
         class MockSensorResult:
@@ -131,5 +131,3 @@ class TestGetSharedAxisConfig:
 
         # 同じオブジェクトを返すこと
         assert result1 is result2
-
-

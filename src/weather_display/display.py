@@ -31,12 +31,14 @@ def exec_patiently(func: Callable[..., T], args: tuple[Any, ...]) -> T:
     for i in range(RETRY_COUNT):
         try:
             return func(*args)
-        except Exception:  # noqa: PERF203
+        except Exception:
             if i == (RETRY_COUNT - 1):
                 raise
             logging.warning(traceback.format_exc())
             time.sleep(RETRY_WAIT)
-    raise RuntimeError("Unreachable")  # pragma: no cover  # 論理的に到達不能（ループは必ず return か raise で終了）
+    raise RuntimeError(
+        "Unreachable"
+    )  # pragma: no cover  # 論理的に到達不能（ループは必ず return か raise で終了）
 
 
 def ssh_connect_impl(hostname: str, key_filename: str) -> paramiko.SSHClient:

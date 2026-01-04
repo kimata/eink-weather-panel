@@ -3,6 +3,7 @@
 """
 天気関連計算のユニットテスト
 """
+
 import pytest
 
 
@@ -33,8 +34,7 @@ class TestCalcMisnarFormula:
         result = calc_misnar_formula(temp, humi, wind)
 
         assert expected_min <= result <= expected_max, (
-            f"temp={temp}, humi={humi}, wind={wind}: "
-            f"expected {expected_min}-{expected_max}, got {result}"
+            f"temp={temp}, humi={humi}, wind={wind}: expected {expected_min}-{expected_max}, got {result}"
         )
 
     def test_wind_lowers_perceived_temperature(self):

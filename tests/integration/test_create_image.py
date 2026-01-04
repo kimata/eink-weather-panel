@@ -5,7 +5,6 @@ create_image.py 統合テスト
 
 画像生成の統合テストを行います。
 """
-import pytest
 
 
 class TestCreateImage:
@@ -88,10 +87,7 @@ class TestErrorHandling:
         # 画像は生成されていること
         assert img is not None
 
-
-    def test_create_image_metrics_log_failure(
-        self, config, mocker, mock_sensor_fetch_data, caplog
-    ):
+    def test_create_image_metrics_log_failure(self, config, mocker, mock_sensor_fetch_data, caplog):
         """メトリクスログ失敗時も処理を継続すること (lines 148-149)"""
         import logging
 
@@ -134,9 +130,8 @@ class TestErrorHandling:
 
     def test_create_image_panel_error_notification(self, config, mocker, mock_sensor_fetch_data):
         """パネル生成エラー時にSlack通知が呼ばれること (lines 114-119)"""
-        import PIL.Image
-
         import my_lib.panel_util
+        import PIL.Image
 
         mock_sensor_fetch_data()
 

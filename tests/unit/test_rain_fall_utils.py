@@ -3,6 +3,7 @@
 """
 降雨表示ユーティリティのユニットテスト
 """
+
 import datetime
 import re
 

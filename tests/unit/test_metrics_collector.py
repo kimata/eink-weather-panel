@@ -3,6 +3,7 @@
 """
 メトリクス収集・分析のユニットテスト
 """
+
 import datetime
 import pathlib
 import tempfile
@@ -279,10 +280,9 @@ class TestGlobalFunctions:
 
     def test_get_metrics_collector_returns_collector(self, temp_db):
         """get_metrics_collector が MetricsCollector を返すこと"""
-        from weather_display.metrics.collector import MetricsCollector, get_metrics_collector
-
         # グローバル変数をリセット
         import weather_display.metrics.collector
+        from weather_display.metrics.collector import MetricsCollector, get_metrics_collector
 
         weather_display.metrics.collector._metrics_collector = None
 
@@ -292,10 +292,9 @@ class TestGlobalFunctions:
 
     def test_collect_draw_panel_metrics_works(self, temp_db):
         """collect_draw_panel_metrics が動作すること"""
-        from weather_display.metrics.collector import collect_draw_panel_metrics
-
         # グローバル変数をリセット
         import weather_display.metrics.collector
+        from weather_display.metrics.collector import collect_draw_panel_metrics
 
         weather_display.metrics.collector._metrics_collector = None
 
@@ -309,10 +308,9 @@ class TestGlobalFunctions:
 
     def test_collect_display_image_metrics_works(self, temp_db):
         """collect_display_image_metrics が動作すること"""
-        from weather_display.metrics.collector import collect_display_image_metrics
-
         # グローバル変数をリセット
         import weather_display.metrics.collector
+        from weather_display.metrics.collector import collect_display_image_metrics
 
         weather_display.metrics.collector._metrics_collector = None
 
@@ -325,10 +323,9 @@ class TestGlobalFunctions:
 
     def test_collect_draw_panel_metrics_without_db_path(self, temp_db):
         """db_path なしで collect_draw_panel_metrics が動作すること"""
-        from weather_display.metrics.collector import collect_draw_panel_metrics, get_metrics_collector
-
         # グローバル変数をリセット
         import weather_display.metrics.collector
+        from weather_display.metrics.collector import collect_draw_panel_metrics, get_metrics_collector
 
         weather_display.metrics.collector._metrics_collector = None
 
@@ -344,10 +341,9 @@ class TestGlobalFunctions:
 
     def test_collect_display_image_metrics_without_db_path(self, temp_db):
         """db_path なしで collect_display_image_metrics が動作すること"""
-        from weather_display.metrics.collector import collect_display_image_metrics, get_metrics_collector
-
         # グローバル変数をリセット
         import weather_display.metrics.collector
+        from weather_display.metrics.collector import collect_display_image_metrics, get_metrics_collector
 
         weather_display.metrics.collector._metrics_collector = None
 
@@ -378,9 +374,7 @@ class TestMetricsCollectorExceptionHandling:
         collector = MetricsCollector(db_path=temp_db)
 
         # データベース接続をモックしてエラーを発生させる
-        mocker.patch.object(
-            collector, "_get_connection", side_effect=Exception("Database error")
-        )
+        mocker.patch.object(collector, "_get_connection", side_effect=Exception("Database error"))
 
         result = collector.log_draw_panel_metrics(
             total_elapsed_time=5.0,
@@ -396,9 +390,7 @@ class TestMetricsCollectorExceptionHandling:
         collector = MetricsCollector(db_path=temp_db)
 
         # データベース接続をモックしてエラーを発生させる
-        mocker.patch.object(
-            collector, "_get_connection", side_effect=Exception("Database error")
-        )
+        mocker.patch.object(collector, "_get_connection", side_effect=Exception("Database error"))
 
         result = collector.log_display_image_metrics(
             elapsed_time=10.0,
@@ -584,6 +576,5 @@ class TestMetricsCollectorDatabaseError:
             side_effect=Exception("Database error"),
         )
 
-        with pytest.raises(Exception, match="Database error"):
-            with collector._get_connection():
-                pass
+        with pytest.raises(Exception, match="Database error"), collector._get_connection():
+            pass

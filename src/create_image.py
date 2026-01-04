@@ -112,7 +112,7 @@ def draw_panel(
         error_message: str | None = result[2] if has_error else None
 
         if has_error:
-            assert error_message is not None
+            assert error_message is not None  # noqa: S101
             my_lib.panel_util.notify_error(
                 config.slack,
                 "weather_panel",
@@ -250,7 +250,7 @@ if __name__ == "__main__":
     import docopt
     import my_lib.logger
 
-    assert __doc__ is not None
+    assert __doc__ is not None  # noqa: S101
     args = docopt.docopt(__doc__)
 
     config_file = args["-c"]

@@ -28,13 +28,13 @@ SlackEmptyConfig = my_lib.notify.slack.SlackEmptyConfig
 SlackErrorOnlyConfig = my_lib.notify.slack.SlackErrorOnlyConfig
 
 __all__ = [
+    "AppConfig",
     "FontConfig",
     "IconConfig",
     "InfluxDBConfig",
     "PanelGeometry",
-    "AppConfig",
-    "parse_config",
     "load",
+    "parse_config",
 ]
 
 
@@ -401,17 +401,16 @@ def _parse_influxdb(data: dict[str, str]) -> InfluxDBConfig:
 
 
 def _parse_wall(data: dict[str, list[dict[str, str | float | int]]]) -> WallConfig:
-    images = []
-    for img_data in data["image"]:
-        images.append(
-            WallImageConfig(
-                path=pathlib.Path(img_data["path"]),  # type: ignore[arg-type]
-                scale=float(img_data.get("scale", 1.0)),
-                brightness=float(img_data.get("brightness", 1.0)),
-                offset_x=int(img_data.get("offset_x", 0)),
-                offset_y=int(img_data.get("offset_y", 0)),
-            )
+    images = [
+        WallImageConfig(
+            path=pathlib.Path(img_data["path"]),  # type: ignore[arg-type]
+            scale=float(img_data.get("scale", 1.0)),
+            brightness=float(img_data.get("brightness", 1.0)),
+            offset_x=int(img_data.get("offset_x", 0)),
+            offset_y=int(img_data.get("offset_y", 0)),
         )
+        for img_data in data["image"]
+    ]
     return WallConfig(image=images)
 
 

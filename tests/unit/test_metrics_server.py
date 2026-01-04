@@ -3,10 +3,8 @@
 """
 metrics/server.py のユニットテスト
 """
-import threading
-import time
 
-import pytest
+import threading
 
 
 class TestCreateApp:

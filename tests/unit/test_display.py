@@ -3,6 +3,7 @@
 """
 display.py のユニットテスト
 """
+
 import subprocess
 
 import pytest
@@ -55,7 +56,7 @@ class TestSshConnect:
         mock_ssh = mocker.MagicMock()
         mocker.patch("paramiko.SSHClient", return_value=mock_ssh)
         mocker.patch("paramiko.RSAKey.from_private_key")
-        mock_open = mocker.patch("builtins.open", mocker.mock_open(read_data="key_content"))
+        mocker.patch("builtins.open", mocker.mock_open(read_data="key_content"))
 
         result = display.ssh_connect("hostname", "/path/to/key")
 
@@ -69,7 +70,7 @@ class TestSshConnect:
         mock_ssh.connect.side_effect = [Exception("Connection failed"), None]
         mocker.patch("paramiko.SSHClient", return_value=mock_ssh)
         mocker.patch("paramiko.RSAKey.from_private_key")
-        mock_open = mocker.patch("builtins.open", mocker.mock_open(read_data="key_content"))
+        mocker.patch("builtins.open", mocker.mock_open(read_data="key_content"))
         mocker.patch("time.sleep")
 
         result = display.ssh_connect("hostname", "/path/to/key")
@@ -245,7 +246,6 @@ class TestExecute:
     def test_execute_with_error_code_major(self, config, mocker, mock_ssh_session):
         """ERROR_CODE_MAJOR でエラーログが出力されること"""
         import create_image
-
         from weather_display import display
 
         mock_proc = mocker.MagicMock()
@@ -269,7 +269,6 @@ class TestExecute:
     def test_execute_with_error_code_minor(self, config, mocker, mock_ssh_session):
         """ERROR_CODE_MINOR でフットプリントが更新されること"""
         import create_image
-
         from weather_display import display
 
         mock_proc = mocker.MagicMock()

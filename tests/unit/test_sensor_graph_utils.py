@@ -3,6 +3,7 @@
 """
 センサーグラフユーティリティのユニットテスト
 """
+
 import datetime
 import zoneinfo
 

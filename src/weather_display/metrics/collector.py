@@ -116,13 +116,13 @@ class MetricsCollector:
             logging.exception("Database error")
             raise
 
-    def log_draw_panel_metrics(  # noqa: PLR0913
+    def log_draw_panel_metrics(
         self,
         total_elapsed_time: float,
         panel_metrics: list[dict],
-        is_small_mode: bool = False,  # noqa: FBT001
-        is_test_mode: bool = False,  # noqa: FBT001
-        is_dummy_mode: bool = False,  # noqa: FBT001
+        is_small_mode: bool = False,
+        is_test_mode: bool = False,
+        is_dummy_mode: bool = False,
         error_code: int = 0,
         timestamp: datetime.datetime | None = None,
     ) -> int:
@@ -197,21 +197,21 @@ class MetricsCollector:
                 logging.debug(
                     "Logged draw_panel metrics: total=%.3fs, panels=%d", total_elapsed_time, panel_count
                 )
-                assert draw_panel_id is not None
+                assert draw_panel_id is not None  # noqa: S101
                 return draw_panel_id
 
         except Exception:
             logging.exception("Failed to log draw_panel metrics")
             return -1
 
-    def log_display_image_metrics(  # noqa: PLR0913
+    def log_display_image_metrics(
         self,
         elapsed_time: float,
-        is_small_mode: bool = False,  # noqa: FBT001
-        is_test_mode: bool = False,  # noqa: FBT001
-        is_one_time: bool = False,  # noqa: FBT001
+        is_small_mode: bool = False,
+        is_test_mode: bool = False,
+        is_one_time: bool = False,
         rasp_hostname: str | None = None,
-        success: bool = True,  # noqa: FBT001
+        success: bool = True,
         error_message: str | None = None,
         timestamp: datetime.datetime | None = None,
         sleep_time: float | None = None,
@@ -274,7 +274,7 @@ class MetricsCollector:
                     "Logged display_image metrics: elapsed=%.3fs, success=%s", elapsed_time, success
                 )
                 lastrowid = cursor.lastrowid
-                assert lastrowid is not None
+                assert lastrowid is not None  # noqa: S101
                 return lastrowid
 
         except Exception:
@@ -942,7 +942,7 @@ _metrics_collector = None
 
 def get_metrics_collector(db_path: str | pathlib.Path = DEFAULT_DB_PATH) -> MetricsCollector:
     """Get or create global metrics collector instance."""
-    global _metrics_collector  # noqa: PLW0603
+    global _metrics_collector
     if _metrics_collector is None or _metrics_collector.db_path != pathlib.Path(db_path):
         _metrics_collector = MetricsCollector(db_path)
     return _metrics_collector

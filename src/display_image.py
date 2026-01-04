@@ -54,7 +54,7 @@ NOTIFY_THRESHOLD = 2
 should_terminate = threading.Event()
 
 
-def sig_handler(num: int, frame: object) -> None:  # noqa: ARG001
+def sig_handler(num: int, frame: object) -> None:
     global should_terminate
 
     logging.warning("receive signal %d", num)
@@ -71,7 +71,7 @@ def sig_handler(num: int, frame: object) -> None:  # noqa: ARG001
         faulthandler.dump_traceback()
 
 
-def execute(  # noqa: PLR0913
+def execute(
     config: weather_display.config.AppConfig,
     rasp_hostname: str,
     key_file_path: pathlib.Path | str,
@@ -198,7 +198,7 @@ def start(
                     "weather_panel",
                     traceback.format_exc(),
                 )
-                logging.error("エラーが続いたので終了します。")  # noqa: TRY400
+                logging.error("エラーが続いたので終了します。")
                 sys.stderr.flush()
                 time.sleep(1)
                 raise
@@ -246,7 +246,7 @@ if __name__ == "__main__":
     import docopt
     import my_lib.logger
 
-    assert __doc__ is not None
+    assert __doc__ is not None  # noqa: S101
     args = docopt.docopt(__doc__)
 
     config_file = args["-c"]

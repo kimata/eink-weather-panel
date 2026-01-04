@@ -3,6 +3,7 @@
 """
 WBGT パネルの統合テスト
 """
+
 import datetime
 import zoneinfo
 

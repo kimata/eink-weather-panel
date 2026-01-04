@@ -5,10 +5,6 @@
 
 各パネルモジュールの統合テストを行います。
 """
-import datetime
-import zoneinfo
-
-import pytest
 
 
 class TestWeatherPanel:

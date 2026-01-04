@@ -46,7 +46,9 @@ FONT_SPEC: dict[str, my_lib.font_util.FontSpec] = {
 }
 
 
-def get_face_map(font_config: my_lib.panel_config.FontConfigProtocol) -> dict[str, PIL.ImageFont.FreeTypeFont]:
+def get_face_map(
+    font_config: my_lib.panel_config.FontConfigProtocol,
+) -> dict[str, PIL.ImageFont.FreeTypeFont]:
     return my_lib.font_util.build_pil_face_map(font_config, FONT_SPEC)
 
 
@@ -152,7 +154,7 @@ def draw_rainfall(
     )
 
     amount = rainfall_status["amount"]
-    if not isinstance(amount, (int, float)) or amount < 0.01:
+    if not isinstance(amount, int | float) or amount < 0.01:
         return img
 
     amount_text = gen_amount_text(amount)
@@ -228,10 +230,12 @@ def create_rain_fall_panel_impl(
     return img
 
 
-def create(config: weather_display.config.AppConfig) -> tuple[PIL.Image.Image, float] | tuple[PIL.Image.Image, float, str]:
+def create(
+    config: weather_display.config.AppConfig,
+) -> tuple[PIL.Image.Image, float] | tuple[PIL.Image.Image, float, str]:
     logging.info("draw rain fall panel")
 
-    assert config.rain_fall is not None
+    assert config.rain_fall is not None  # noqa: S101
 
     start = time.perf_counter()
 
@@ -261,8 +265,7 @@ if __name__ == "__main__":
     import docopt
     import my_lib.logger
 
-
-    assert __doc__ is not None
+    assert __doc__ is not None  # noqa: S101
     args = docopt.docopt(__doc__)
 
     config_file = args["-c"]

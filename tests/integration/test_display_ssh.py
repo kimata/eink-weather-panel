@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
-# ruff: noqa: S101, S603, S607
+# ruff: noqa: S101, S110, S507, S603, S607
 """
 SSH 接続の統合テスト（Docker ベース）
 """
+
 import subprocess
 import tempfile
 import time
@@ -26,16 +27,14 @@ def generate_ssh_key_pair(key_path: Path, pub_key_path: Path) -> None:
     pub_key_path.write_text(pub_key_str)
 
 
-def wait_for_ssh_auth_ready(
-    host: str, port: int, username: str, key_path: str, timeout: int = 60
-) -> bool:
+def wait_for_ssh_auth_ready(host: str, port: int, username: str, key_path: str, timeout: int = 60) -> bool:
     """SSH サーバーが認証可能になるまで待機"""
     start = time.time()
     while time.time() - start < timeout:
         try:
             ssh = paramiko.SSHClient()
             ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-            with open(key_path) as f:
+            with Path(key_path).open() as f:
                 ssh.connect(
                     host,
                     port=port,
@@ -48,7 +47,7 @@ def wait_for_ssh_auth_ready(
             ssh.close()
             return True
         except Exception:
-            pass
+            pass  # SSH サーバー起動待ち
         time.sleep(2)
     return False
 
@@ -116,9 +115,7 @@ def ssh_server(request):
             pytest.skip(f"Failed to start SSH server: {result.stderr}")
 
         # サーバー起動を待機（実際に認証できるまで待つ）
-        if not wait_for_ssh_auth_ready(
-            "localhost", port, "testuser", str(key_path), timeout=60
-        ):
+        if not wait_for_ssh_auth_ready("localhost", port, "testuser", str(key_path), timeout=60):
             subprocess.run(["docker", "rm", "-f", container_name], check=False, capture_output=True)
             pytest.skip("SSH server did not become ready in time")
 
@@ -152,7 +149,7 @@ class TestSshConnectIntegration:
         ssh = paramiko.SSHClient()
         ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
 
-        with open(ssh_server["key_path"]) as f:
+        with Path(ssh_server["key_path"]).open() as f:
             ssh.connect(
                 ssh_server["hostname"],
                 port=ssh_server["port"],
@@ -178,14 +175,14 @@ class TestSshConnectIntegration:
 
     def test_ssh_exec_command_and_close(self, ssh_server):
         """SSH でコマンド実行後に正常終了できること"""
-        from weather_display import display
-
         import paramiko
+
+        from weather_display import display
 
         ssh = paramiko.SSHClient()
         ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
 
-        with open(ssh_server["key_path"]) as f:
+        with Path(ssh_server["key_path"]).open() as f:
             ssh.connect(
                 ssh_server["hostname"],
                 port=ssh_server["port"],
@@ -208,14 +205,14 @@ class TestSshConnectIntegration:
 
     def test_ssh_kill_and_close_with_no_process(self, ssh_server):
         """対象プロセスがなくても正常終了できること"""
-        from weather_display import display
-
         import paramiko
+
+        from weather_display import display
 
         ssh = paramiko.SSHClient()
         ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
 
-        with open(ssh_server["key_path"]) as f:
+        with Path(ssh_server["key_path"]).open() as f:
             ssh.connect(
                 ssh_server["hostname"],
                 port=ssh_server["port"],

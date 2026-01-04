@@ -3,8 +3,6 @@
 """
 天気パネルの統合テスト
 """
-import datetime
-import zoneinfo
 
 import my_lib.weather
 import pytest
@@ -191,9 +189,7 @@ class TestWeatherPanelError:
         """API エラー時にエラー画像を返すこと"""
         import weather_display.panel.weather
 
-        mocker.patch.object(
-            my_lib.weather, "get_weather_yahoo", side_effect=RuntimeError("API Error")
-        )
+        mocker.patch.object(my_lib.weather, "get_weather_yahoo", side_effect=RuntimeError("API Error"))
 
         result = weather_display.panel.weather.create(config)
 
@@ -205,9 +201,7 @@ class TestWeatherPanelError:
         """タイムアウトエラー時にエラー画像を返すこと"""
         import weather_display.panel.weather
 
-        mocker.patch.object(
-            my_lib.weather, "get_weather_yahoo", side_effect=TimeoutError("Timeout")
-        )
+        mocker.patch.object(my_lib.weather, "get_weather_yahoo", side_effect=TimeoutError("Timeout"))
 
         result = weather_display.panel.weather.create(config)
 
@@ -299,5 +293,3 @@ class TestDrawPrecipitation:
                 precip_icon=precip_icon,
                 face=face,
             )
-
-

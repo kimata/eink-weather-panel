@@ -12,9 +12,9 @@ from .collector import (
 )
 
 __all__ = [
-    "collector",
     "MetricsAnalyzer",
     "MetricsCollector",
     "collect_display_image_metrics",
     "collect_draw_panel_metrics",
+    "collector",
 ]

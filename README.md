@@ -44,21 +44,21 @@ https://weather-panel-webapp-demo.kubernetes.green-rabbit.net/weather_panel/
 
 ### 主要コンポーネント
 
-| 機能 | 説明 | 実装 |
-|------|------|------|
-| **天気予報** | Yahoo Weather APIから詳細な気象予報を取得 | `weather.py` |
-| **雨雲レーダー** | 気象庁から最新の降水レーダー画像を取得 | `rain_cloud.py` |
+| 機能               | 説明                                       | 実装              |
+| ------------------ | ------------------------------------------ | ----------------- |
+| **天気予報**       | Yahoo Weather APIから詳細な気象予報を取得  | `weather.py`      |
+| **雨雲レーダー**   | 気象庁から最新の降水レーダー画像を取得     | `rain_cloud.py`   |
 | **センサーグラフ** | InfluxDBから温度・湿度・照度データを可視化 | `sensor_graph.py` |
-| **電力監視** | 消費電力の履歴とトレンド分析 | `power_graph.py` |
-| **WBGT指数** | 熱中症警戒レベルの算出と表示 | `wbgt.py` |
-| **Web API** | React フロントエンドとの連携 | `webui.py` |
+| **電力監視**       | 消費電力の履歴とトレンド分析               | `power_graph.py`  |
+| **WBGT指数**       | 熱中症警戒レベルの算出と表示               | `wbgt.py`         |
+| **Web API**        | React フロントエンドとの連携               | `webui.py`        |
 
 ### パネル構成
 
-| モード | 解像度 | パネル数 | 対応機器 |
-|--------|--------|----------|----------|
-| 標準 | 3200×1800 | 7 | BOOX Mira Pro |
-| 小型 | 2200×1650 | 4 | BOOX Mira |
+| モード | 解像度    | パネル数 | 対応機器      |
+| ------ | --------- | -------- | ------------- |
+| 標準   | 3200×1800 | 7        | BOOX Mira Pro |
+| 小型   | 2200×1650 | 4        | BOOX Mira     |
 
 詳細なアーキテクチャは [ARCHITECTURE.md](ARCHITECTURE.md) を参照してください。
 
@@ -66,12 +66,12 @@ https://weather-panel-webapp-demo.kubernetes.green-rabbit.net/weather_panel/
 
 ### 必要要件
 
-| 項目 | 最小要件 | 推奨 |
-|------|----------|------|
-| **Python** | 3.10+ | 3.13 |
-| **OS** | Linux | Ubuntu 24.04 |
-| **メモリ** | 1GB | 2GB+ |
-| **ディスク** | 500MB | 1GB+ |
+| 項目         | 最小要件 | 推奨         |
+| ------------ | -------- | ------------ |
+| **Python**   | 3.10+    | 3.13         |
+| **OS**       | Linux    | Ubuntu 24.04 |
+| **メモリ**   | 1GB      | 2GB+         |
+| **ディスク** | 500MB    | 1GB+         |
 
 ### インストール
 
@@ -129,8 +129,8 @@ uv run pytest tests/test_basic.py
 ```yaml
 panel:
     device:
-        width: 3200   # ディスプレイ幅
-        height: 1800  # ディスプレイ高さ
+        width: 3200 # ディスプレイ幅
+        height: 1800 # ディスプレイ高さ
 
 influxdb:
     url: "http://your-influxdb:8086"
@@ -154,10 +154,10 @@ InfluxDBスキーマに合わせて調整が必要な場合：
 
 ### 対応E-Inkディスプレイ
 
-| モデル | 解像度 | 設定ファイル |
-|--------|--------|--------------|
-| **BOOX Mira Pro** | 3200×1800 | `config.example.yaml` |
-| **BOOX Mira** | 2200×1650 | `config-small.example.yaml` |
+| モデル            | 解像度    | 設定ファイル                |
+| ----------------- | --------- | --------------------------- |
+| **BOOX Mira Pro** | 3200×1800 | `config.example.yaml`       |
+| **BOOX Mira**     | 2200×1650 | `config-small.example.yaml` |
 
 ### 基本セットアップ
 
@@ -212,12 +212,12 @@ InfluxDBスキーマに合わせて調整が必要な場合：
 
 ### 環境変数
 
-| 変数名 | 説明 | デフォルト |
-|--------|------|------------|
-| `RASP_HOSTNAME` | ターゲット Raspberry Pi のホスト名 | **必須** |
-| `SSH_KEY` | SSH 秘密鍵のパス | `key/panel.id_rsa` |
-| `INFLUXDB_TOKEN` | InfluxDB 認証トークン | - |
-| `DUMMY_MODE` | `true` でダミーデータを使用 | `false` |
+| 変数名           | 説明                               | デフォルト         |
+| ---------------- | ---------------------------------- | ------------------ |
+| `RASP_HOSTNAME`  | ターゲット Raspberry Pi のホスト名 | **必須**           |
+| `SSH_KEY`        | SSH 秘密鍵のパス                   | `key/panel.id_rsa` |
+| `INFLUXDB_TOKEN` | InfluxDB 認証トークン              | -                  |
+| `DUMMY_MODE`     | `true` でダミーデータを使用        | `false`            |
 
 ### Docker Compose
 
@@ -244,6 +244,7 @@ kubectl create configmap weather-config --from-file=config.yaml
 ```
 
 **リソース設定:**
+
 - Namespace: `panel`
 - Liveness probe: `healthz.py`（初期遅延 120秒、周期 60秒）
 - メモリ: requests 512Mi、limits 2Gi
@@ -328,10 +329,10 @@ pre-commit run --all-files
 
 ### CI/CD
 
-| プラットフォーム | 用途 |
-|------------------|------|
+| プラットフォーム   | 用途                                      |
+| ------------------ | ----------------------------------------- |
 | **GitHub Actions** | テスト実行、GitHub Pages へのレポート公開 |
-| **GitLab CI** | Docker ビルド、Kubernetes デプロイ |
+| **GitLab CI**      | Docker ビルド、Kubernetes デプロイ        |
 
 ## 開発者向け
 

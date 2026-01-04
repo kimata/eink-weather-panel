@@ -27,7 +27,6 @@ import PIL.ImageFont
 
 import weather_display.config
 
-
 FONT_SPEC_NESTED: dict[str, dict[str, my_lib.font_util.FontSpec]] = {
     "time": {
         "value": ("en_bold", 130),
@@ -35,7 +34,9 @@ FONT_SPEC_NESTED: dict[str, dict[str, my_lib.font_util.FontSpec]] = {
 }
 
 
-def get_face_map(font_config: my_lib.panel_config.FontConfigProtocol) -> dict[str, dict[str, PIL.ImageFont.FreeTypeFont]]:
+def get_face_map(
+    font_config: my_lib.panel_config.FontConfigProtocol,
+) -> dict[str, dict[str, PIL.ImageFont.FreeTypeFont]]:
     return my_lib.font_util.build_pil_face_map_nested(font_config, FONT_SPEC_NESTED)
 
 
@@ -102,8 +103,7 @@ if __name__ == "__main__":
     import docopt
     import my_lib.logger
 
-
-    assert __doc__ is not None
+    assert __doc__ is not None  # noqa: S101
     args = docopt.docopt(__doc__)
 
     config_file = args["-c"]

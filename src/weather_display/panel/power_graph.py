@@ -20,7 +20,7 @@ import os
 import time
 import traceback
 
-import matplotlib  # noqa: ICN001
+import matplotlib
 import matplotlib.axes
 import matplotlib.ticker
 import my_lib.notify.slack
@@ -31,12 +31,13 @@ matplotlib.use("Agg")
 
 import matplotlib.dates
 import matplotlib.font_manager
-import matplotlib.pyplot  # noqa: ICN001, E402
+import matplotlib.pyplot
 import my_lib.font_util
 import my_lib.panel_config
 import my_lib.panel_util
-import pandas.plotting
 import my_lib.sensor_data
+import pandas.plotting
+
 import weather_display.config
 
 pandas.plotting.register_matplotlib_converters()
@@ -59,7 +60,9 @@ FONT_SPEC: dict[str, my_lib.font_util.FontSpec] = {
 }
 
 
-def get_face_map(font_config: my_lib.panel_config.FontConfigProtocol) -> dict[str, matplotlib.font_manager.FontProperties]:
+def get_face_map(
+    font_config: my_lib.panel_config.FontConfigProtocol,
+) -> dict[str, matplotlib.font_manager.FontProperties]:
     return my_lib.font_util.build_plot_face_map(font_config, FONT_SPEC)
 
 
@@ -85,7 +88,9 @@ def plot_item(
     # 空リストチェック
     if not x or not y:
         diagnostic = data.get_diagnostic_message()
-        logging.warning("Empty data detected in plot_item: x=%d, y=%d, diagnostic=%s", len(x), len(y), diagnostic)
+        logging.warning(
+            "Empty data detected in plot_item: x=%d, y=%d, diagnostic=%s", len(x), len(y), diagnostic
+        )
         # 空データの場合は何も描画せずに戻る
         ax.text(
             0.5,
@@ -259,7 +264,9 @@ def create_power_graph_impl(
         matplotlib.pyplot.close(fig)
 
 
-def create(config: weather_display.config.AppConfig) -> tuple[PIL.Image.Image, float] | tuple[PIL.Image.Image, float, str]:
+def create(
+    config: weather_display.config.AppConfig,
+) -> tuple[PIL.Image.Image, float] | tuple[PIL.Image.Image, float, str]:
     logging.info("draw power graph")
 
     start = time.perf_counter()
@@ -303,8 +310,7 @@ if __name__ == "__main__":
     import my_lib.logger
     import my_lib.pil_util
 
-
-    assert __doc__ is not None
+    assert __doc__ is not None  # noqa: S101
     args = docopt.docopt(__doc__)
 
     config_file = args["-c"]

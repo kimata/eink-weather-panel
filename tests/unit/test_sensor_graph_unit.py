@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
-# ruff: noqa: S101
+# ruff: noqa: S101, S110
 """
 sensor_graph.py のユニットテスト
 """
+
 import datetime
 import os
 
@@ -98,7 +99,7 @@ class TestPlotItem:
         """datetime型の時間データを含むデータのテスト（フォールバック処理）"""
         from weather_display.panel.sensor_graph import PlotData, plot_item
 
-        now = datetime.datetime.now(datetime.timezone.utc)
+        now = datetime.datetime.now(datetime.UTC)
         time_list = [now - datetime.timedelta(hours=i) for i in range(10, 0, -1)]
 
         # time_numeric を含まないが time は含むデータ
@@ -126,7 +127,7 @@ class TestPlotItem:
         """数値型の時間データを含むデータのテスト（フォールバック処理）"""
         from weather_display.panel.sensor_graph import PlotData, plot_item
 
-        now = datetime.datetime.now(datetime.timezone.utc)
+        now = datetime.datetime.now(datetime.UTC)
         time_list = [now - datetime.timedelta(hours=i) for i in range(5, 0, -1)]
 
         # time_numeric で数値データを与える（time は datetime のまま）
@@ -157,7 +158,7 @@ class TestPlotItem:
 
         from weather_display.panel.sensor_graph import PlotData, plot_item
 
-        now = datetime.datetime.now(datetime.timezone.utc)
+        now = datetime.datetime.now(datetime.UTC)
         time_list = [now - datetime.timedelta(hours=i) for i in range(10, 0, -1)]
         time_numeric = list(matplotlib.dates.date2num(time_list))
 
@@ -190,8 +191,6 @@ class TestGetDataRequests:
         """DUMMY_MODE による期間設定のテスト"""
         # DUMMY_MODE=false を設定
         mocker.patch.dict(os.environ, {"DUMMY_MODE": "false"})
-
-        from weather_display.panel.sensor_graph import create
 
         # create 関数を呼び出すと内部でデータリクエストが生成される
         # ただし、実際のデータ取得は mock_sensor_fetch_data でモックされる
@@ -269,11 +268,8 @@ class TestSensorDataEdgeCases:
 
         # valid=True だが time が空のデータを返すモック
         async def mock_fetch_parallel(db_config, requests):
-            results = []
-            for _ in requests:
-                # valid=True で time=[] のデータを返す
-                results.append(SensorDataResult(value=[], time=[], valid=True))
-            return results
+            # valid=True で time=[] のデータを返す
+            return [SensorDataResult(value=[], time=[], valid=True) for _ in requests]
 
         mocker.patch(
             "my_lib.sensor_data.fetch_data_parallel",

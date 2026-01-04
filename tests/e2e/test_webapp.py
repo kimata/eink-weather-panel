@@ -5,6 +5,7 @@ Web アプリケーション E2E テスト
 
 Playwright を使用して Web アプリケーションの E2E テストを実行します。
 """
+
 import base64
 import logging
 import pathlib

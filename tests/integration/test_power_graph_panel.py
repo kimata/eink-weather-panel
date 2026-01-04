@@ -3,6 +3,7 @@
 """
 消費電力グラフパネルの統合テスト
 """
+
 import datetime
 
 import my_lib.sensor_data
@@ -32,7 +33,7 @@ class TestPowerGraphPanelWithMockedData:
         """電力データのモック"""
         from dataclasses import dataclass
 
-        now = datetime.datetime.now(datetime.timezone.utc)
+        now = datetime.datetime.now(datetime.UTC)
         time_list = [now - datetime.timedelta(hours=i) for i in range(60, 0, -1)]
 
         @dataclass
@@ -52,6 +53,7 @@ class TestPowerGraphPanelWithMockedData:
     def test_power_graph_panel_with_mock_data(self, config, image_checker, mocker, mock_power_data):
         """モックデータで消費電力グラフを生成できること"""
         import my_lib.sensor_data
+
         import weather_display.panel.power_graph
 
         mocker.patch.object(my_lib.sensor_data, "fetch_data", return_value=mock_power_data())
@@ -97,9 +99,7 @@ class TestPowerGraphPanelError:
         import weather_display.panel.power_graph
 
         # power_graph.py で from import しているため、モジュール内でパッチする
-        mocker.patch.object(
-            my_lib.sensor_data, "fetch_data", side_effect=RuntimeError("Fetch error")
-        )
+        mocker.patch.object(my_lib.sensor_data, "fetch_data", side_effect=RuntimeError("Fetch error"))
 
         result = weather_display.panel.power_graph.create(config)
 
@@ -210,7 +210,7 @@ class TestPowerGraphPanelError:
 
         import weather_display.panel.power_graph
 
-        now = datetime.datetime.now(datetime.timezone.utc)
+        now = datetime.datetime.now(datetime.UTC)
         time_list = [now - datetime.timedelta(hours=i) for i in range(10)]
         # 意図的に時間と異なる長さのデータを作成
         value_list = [500.0 + i * 10.0 for i in range(5)]  # 短い
@@ -311,7 +311,7 @@ class TestPowerGraphPanelInvalidDataLogging:
 
         import weather_display.panel.power_graph
 
-        now = datetime.datetime.now(datetime.timezone.utc)
+        now = datetime.datetime.now(datetime.UTC)
         time_list = [now - datetime.timedelta(hours=i) for i in range(10)]
 
         empty_value_result = SensorDataResult(

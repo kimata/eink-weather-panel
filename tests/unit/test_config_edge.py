@@ -3,6 +3,7 @@
 """
 config.py のエッジケーステスト
 """
+
 import pytest
 
 

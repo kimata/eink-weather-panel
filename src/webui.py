@@ -43,7 +43,7 @@ def term():
     sys.exit(0)
 
 
-def sig_handler(num, frame):  # noqa: ARG001
+def sig_handler(num, frame):
     global should_terminate
 
     logging.warning("receive signal %d", num)
@@ -56,9 +56,8 @@ def create_app(config_file_normal, config_file_small, dummy_mode=False):
     # NOTE: アクセスログは無効にする
     logging.getLogger("werkzeug").setLevel(logging.ERROR)
 
-    import my_lib.webapp.config
-
     import my_lib.config as config_module
+    import my_lib.webapp.config
 
     config_data = config_module.load(config_file_normal, pathlib.Path(SCHEMA_CONFIG))
     my_lib.webapp.config.URL_PREFIX = "/panel"
@@ -111,7 +110,7 @@ def create_app(config_file_normal, config_file_small, dummy_mode=False):
 if __name__ == "__main__":
     import docopt
 
-    assert __doc__ is not None
+    assert __doc__ is not None  # noqa: S101
     args = docopt.docopt(__doc__)
 
     config_file_normal = args["-c"]

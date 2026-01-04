@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
-# ruff: noqa: S101
+# ruff: noqa: S101, S108
 """
 healthz.py のユニットテスト
 """
-import pytest
 
 
 class TestCheckLiveness:
@@ -31,9 +30,9 @@ class TestCheckLiveness:
 
     def test_check_liveness_with_single_target(self, mocker):
         """単一ターゲットで正常にチェックできること"""
-        from my_lib.healthz import HealthzTarget
-
         import pathlib
+
+        from my_lib.healthz import HealthzTarget
 
         import healthz
 
