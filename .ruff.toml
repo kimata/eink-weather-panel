@@ -4,13 +4,26 @@ line-length = 110
 indent-width = 4
 
 [lint]
-select = ["ALL"]
-ignore = ["D100", "D101", "D102", "D203", "D211","D212", "D213", "FBT002", "BLE001", "EM101", "RET505", "TRY300", "FBT003", "RUF001", "RUF002", "RUF003", "RUF012", "COM812", "D103", "D400", "D415", "ANN", "N806", "PLR2004", "ERA001", "PLW0602", "LOG015", "PLC0415", "TRY003", "TRY301"]
+select = [
+    "E",      # pycodestyle errors（基本スタイル）
+    "F",      # Pyflakes（未使用変数、インポートエラー等）
+    "W",      # pycodestyle warnings
+    "I",      # isort（インポート順）
+    "UP",     # pyupgrade（Python モダン化）
+    "B",      # flake8-bugbear（バグの可能性）
+    "SIM",    # flake8-simplify（簡素化）
+    "C4",     # flake8-comprehensions（内包表記）
+    "RUF",    # Ruff 固有ルール
+    "S",      # flake8-bandit（セキュリティ）
+    "PTH",    # flake8-use-pathlib（Path 推奨）
+    "PERF",   # Perflint（パフォーマンス）
+]
+ignore = [
+    "RUF001", "RUF002", "RUF003",  # 日本語文字の誤検知防止
+]
 
-fixable = ["I"]
+fixable = ["ALL"]
 unfixable = []
-
-extend-select = ["I"]
 
 [format]
 quote-style = "double"

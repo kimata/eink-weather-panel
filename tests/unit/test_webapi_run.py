@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-# ruff: noqa: S101
+# ruff: noqa: S101, S105
 """
 runner/webapi/run.py のユニットテスト
 """
-import io
+
 import queue
 import threading
 import time
@@ -91,7 +91,7 @@ class TestGenerateImage:
 
         run.init("/path/to/create_image.py")
 
-        mock_submit = mocker.patch.object(run.thread_pool, "submit")
+        mocker.patch.object(run.thread_pool, "submit")
 
         token = run.generate_image("config.yaml", False, False, True)
 

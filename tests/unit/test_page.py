@@ -5,6 +5,7 @@ metrics/webapi/page.py のユニットテスト
 
 HTML生成関数と各種エンドポイントのテスト
 """
+
 import datetime
 
 import pytest
@@ -490,13 +491,11 @@ class TestGenerateAnomaliesSection:
 
     def test_anomalies_section_with_various_elapsed_times(self, sample_performance_stats):
         """様々な経過時間での表示テスト"""
-        import time
-
-        from weather_display.metrics.webapi.page import generate_anomalies_section
 
         # 各種経過時間を持つ異常を作成（日、時、分、たった今）
-        import datetime
         import zoneinfo
+
+        from weather_display.metrics.webapi.page import generate_anomalies_section
 
         tz = zoneinfo.ZoneInfo("Asia/Tokyo")
         now = datetime.datetime.now(tz)
@@ -604,7 +603,7 @@ class TestGenerateAnomaliesSection:
         assert "長時間処理" in html
 
     def test_anomalies_section_with_zero_std_time(self):
-        """std_time が 0 の場合 (lines 1165->1169, 1172->1176, 1184->1188, 1282->1286, 1289->1293, 1301->1305)"""
+        """std_time が 0 の場合のテスト"""
         from weather_display.metrics.webapi.page import generate_anomalies_section
 
         # std_time = 0 のパフォーマンス統計

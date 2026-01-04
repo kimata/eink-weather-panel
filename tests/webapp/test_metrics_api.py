@@ -3,6 +3,7 @@
 """
 metrics/webapi/page.py の API テスト
 """
+
 import pathlib
 
 import pytest
@@ -91,9 +92,7 @@ class TestMetricsEndpointsWithMock:
         # モックを設定
         mock_config = {"metrics": {"data": str(db_path)}}
         mocker.patch("my_lib.config.load", return_value=mock_config)
-        mocker.patch.object(
-            weather_display.metrics.collector, "MetricsAnalyzer", return_value=mock_analyzer
-        )
+        mocker.patch.object(weather_display.metrics.collector, "MetricsAnalyzer", return_value=mock_analyzer)
 
         response = client.get("/panel/api/metrics/data")
 
@@ -282,7 +281,6 @@ class TestMetricsEndpointsErrorHandling:
 
     def test_favicon_not_found(self, client, mocker):
         """favicon.png が見つからない場合に 404 を返すこと"""
-        import pathlib
 
         mocker.patch.object(pathlib.Path, "exists", return_value=False)
 
@@ -292,7 +290,6 @@ class TestMetricsEndpointsErrorHandling:
 
     def test_favicon_exception(self, client, mocker):
         """favicon.png 取得中に例外発生時に 500 を返すこと"""
-        import pathlib
 
         mocker.patch.object(pathlib.Path, "exists", return_value=True)
         mocker.patch("flask.send_file", side_effect=Exception("Send file error"))
@@ -300,4 +297,3 @@ class TestMetricsEndpointsErrorHandling:
         response = client.get("/panel/favicon.png")
 
         assert response.status_code == 500
-

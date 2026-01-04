@@ -5,11 +5,11 @@
 
 テスト全体で使用する共通のフィクスチャとヘルパーを定義します。
 """
+
 import datetime
 import logging
 import pathlib
 import unittest.mock
-import zoneinfo
 
 # NOTE: 先に pandas を import しないと、下記のエラーがでる
 # TypeError: type 'pandas._libs.tslibs.base.ABCTimestamp' is not dynamically allocated
@@ -127,7 +127,7 @@ def _gen_sensor_data(value: list[float] | None = None, valid: bool = True):
         value = [30.0, 34.0, 25.0, 20.0]
 
     time_list = [
-        datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(hours=i - len(value))
+        datetime.datetime.now(datetime.UTC) + datetime.timedelta(hours=i - len(value))
         for i in range(len(value))
     ]
 
@@ -140,18 +140,18 @@ class _FetchDataMock:
     def __init__(self):
         self.count: dict[str, int] = {}
 
-    def __call__(  # noqa: PLR0911, PLR0912, PLR0913
+    def __call__(
         self,
-        db_config,  # noqa: ARG002
-        measure,  # noqa: ARG002
-        hostname,  # noqa: ARG002
+        db_config,
+        measure,
+        hostname,
         field,
-        start="-30h",  # noqa: ARG002
-        stop="now()",  # noqa: ARG002
-        every_min=1,  # noqa: ARG002
-        window_min=3,  # noqa: ARG002
-        create_empty=True,  # noqa: ARG002
-        last=False,  # noqa: ARG002
+        start="-30h",
+        stop="now()",
+        every_min=1,
+        window_min=3,
+        create_empty=True,
+        last=False,
     ):
         if field in self.count:
             self.count[field] += 1
@@ -253,9 +253,7 @@ class ImageChecker:
         import my_lib.pil_util
 
         file_name = (
-            f"{self.request.node.name}.png"
-            if index is None
-            else f"{self.request.node.name}_{index}.png"
+            f"{self.request.node.name}.png" if index is None else f"{self.request.node.name}_{index}.png"
         )
         my_lib.pil_util.convert_to_gray(img).save(self.evidence_dir / file_name, "PNG")
 

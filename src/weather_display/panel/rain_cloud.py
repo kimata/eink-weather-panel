@@ -31,9 +31,10 @@ import my_lib.notify.slack
 import my_lib.panel_config
 import my_lib.panel_util
 import my_lib.pil_util
+import my_lib.selenium_util
 import my_lib.serializer
 import my_lib.thread_util
-import numpy  # noqa: ICN001
+import numpy
 import PIL.Image
 import PIL.ImageDraw
 import PIL.ImageFont
@@ -41,7 +42,6 @@ import selenium.webdriver.common.by
 import selenium.webdriver.support
 import selenium.webdriver.support.expected_conditions
 import selenium.webdriver.support.wait
-import my_lib.selenium_util
 
 if TYPE_CHECKING:
     from selenium.webdriver.remote.webdriver import WebDriver
@@ -82,11 +82,11 @@ RAINFALL_INTENSITY_LEVEL = [
     # NOTE: 青色
     {"func": lambda h, s: (155 < h) & (h < 165) & (230 < s), "value": 20},  # noqa: SIM300
     # NOTE: 黄色
-    {"func": lambda h, s: (35 < h) & (h < 45), "value": 30},  # noqa: SIM300, ARG005
+    {"func": lambda h, s: (35 < h) & (h < 45), "value": 30},  # noqa: SIM300
     # NOTE: 橙色
-    {"func": lambda h, s: (20 < h) & (h < 30), "value": 50},  # noqa: SIM300, ARG005
+    {"func": lambda h, s: (20 < h) & (h < 30), "value": 50},  # noqa: SIM300
     # NOTE: 赤色
-    {"func": lambda h, s: (0 < h) & (h < 8), "value": 80},  # noqa: SIM300, ARG005
+    {"func": lambda h, s: (0 < h) & (h < 8), "value": 80},  # noqa: SIM300
     # NOTE: 紫色
     {"func": lambda h, s: (225 < h) & (h < 235) & (240 < s)},  # noqa: SIM300
 ]
@@ -99,7 +99,9 @@ FONT_SPEC: dict[str, my_lib.font_util.FontSpec] = {
 }
 
 
-def get_face_map(font_config: my_lib.panel_config.FontConfigProtocol) -> dict[str, PIL.ImageFont.FreeTypeFont]:
+def get_face_map(
+    font_config: my_lib.panel_config.FontConfigProtocol,
+) -> dict[str, PIL.ImageFont.FreeTypeFont]:
     return my_lib.font_util.build_pil_face_map(font_config, FONT_SPEC)
 
 
@@ -163,8 +165,8 @@ def change_setting(driver: WebDriver, wait: WebDriverWait[WebDriver]) -> None:
 def shape_cloud_display(
     driver: WebDriver,
     wait: WebDriverWait[WebDriver],
-    width: int,  # noqa: ARG001
-    height: int,  # noqa: ARG001
+    width: int,
+    height: int,
     is_future: bool,
 ) -> None:
     if is_future:
@@ -285,7 +287,7 @@ def change_window_size(driver: WebDriver, width: int, height: int) -> dict[str, 
     return final_window_size
 
 
-def fetch_cloud_image(  # noqa: PLR0913
+def fetch_cloud_image(
     driver: WebDriver,
     wait: WebDriverWait[WebDriver],
     url: str,
@@ -584,7 +586,6 @@ def create_rain_cloud_panel_impl(
     context: my_lib.panel_config.NormalPanelContext,
     is_threaded: object = True,
 ) -> PIL.Image.Image:
-
     if context.is_side_by_side:
         sub_width = int(rain_cloud_config.panel.width / 2)
         sub_height = rain_cloud_config.panel.height
@@ -647,7 +648,7 @@ def create_rain_cloud_panel_impl(
 
     executor.shutdown(True)
 
-    assert bar is not None  # SUB_PANEL_CONFIG_LIST は常に2要素
+    assert bar is not None  # noqa: S101 # SUB_PANEL_CONFIG_LIST は常に2要素
     return draw_legend(img, bar, rain_cloud_config, face_map)
 
 
@@ -677,18 +678,6 @@ def create(
 
         return (img, 0.1)  # 成功として短時間で返す
 
-    # Chrome プロファイルのクリーンアップを実行
-    try:
-        removed_profiles = my_lib.chrome_util.cleanup_old_chrome_profiles(
-            DATA_PATH, max_age_hours=12, keep_count=2
-        )
-        if removed_profiles:
-            logging.info("Cleaned up %d old Chrome profiles", len(removed_profiles))
-
-        my_lib.chrome_util.cleanup_orphaned_chrome_processes()
-    except Exception as cleanup_error:
-        logging.warning("Chrome cleanup failed: %s", cleanup_error)
-
     context = my_lib.panel_config.NormalPanelContext(
         font_config=config.font,
         slack_config=config.slack,
@@ -708,8 +697,7 @@ if __name__ == "__main__":
     import docopt
     import my_lib.logger
 
-
-    assert __doc__ is not None
+    assert __doc__ is not None  # noqa: S101
     args = docopt.docopt(__doc__)
 
     config_file = args["-c"]

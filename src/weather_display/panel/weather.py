@@ -181,7 +181,7 @@ def calc_misnar_formula(temp: float, humi: float, wind: float) -> float:
     return 37 - (37 - temp) / (0.68 - 0.0014 * humi + 1 / a) - 0.29 * temp * (1 - humi / 100)
 
 
-def draw_weather(  # noqa: PLR0913
+def draw_weather(
     img: PIL.Image.Image,
     weather: my_lib.weather.WeatherInfo,
     overlay: PIL.Image.Image,
@@ -209,7 +209,7 @@ def draw_weather(  # noqa: PLR0913
     return [pos_x + icon.size[0] * (1 + icon_margin), next_pos_y]
 
 
-def draw_text_info(  # noqa: PLR0913
+def draw_text_info(
     img: PIL.Image.Image,
     value: float,
     unit: str,
@@ -312,7 +312,7 @@ def draw_text_info(  # noqa: PLR0913
     return next_pos_y
 
 
-def draw_temp(  # noqa: PLR0913
+def draw_temp(
     img: PIL.Image.Image,
     temp: float,
     is_first: bool,
@@ -335,7 +335,7 @@ def draw_temp(  # noqa: PLR0913
     )
 
 
-def draw_precip(  # noqa: PLR0913
+def draw_precip(
     img: PIL.Image.Image,
     precip: float,
     is_first: bool,
@@ -377,7 +377,7 @@ def draw_precip(  # noqa: PLR0913
     )
 
 
-def draw_wind(  # noqa: PLR0913
+def draw_wind(
     img: PIL.Image.Image,
     wind: my_lib.weather.WindInfo,
     is_first: bool,
@@ -461,7 +461,7 @@ def draw_wind(  # noqa: PLR0913
     )[1]
 
 
-def draw_hour(  # noqa: PLR0913
+def draw_hour(
     img: PIL.Image.Image,
     hour: int,
     is_today: bool,
@@ -511,7 +511,7 @@ def draw_hour(  # noqa: PLR0913
     return pos_y + my_lib.pil_util.text_size(img, face["value"], "0")[1]
 
 
-def draw_weather_info(  # noqa: PLR0913
+def draw_weather_info(
     img: PIL.Image.Image,
     info: my_lib.weather.HourlyData,
     wbgt: float | None,
@@ -568,7 +568,7 @@ def draw_weather_info(  # noqa: PLR0913
     )
     next_pos_y += 30
     if is_wbgt_exist:
-        assert wbgt is not None
+        assert wbgt is not None  # noqa: S101
         next_pos_y = draw_temp(
             img,
             wbgt,
@@ -593,7 +593,7 @@ def draw_weather_info(  # noqa: PLR0913
     return pos_x + (next_pos_x - pos_x) * 1.0
 
 
-def draw_day_weather(  # noqa: PLR0913
+def draw_day_weather(
     img: PIL.Image.Image,
     info: list[my_lib.weather.HourlyData],
     wbgt_info: list[int | None] | None,
@@ -666,7 +666,7 @@ def draw_date(
     return (next_pos_x, next_pos_y, text_pos_x)
 
 
-def draw_sunset(  # noqa: PLR0913
+def draw_sunset(
     img: PIL.Image.Image,
     pos_x: float,
     pos_y: float,
@@ -737,7 +737,7 @@ def draw_clothing(
         pos_y += icon_height_max * 1.05
 
 
-def draw_panel_weather_day(  # noqa: PLR0913
+def draw_panel_weather_day(
     img: PIL.Image.Image,
     pos_x: float,
     pos_y: float,
@@ -770,7 +770,7 @@ def draw_panel_weather_day(  # noqa: PLR0913
     )
 
 
-def draw_panel_weather(  # noqa: PLR0913
+def draw_panel_weather(
     img: PIL.Image.Image,
     weather_config: weather_display.config.WeatherConfig,
     font_config: my_lib.panel_config.FontConfigProtocol,
@@ -903,7 +903,7 @@ if __name__ == "__main__":
     import docopt
     import my_lib.logger
 
-    assert __doc__ is not None
+    assert __doc__ is not None  # noqa: S101
     args = docopt.docopt(__doc__)
 
     config_file = args["-c"]

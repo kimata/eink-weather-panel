@@ -5,7 +5,6 @@ Web API 統合テスト
 
 Flask アプリケーションの API エンドポイントのテストを行います。
 """
-import pytest
 
 
 class TestBaseEndpoints:

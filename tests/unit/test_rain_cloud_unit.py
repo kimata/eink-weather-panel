@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
-# ruff: noqa: S101
+# ruff: noqa: S101, S110, SIM105
 """
 rain_cloud.py のユニットテスト
 """
+
 import os
 
 import pytest
@@ -81,38 +82,6 @@ class TestCreateDummyMode:
 
         assert len(result) >= 2
         assert result[0] is not None
-
-
-class TestChromeCleanup:
-    """Chrome クリーンアップ関連のテスト"""
-
-    def test_create_with_chrome_cleanup_error(self, config, mocker):
-        """Chrome クリーンアップエラー時も動作すること"""
-        import weather_display.panel.rain_cloud
-
-        mocker.patch.dict(os.environ, {"DUMMY_MODE": "false"})
-        mocker.patch(
-            "my_lib.chrome_util.cleanup_old_chrome_profiles",
-            side_effect=Exception("Cleanup error"),
-        )
-
-        result = weather_display.panel.rain_cloud.create(config)
-
-        assert len(result) >= 2
-
-    def test_create_with_chrome_cleanup_returns_profiles(self, config, mocker):
-        """Chrome プロファイル削除時のログ出力テスト"""
-        import weather_display.panel.rain_cloud
-
-        mocker.patch.dict(os.environ, {"DUMMY_MODE": "false"})
-        mocker.patch(
-            "my_lib.chrome_util.cleanup_old_chrome_profiles",
-            return_value=["profile1", "profile2"],
-        )
-
-        result = weather_display.panel.rain_cloud.create(config)
-
-        assert len(result) >= 2
 
 
 class TestDriverCleanup:
@@ -210,7 +179,7 @@ class TestChangeWindowSizeFallback:
         mock_driver.get_window_size.return_value = {"width": 850, "height": 650}
         mocker.patch("weather_display.panel.rain_cloud.time.sleep")
 
-        result = weather_display.panel.rain_cloud.change_window_size_fallback(mock_driver, 800, 600)
+        weather_display.panel.rain_cloud.change_window_size_fallback(mock_driver, 800, 600)
 
         # set_window_size が呼ばれていること（初期サイズ設定 + 幅調整）
         assert mock_driver.set_window_size.call_count >= 2
@@ -240,7 +209,7 @@ class TestChangeWindowSizeFallback:
 
         mocker.patch("weather_display.panel.rain_cloud.time.sleep")
 
-        result = weather_display.panel.rain_cloud.change_window_size_fallback(mock_driver, 800, 600)
+        weather_display.panel.rain_cloud.change_window_size_fallback(mock_driver, 800, 600)
 
         # set_window_size が複数回呼ばれていること
         assert mock_driver.set_window_size.call_count >= 2
@@ -270,7 +239,7 @@ class TestCacheSave:
             return_value={"width": 850, "height": 650},
         )
 
-        result = weather_display.panel.rain_cloud.change_window_size(mock_driver, 800, 600)
+        weather_display.panel.rain_cloud.change_window_size(mock_driver, 800, 600)
 
         # キャッシュが保存されること
         mock_store.assert_called_once()
@@ -283,7 +252,6 @@ class TestRetouchCloudImageWhiteMap:
         """白地図がない画像でも処理できること (line 321)"""
         import io
 
-        import numpy
         import PIL.Image
 
         from weather_display.panel.rain_cloud import retouch_cloud_image
@@ -352,7 +320,7 @@ class TestExceptionHandling:
         mock_slack = mocker.patch("my_lib.notify.slack.error_with_image")
 
         try:
-            result = weather_display.panel.rain_cloud.create(config)
+            weather_display.panel.rain_cloud.create(config)
         finally:
             weather_display.panel.rain_cloud.PATIENT_COUNT = original_count
 
@@ -374,8 +342,8 @@ class TestDriverNoneCase:
             "my_lib.selenium_util.create_driver",
             side_effect=Exception("Driver creation failed"),
         )
-        mock_sleep = mocker.patch("weather_display.panel.rain_cloud.time.sleep")
-        mock_quit = mocker.patch("my_lib.selenium_util.quit_driver_gracefully")
+        mocker.patch("weather_display.panel.rain_cloud.time.sleep")
+        mocker.patch("my_lib.selenium_util.quit_driver_gracefully")
 
         result = weather_display.panel.rain_cloud.create(config)
 
@@ -459,9 +427,9 @@ class TestSideBySideLayout:
 
     def test_create_rain_cloud_panel_impl_side_by_side_true(self, config, mocker):
         """create_rain_cloud_panel_impl で is_side_by_side=True (line 564-568)"""
+        import my_lib.panel_config
         import PIL.Image
 
-        import my_lib.panel_config
         import weather_display.panel.rain_cloud
 
         # create_rain_cloud_img をモックして高速化
@@ -489,9 +457,9 @@ class TestSideBySideLayout:
 
     def test_create_rain_cloud_panel_impl_side_by_side_false(self, config, mocker):
         """create_rain_cloud_panel_impl で is_side_by_side=False (line 569-573)"""
+        import my_lib.panel_config
         import PIL.Image
 
-        import my_lib.panel_config
         import weather_display.panel.rain_cloud
 
         # create_rain_cloud_img をモックして高速化

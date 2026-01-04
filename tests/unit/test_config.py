@@ -3,9 +3,8 @@
 """
 設定ファイル関連のユニットテスト
 """
-import pathlib
 
-import pytest
+import pathlib
 
 
 class TestConfigLoad:

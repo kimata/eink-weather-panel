@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
-# ruff: noqa: S101
+# ruff: noqa: S101, S105
 """
 runner/webapi/run.py の API エンドポイントテスト
 """
+
 import queue
 import threading
 import time

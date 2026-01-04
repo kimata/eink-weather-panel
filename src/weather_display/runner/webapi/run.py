@@ -34,8 +34,8 @@ create_image_path: pathlib.Path | str | None = None
 
 
 def init(create_image_path_: pathlib.Path | str) -> None:
-    global thread_pool  # noqa: PLW0603
-    global create_image_path  # noqa: PLW0603
+    global thread_pool
+    global create_image_path
 
     # ThreadPoolExecutorに変更してより効率的な非同期処理を実現
     thread_pool = concurrent.futures.ThreadPoolExecutor(max_workers=3, thread_name_prefix="image_gen")

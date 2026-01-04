@@ -5,8 +5,6 @@ display_image.py 統合テスト
 
 画像表示制御の統合テストを行います。
 """
-import datetime
-import zoneinfo
 
 import pytest
 
@@ -217,9 +215,7 @@ class TestStart:
         """例外発生時に適切にハンドリングすること"""
         import display_image
 
-        mocker.patch.object(
-            display_image, "execute", side_effect=RuntimeError("Test exception")
-        )
+        mocker.patch.object(display_image, "execute", side_effect=RuntimeError("Test exception"))
         mocker.patch("my_lib.panel_util.notify_error")
         mocker.patch("time.sleep")
 

@@ -3,10 +3,9 @@
 """
 webui.py のユニットテスト
 """
+
 import os
 import signal
-
-import pytest
 
 
 class TestCreateApp:

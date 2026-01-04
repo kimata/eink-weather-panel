@@ -3,6 +3,7 @@
 """
 降雨パネルの統合テスト
 """
+
 import datetime
 
 import pytest

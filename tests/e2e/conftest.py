@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-# ruff: noqa: S101
 """
 E2E テスト用フィクスチャ
 
 Playwright を使用した E2E テストのためのフィクスチャを定義します。
 """
+
 import os
 import pathlib
 

@@ -6,16 +6,15 @@
 
 from __future__ import annotations
 
+import collections.abc
 import datetime
 import os
 
 import matplotlib.axes
 import matplotlib.offsetbox
-import matplotlib.pyplot  # noqa: ICN001
-
-import collections.abc
-
+import matplotlib.pyplot
 import my_lib.sensor_data
+
 import weather_display.config
 
 # エアコン動作判定の閾値（W）
@@ -25,7 +24,9 @@ AIRCON_WORK_THRESHOLD = 30
 EMPTY_VALUE = -100.0
 
 
-def get_aircon_power_requests(room_list: list[weather_display.config.RoomConfig]) -> tuple[list[my_lib.sensor_data.DataRequest], dict[int, int]]:
+def get_aircon_power_requests(
+    room_list: list[weather_display.config.RoomConfig],
+) -> tuple[list[my_lib.sensor_data.DataRequest], dict[int, int]]:
     """エアコン電力取得用のリクエストリストを生成"""
     aircon_requests: list[my_lib.sensor_data.DataRequest] = []
     aircon_map: dict[int, int] = {}

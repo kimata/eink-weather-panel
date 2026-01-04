@@ -1,4 +1,4 @@
-image: gitlab.green-rabbit.net:5050/kimata/local-ubuntu:250706_043ea01d
+image: gitlab.green-rabbit.net:5050/kimata/local-ubuntu:260104_3efe597c
 
 variables:
     UV_LINK_MODE: copy
@@ -467,7 +467,7 @@ renovate:
     dependencies: []
     resource_group: renovate
     image:
-        name: gitlab.green-rabbit.net:5050/kimata/local-renovate:250715_3b8866ff
+        name: gitlab.green-rabbit.net:5050/kimata/local-renovate:260104_3da7b77b
 
     before_script: []
 

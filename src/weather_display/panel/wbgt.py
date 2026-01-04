@@ -25,8 +25,8 @@ import PIL.Image
 import PIL.ImageDraw
 import PIL.ImageEnhance
 import PIL.ImageFont
-import weather_display.config
 
+import weather_display.config
 
 FONT_SPEC: dict[str, my_lib.font_util.FontSpec] = {
     "wbgt": ("en_bold", 80),
@@ -35,7 +35,9 @@ FONT_SPEC: dict[str, my_lib.font_util.FontSpec] = {
 }
 
 
-def get_face_map(font_config: my_lib.panel_config.FontConfigProtocol) -> dict[str, PIL.ImageFont.FreeTypeFont]:
+def get_face_map(
+    font_config: my_lib.panel_config.FontConfigProtocol,
+) -> dict[str, PIL.ImageFont.FreeTypeFont]:
     return my_lib.font_util.build_pil_face_map(font_config, FONT_SPEC)
 
 
@@ -101,9 +103,8 @@ def draw_wbgt(
 def create_wbgt_panel_impl(
     wbgt_config: weather_display.config.WbgtConfig,
     context: my_lib.panel_config.NormalPanelContext,
-    opt_config: object = None,  # noqa: ARG001
+    opt_config: object = None,
 ) -> PIL.Image.Image:
-
     face_map = get_face_map(context.font_config)
 
     img = PIL.Image.new(
@@ -122,7 +123,9 @@ def create_wbgt_panel_impl(
     return img
 
 
-def create(config: weather_display.config.AppConfig, is_side_by_side: bool = True) -> tuple[PIL.Image.Image, float] | tuple[PIL.Image.Image, float, str]:
+def create(
+    config: weather_display.config.AppConfig, is_side_by_side: bool = True
+) -> tuple[PIL.Image.Image, float] | tuple[PIL.Image.Image, float, str]:
     logging.info("draw WBGT panel")
 
     context = my_lib.panel_config.NormalPanelContext(
@@ -141,8 +144,7 @@ if __name__ == "__main__":
     import docopt
     import my_lib.logger
 
-
-    assert __doc__ is not None
+    assert __doc__ is not None  # noqa: S101
     args = docopt.docopt(__doc__)
 
     config_file = args["-c"]

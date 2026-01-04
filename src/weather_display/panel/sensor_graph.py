@@ -16,28 +16,28 @@ from __future__ import annotations
 import asyncio
 import datetime
 import functools
-from dataclasses import dataclass, field
 import io
 import logging
 import os
 import time
 import traceback
+from dataclasses import dataclass, field
 
-import matplotlib  # noqa: ICN001
+import matplotlib
 import matplotlib.axes
 import matplotlib.dates
 import matplotlib.font_manager
 import matplotlib.gridspec
-import matplotlib.pyplot  # noqa: ICN001
+import matplotlib.pyplot
 import matplotlib.ticker
 import my_lib.font_util
 import my_lib.panel_config
 import my_lib.panel_util
 import my_lib.plot_util
+import my_lib.sensor_data
 import pandas.plotting
 import PIL.Image
 
-import my_lib.sensor_data
 import weather_display.config
 import weather_display.panel.sensor_graph_utils
 
@@ -85,11 +85,13 @@ FONT_SPEC: dict[str, my_lib.font_util.FontSpec] = {
 }
 
 
-def get_face_map(font_config: my_lib.panel_config.FontConfigProtocol) -> dict[str, matplotlib.font_manager.FontProperties]:
+def get_face_map(
+    font_config: my_lib.panel_config.FontConfigProtocol,
+) -> dict[str, matplotlib.font_manager.FontProperties]:
     return my_lib.font_util.build_plot_face_map(font_config, FONT_SPEC)
 
 
-def plot_item(  # noqa: PLR0913
+def plot_item(
     ax: matplotlib.axes.Axes,
     title: str | None,
     unit: str,
@@ -198,7 +200,7 @@ def plot_item(  # noqa: PLR0913
     ax.label_outer()
 
 
-def create_sensor_graph_impl(  # noqa: C901, PLR0912, PLR0915
+def create_sensor_graph_impl(
     sensor_config: weather_display.config.SensorConfig,
     context: my_lib.panel_config.DatabasePanelContext,
 ) -> PIL.Image.Image:
@@ -219,11 +221,13 @@ def create_sensor_graph_impl(  # noqa: C901, PLR0912, PLR0915
         data_cache: dict[str, dict[int, PlotData]] = {}
         cache: PlotData = PlotData()
         range_map: dict[str, tuple[float, float]] = {}
-        time_begin = datetime.datetime.now(datetime.timezone.utc)
+        time_begin = datetime.datetime.now(datetime.UTC)
 
         # 並列取得用のリクエストリストを準備
         fetch_requests: list[my_lib.sensor_data.DataRequest] = []
-        request_map: dict[tuple[str, int, str, str], int] = {}  # (param_name, col, measure, hostname) -> request_index
+        request_map: dict[
+            tuple[str, int, str, str], int
+        ] = {}  # (param_name, col, measure, hostname) -> request_index
 
         for param in sensor_config.param_list:
             data_cache[param.name] = {}
@@ -250,14 +254,18 @@ def create_sensor_graph_impl(  # noqa: C901, PLR0912, PLR0915
                     )
 
         # エアコン電力取得用のリクエストも追加
-        aircon_requests, aircon_map = weather_display.panel.sensor_graph_utils.get_aircon_power_requests(room_list)
+        aircon_requests, aircon_map = weather_display.panel.sensor_graph_utils.get_aircon_power_requests(
+            room_list
+        )
 
         all_requests = fetch_requests + aircon_requests
         aircon_results_offset = len(fetch_requests)
 
         # 並列でデータを取得
         logging.info(
-            "Fetching sensor data in parallel (%d requests, %d aircon)", len(fetch_requests), len(aircon_requests)
+            "Fetching sensor data in parallel (%d requests, %d aircon)",
+            len(fetch_requests),
+            len(aircon_requests),
         )
         parallel_start = time.perf_counter()
         all_results = asyncio.run(my_lib.sensor_data.fetch_data_parallel(context.db_config, all_requests))
@@ -275,7 +283,9 @@ def create_sensor_graph_impl(  # noqa: C901, PLR0912, PLR0915
                 data: my_lib.sensor_data.SensorDataResult | None = None
                 for sensor in room.sensor:
                     request_key = (param.name, col, sensor.measure, sensor.hostname)
-                    if request_key in request_map:  # pragma: no branch  # 同じデータから構築されるため常にTrue
+                    if (
+                        request_key in request_map
+                    ):  # pragma: no branch  # 同じデータから構築されるため常にTrue
                         request_index = request_map[request_key]
                         candidate_data = results[request_index]
 
@@ -292,7 +302,9 @@ def create_sensor_graph_impl(  # noqa: C901, PLR0912, PLR0915
                 if data is None and room.sensor:
                     last_sensor = room.sensor[-1]
                     request_key = (param.name, col, last_sensor.measure, last_sensor.hostname)
-                    if request_key in request_map:  # pragma: no branch  # 同じデータから構築されるため常にTrue
+                    if (
+                        request_key in request_map
+                    ):  # pragma: no branch  # 同じデータから構築されるため常にTrue
                         request_index = request_map[request_key]
                         last_result = results[request_index]
                         if isinstance(last_result, my_lib.sensor_data.SensorDataResult):
@@ -317,7 +329,10 @@ def create_sensor_graph_impl(  # noqa: C901, PLR0912, PLR0915
                             valid=False,
                             time=time_data,
                             time_numeric=plot_data.time_numeric,
-                            value=[weather_display.panel.sensor_graph_utils.EMPTY_VALUE for _ in range(len(time_data))],
+                            value=[
+                                weather_display.panel.sensor_graph_utils.EMPTY_VALUE
+                                for _ in range(len(time_data))
+                            ],
                         )
 
         # キャッシュからレンジを計算
@@ -377,7 +392,9 @@ def create_sensor_graph_impl(  # noqa: C901, PLR0912, PLR0915
                 ax = axes[ax_index]
 
                 title = room.label if row == 0 else None
-                graph_range = range_map[param.name] if param.range == "auto" else (param.range[0], param.range[1])
+                graph_range = (
+                    range_map[param.name] if param.range == "auto" else (param.range[0], param.range[1])
+                )
 
                 plot_item(
                     ax,
@@ -396,12 +413,16 @@ def create_sensor_graph_impl(  # noqa: C901, PLR0912, PLR0915
                 if (param.name == "temp") and room.aircon is not None:
                     weather_display.panel.sensor_graph_utils.draw_aircon_icon(
                         ax,
-                        weather_display.panel.sensor_graph_utils.get_aircon_power_from_results(aircon_results, aircon_map, col),
+                        weather_display.panel.sensor_graph_utils.get_aircon_power_from_results(
+                            aircon_results, aircon_map, col
+                        ),
                         sensor_config.icon,
                     )
 
                 if (param.name == "lux") and room.light_icon:
-                    weather_display.panel.sensor_graph_utils.draw_light_icon(ax, plot_data.value, sensor_config.icon)
+                    weather_display.panel.sensor_graph_utils.draw_light_icon(
+                        ax, plot_data.value, sensor_config.icon
+                    )
 
         with io.BytesIO() as buf:
             # グレースケール画像を直接生成（最適化）
@@ -421,12 +442,14 @@ def create_sensor_graph_impl(  # noqa: C901, PLR0912, PLR0915
         matplotlib.pyplot.close(fig)
 
 
-def create(config: weather_display.config.AppConfig) -> tuple[PIL.Image.Image, float] | tuple[PIL.Image.Image, float, str]:
+def create(
+    config: weather_display.config.AppConfig,
+) -> tuple[PIL.Image.Image, float] | tuple[PIL.Image.Image, float, str]:
     logging.info("draw sensor graph")
     start = time.perf_counter()
 
     # NOTE: sensor_graph は通常モードでのみ呼ばれるため、sensor は常に存在する (config.schema で必須)
-    assert config.sensor is not None, "sensor configuration is required for normal mode"
+    assert config.sensor is not None, "sensor configuration is required for normal mode"  # noqa: S101
     sensor_config = config.sensor
 
     context = my_lib.panel_config.DatabasePanelContext(
@@ -455,8 +478,7 @@ if __name__ == "__main__":
     import docopt
     import my_lib.logger
 
-
-    assert __doc__ is not None
+    assert __doc__ is not None  # noqa: S101
     args = docopt.docopt(__doc__)
 
     config_file = args["-c"]

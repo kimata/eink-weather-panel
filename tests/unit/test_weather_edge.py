@@ -3,6 +3,7 @@
 """
 weather.py のエッジケーステスト
 """
+
 import PIL.Image
 import PIL.ImageFont
 import pytest

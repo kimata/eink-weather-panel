@@ -3,6 +3,7 @@
 """
 rain_fall.py のユニットテスト
 """
+
 import datetime
 
 import PIL.Image
@@ -94,7 +95,7 @@ class TestGetRainfallStatus:
 
         from weather_display.panel.rain_fall import get_rainfall_status
 
-        now = datetime.datetime.now(datetime.timezone.utc)
+        now = datetime.datetime.now(datetime.UTC)
 
         @dataclass
         class ValidRainResult:

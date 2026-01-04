@@ -3,6 +3,7 @@
 """
 タイミング制御（カルマンフィルタ）のユニットテスト
 """
+
 import datetime
 import zoneinfo
 
@@ -67,9 +68,7 @@ class TestTimingKalmanFilter:
         # ノイズのある測定値
         measurements = [30, 35, 25, 32, 28, 31, 33, 29, 30, 31]
 
-        estimates = []
-        for m in measurements:
-            estimates.append(kf.update(m))
+        estimates = [kf.update(m) for m in measurements]
 
         # 推定値の変動は測定値の変動より小さいこと
         measurement_range = max(measurements) - min(measurements)
