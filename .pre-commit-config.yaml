@@ -9,11 +9,11 @@ repos:
           - id: check-yaml
             args: [--allow-multiple-documents]
           - id: check-json
-            exclude: ^.vscode/
+            exclude: ^(.vscode/|.*tsconfig.*\.json$)
           - id: check-toml
           - id: check-merge-conflict
           - id: mixed-line-ending
-            args: ['--fix=lf']
+            args: ["--fix=lf"]
 
     - repo: local
       hooks:
