@@ -114,9 +114,9 @@ class TestGetSharedAxisConfig:
 
     def test_get_shared_axis_config_returns_axis_config(self):
         """AxisConfig を返すこと"""
-        from weather_display.panel.sensor_graph import AxisConfig, get_shared_axis_config
+        from weather_display.panel.sensor_graph import AxisConfig, _get_shared_axis_config
 
-        result = get_shared_axis_config()
+        result = _get_shared_axis_config()
 
         assert isinstance(result, AxisConfig)
         assert result.major_locator is not None
@@ -124,10 +124,10 @@ class TestGetSharedAxisConfig:
 
     def test_get_shared_axis_config_is_cached(self):
         """キャッシュされていること"""
-        from weather_display.panel.sensor_graph import get_shared_axis_config
+        from weather_display.panel.sensor_graph import _get_shared_axis_config
 
-        result1 = get_shared_axis_config()
-        result2 = get_shared_axis_config()
+        result1 = _get_shared_axis_config()
+        result2 = _get_shared_axis_config()
 
         # 同じオブジェクトを返すこと
         assert result1 is result2

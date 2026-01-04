@@ -86,18 +86,18 @@ class TestDrawAirconIcon:
 
     def test_no_draw_when_power_below_threshold(self, mock_ax, icon_config):
         """電力が閾値未満の場合、描画しないこと"""
-        from weather_display.panel.sensor_graph_utils import AIRCON_WORK_THRESHOLD, draw_aircon_icon
+        from weather_display.panel.sensor_graph_utils import _AIRCON_WORK_THRESHOLD, draw_aircon_icon
 
-        draw_aircon_icon(mock_ax, AIRCON_WORK_THRESHOLD - 1, icon_config)
+        draw_aircon_icon(mock_ax, _AIRCON_WORK_THRESHOLD - 1, icon_config)
 
         # add_artist が呼ばれていないこと
         assert not mock_ax.add_artist.called
 
     def test_draws_when_power_above_threshold(self, mock_ax, icon_config):
         """電力が閾値以上の場合、描画すること"""
-        from weather_display.panel.sensor_graph_utils import AIRCON_WORK_THRESHOLD, draw_aircon_icon
+        from weather_display.panel.sensor_graph_utils import _AIRCON_WORK_THRESHOLD, draw_aircon_icon
 
-        draw_aircon_icon(mock_ax, AIRCON_WORK_THRESHOLD + 10, icon_config)
+        draw_aircon_icon(mock_ax, _AIRCON_WORK_THRESHOLD + 10, icon_config)
 
         # add_artist が呼ばれていること
         assert mock_ax.add_artist.called

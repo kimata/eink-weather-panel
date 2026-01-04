@@ -42,7 +42,7 @@ class TestRainFallPanelWithRain:
                 },
             }
             mocker.patch(
-                "weather_display.panel.rain_fall.get_rainfall_status",
+                "weather_display.panel.rain_fall._get_rainfall_status",
                 return_value=status,
             )
             return status
@@ -104,7 +104,7 @@ class TestRainFallPanelError:
         import weather_display.panel.rain_fall
 
         mocker.patch(
-            "weather_display.panel.rain_fall.get_rainfall_status",
+            "weather_display.panel.rain_fall._get_rainfall_status",
             return_value=None,
         )
 
@@ -119,7 +119,7 @@ class TestRainFallPanelError:
         import weather_display.panel.rain_fall
 
         mocker.patch(
-            "weather_display.panel.rain_fall.create_rain_fall_panel_impl",
+            "weather_display.panel.rain_fall._create_rain_fall_panel_impl",
             side_effect=RuntimeError("Test exception"),
         )
 
@@ -141,7 +141,7 @@ class TestRainFallPanelError:
             },
         }
         mocker.patch(
-            "weather_display.panel.rain_fall.get_rainfall_status",
+            "weather_display.panel.rain_fall._get_rainfall_status",
             return_value=status,
         )
 

@@ -62,17 +62,17 @@ class SubPanelConfig:
     offset_y: int
 
 
-PATIENT_COUNT = 3
+_PATIENT_COUNT = 3
 
-DATA_PATH = pathlib.Path("data")
-WINDOW_SIZE_CACHE_FILE = DATA_PATH / "window_size_cache.dat"
+_DATA_PATH = pathlib.Path("data")
+_WINDOW_SIZE_CACHE_FILE = _DATA_PATH / "window_size_cache.dat"
 
 # undetected_chromedriver のパッチ処理は並列実行時に競合するためロックで保護
 _driver_creation_lock = threading.Lock()
 
-CLOUD_IMAGE_XPATH = '//div[contains(@id, "jmatile_map_")]'
+_CLOUD_IMAGE_XPATH = '//div[contains(@id, "jmatile_map_")]'
 
-RAINFALL_INTENSITY_LEVEL = [
+_RAINFALL_INTENSITY_LEVEL = [
     # NOTE: 白
     {"func": lambda h, s: (160 < h) & (h < 180) & (s < 20), "value": 1},
     # NOTE: 薄水色
@@ -92,20 +92,20 @@ RAINFALL_INTENSITY_LEVEL = [
 ]
 
 
-FONT_SPEC: dict[str, my_lib.font_util.FontSpec] = {
+_FONT_SPEC: dict[str, my_lib.font_util.FontSpec] = {
     "title": ("jp_medium", 50),
     "legend": ("en_medium", 30),
     "legend_unit": ("en_medium", 18),
 }
 
 
-def get_face_map(
+def _get_face_map(
     font_config: my_lib.panel_config.FontConfigProtocol,
 ) -> dict[str, PIL.ImageFont.FreeTypeFont]:
-    return my_lib.font_util.build_pil_face_map(font_config, FONT_SPEC)
+    return my_lib.font_util.build_pil_face_map(font_config, _FONT_SPEC)
 
 
-def hide_label_and_icon(driver: WebDriver, wait: WebDriverWait[WebDriver]) -> None:
+def _hide_label_and_icon(driver: WebDriver, wait: WebDriverWait[WebDriver]) -> None:
     PARTS_LIST = [
         {"class": "jmatile-map-title", "mode": "none"},
         {"class": "leaflet-bar", "mode": "none"},
@@ -135,7 +135,7 @@ var elements = document.getElementsByClassName("{class_name}")
         )
 
 
-def change_setting(driver: WebDriver, wait: WebDriverWait[WebDriver]) -> None:
+def _change_setting(driver: WebDriver, wait: WebDriverWait[WebDriver]) -> None:
     my_lib.selenium_util.click_xpath(
         driver,
         '//a[contains(@aria-label, "色の濃さ")]',
@@ -162,7 +162,7 @@ def change_setting(driver: WebDriver, wait: WebDriverWait[WebDriver]) -> None:
     )
 
 
-def shape_cloud_display(
+def _shape_cloud_display(
     driver: WebDriver,
     wait: WebDriverWait[WebDriver],
     width: int,
@@ -177,11 +177,11 @@ def shape_cloud_display(
             True,
         )
 
-    change_setting(driver, wait)
-    hide_label_and_icon(driver, wait)
+    _change_setting(driver, wait)
+    _hide_label_and_icon(driver, wait)
 
 
-def change_window_size_fallback(driver: WebDriver, width: int, height: int) -> dict[str, int]:
+def _change_window_size_fallback(driver: WebDriver, width: int, height: int) -> dict[str, int]:
     """従来のウィンドウサイズ調整ロジック（フォールバック用）"""
     logging.info("Using fallback window size adjustment")
 
@@ -191,7 +191,7 @@ def change_window_size_fallback(driver: WebDriver, width: int, height: int) -> d
 
     # NOTE: 最初に横サイズを調整
     window_size = driver.get_window_size()
-    element_size = driver.find_element(selenium.webdriver.common.by.By.XPATH, CLOUD_IMAGE_XPATH).size
+    element_size = driver.find_element(selenium.webdriver.common.by.By.XPATH, _CLOUD_IMAGE_XPATH).size
     logging.info(
         "[actual] window: %d x %d, element: %d x %d",
         window_size["width"],
@@ -208,7 +208,7 @@ def change_window_size_fallback(driver: WebDriver, width: int, height: int) -> d
 
     # NOTE: 次に縦サイズを調整
     window_size = driver.get_window_size()
-    element_size = driver.find_element(selenium.webdriver.common.by.By.XPATH, CLOUD_IMAGE_XPATH).size
+    element_size = driver.find_element(selenium.webdriver.common.by.By.XPATH, _CLOUD_IMAGE_XPATH).size
     logging.info(
         "[actual] window: %d x %d, element: %d x %d",
         window_size["width"],
@@ -226,7 +226,7 @@ def change_window_size_fallback(driver: WebDriver, width: int, height: int) -> d
         time.sleep(1)
 
     final_window_size = driver.get_window_size()
-    element_size = driver.find_element(selenium.webdriver.common.by.By.XPATH, CLOUD_IMAGE_XPATH).size
+    element_size = driver.find_element(selenium.webdriver.common.by.By.XPATH, _CLOUD_IMAGE_XPATH).size
     logging.info(
         "[final] window: %d x %d, element: %d x %d",
         final_window_size["width"],
@@ -238,12 +238,12 @@ def change_window_size_fallback(driver: WebDriver, width: int, height: int) -> d
     return final_window_size
 
 
-def change_window_size(driver: WebDriver, width: int, height: int) -> dict[str, int]:
+def _change_window_size(driver: WebDriver, width: int, height: int) -> dict[str, int]:
     """最適化されたウィンドウサイズ調整（キャッシュ使用+フォールバック）"""
     logging.info("target: %d x %d", width, height)
 
     cache_key = f"{width}x{height}"
-    cache = my_lib.serializer.load(WINDOW_SIZE_CACHE_FILE)
+    cache = my_lib.serializer.load(_WINDOW_SIZE_CACHE_FILE)
 
     if cache_key in cache:
         # キャッシュから最適なウィンドウサイズを取得して一発設定
@@ -257,7 +257,7 @@ def change_window_size(driver: WebDriver, width: int, height: int) -> dict[str, 
         time.sleep(1)  # 短い待機時間
 
         # 結果を確認
-        element_size = driver.find_element(selenium.webdriver.common.by.By.XPATH, CLOUD_IMAGE_XPATH).size
+        element_size = driver.find_element(selenium.webdriver.common.by.By.XPATH, _CLOUD_IMAGE_XPATH).size
         tolerance = 5  # 許容誤差
 
         if (
@@ -270,13 +270,13 @@ def change_window_size(driver: WebDriver, width: int, height: int) -> dict[str, 
             logging.info("Cached window size failed, falling back to adjustment logic")
 
     # キャッシュが無いか失敗した場合はフォールバック
-    final_window_size = change_window_size_fallback(driver, width, height)
+    final_window_size = _change_window_size_fallback(driver, width, height)
 
     # 成功した場合はキャッシュに保存
-    element_size = driver.find_element(selenium.webdriver.common.by.By.XPATH, CLOUD_IMAGE_XPATH).size
+    element_size = driver.find_element(selenium.webdriver.common.by.By.XPATH, _CLOUD_IMAGE_XPATH).size
     if (element_size["width"], element_size["height"]) == (width, height):
         cache[cache_key] = final_window_size
-        my_lib.serializer.store(WINDOW_SIZE_CACHE_FILE, cache)
+        my_lib.serializer.store(_WINDOW_SIZE_CACHE_FILE, cache)
         logging.info("Saved window size to cache: %s -> %s", cache_key, final_window_size)
 
     logging.info(
@@ -287,7 +287,7 @@ def change_window_size(driver: WebDriver, width: int, height: int) -> dict[str, 
     return final_window_size
 
 
-def fetch_cloud_image(
+def _fetch_cloud_image(
     driver: WebDriver,
     wait: WebDriverWait[WebDriver],
     url: str,
@@ -301,20 +301,20 @@ def fetch_cloud_image(
 
     wait.until(
         selenium.webdriver.support.expected_conditions.presence_of_element_located(
-            (selenium.webdriver.common.by.By.XPATH, CLOUD_IMAGE_XPATH)
+            (selenium.webdriver.common.by.By.XPATH, _CLOUD_IMAGE_XPATH)
         )
     )
 
-    change_window_size(driver, width, height)
-    shape_cloud_display(driver, wait, width, height, is_future)
+    _change_window_size(driver, width, height)
+    _shape_cloud_display(driver, wait, width, height, is_future)
 
     wait.until(lambda driver: driver.execute_script("return document.readyState") == "complete")
     time.sleep(0.5)
 
-    return driver.find_element(selenium.webdriver.common.by.By.XPATH, CLOUD_IMAGE_XPATH).screenshot_as_png
+    return driver.find_element(selenium.webdriver.common.by.By.XPATH, _CLOUD_IMAGE_XPATH).screenshot_as_png
 
 
-def retouch_cloud_image(
+def _retouch_cloud_image(
     png_data: bytes,
     rain_cloud_config: weather_display.config.RainCloudConfig,
 ) -> tuple[PIL.Image.Image, PIL.Image.Image]:
@@ -325,15 +325,15 @@ def retouch_cloud_image(
     img_rgb = cv2.imdecode(img_array, cv2.IMREAD_COLOR)
 
     img_hsv = cv2.cvtColor(img_rgb, cv2.COLOR_BGR2HSV_FULL).astype(numpy.float32)
-    bar = numpy.zeros((1, len(RAINFALL_INTENSITY_LEVEL), 3), dtype=numpy.uint8)
+    bar = numpy.zeros((1, len(_RAINFALL_INTENSITY_LEVEL), 3), dtype=numpy.uint8)
     h, s, v = cv2.split(img_hsv)
 
     # 事前計算で高速化
     gamma = rain_cloud_config.legend.gamma
-    level_count = len(RAINFALL_INTENSITY_LEVEL)
+    level_count = len(_RAINFALL_INTENSITY_LEVEL)
 
     # NOTE: 降雨強度の色をグレースケール用に変換
-    for i, level in enumerate(RAINFALL_INTENSITY_LEVEL):
+    for i, level in enumerate(_RAINFALL_INTENSITY_LEVEL):
         intensity = (float(level_count - i) / level_count) ** gamma
         color = (0, 80, int(255 * intensity))
 
@@ -359,7 +359,7 @@ def retouch_cloud_image(
     )
 
 
-def draw_equidistant_circle(img: PIL.Image.Image) -> PIL.Image.Image:
+def _draw_equidistant_circle(img: PIL.Image.Image) -> PIL.Image.Image:
     logging.info("draw equidistant_circle")
     draw = PIL.ImageDraw.Draw(img)
     center_x = img.size[0] // 2
@@ -380,7 +380,7 @@ def draw_equidistant_circle(img: PIL.Image.Image) -> PIL.Image.Image:
     return img
 
 
-def draw_caption(
+def _draw_caption(
     img: PIL.Image.Image,
     title: str,
     face_map: dict[str, PIL.ImageFont.FreeTypeFont],
@@ -425,7 +425,7 @@ def draw_caption(
     return img
 
 
-def get_driver_profile_name(is_future: bool) -> str:
+def _get_driver_profile_name(is_future: bool) -> str:
     name = "rain_cloud" + ("_future" if is_future else "")
     suffix = os.environ.get("PYTEST_XDIST_WORKER", None)
 
@@ -435,7 +435,7 @@ def get_driver_profile_name(is_future: bool) -> str:
         return f"{name}_{suffix}"
 
 
-def create_rain_cloud_img(
+def _create_rain_cloud_img(
     rain_cloud_config: weather_display.config.RainCloudConfig,
     sub_panel_config: SubPanelConfig,
     face_map: dict[str, PIL.ImageFont.FreeTypeFont],
@@ -451,13 +451,13 @@ def create_rain_cloud_img(
         # undetected_chromedriver のパッチ処理は並列実行時に競合するためロックで保護
         with _driver_creation_lock:
             driver = my_lib.selenium_util.create_driver(
-                get_driver_profile_name(sub_panel_config.is_future), DATA_PATH, use_subprocess=True
+                _get_driver_profile_name(sub_panel_config.is_future), _DATA_PATH, use_subprocess=True
             )
 
         wait = selenium.webdriver.support.wait.WebDriverWait(driver, 5)
         my_lib.selenium_util.clear_cache(driver)
 
-        img = fetch_cloud_image(
+        img = _fetch_cloud_image(
             driver,
             wait,
             rain_cloud_config.data.jma.url,
@@ -466,7 +466,7 @@ def create_rain_cloud_img(
             sub_panel_config.is_future,
         )
     except Exception:
-        if driver and (trial >= PATIENT_COUNT):
+        if driver and (trial >= _PATIENT_COUNT):
             try:
                 my_lib.notify.slack.error_with_image(
                     slack_config,
@@ -491,14 +491,14 @@ def create_rain_cloud_img(
             except Exception as cleanup_error:
                 logging.warning("Failed to cleanup driver: %s", cleanup_error)
 
-    img, bar = retouch_cloud_image(img, rain_cloud_config)
-    img = draw_equidistant_circle(img)
-    img = draw_caption(img, sub_panel_config.title, face_map)
+    img, bar = _retouch_cloud_image(img, rain_cloud_config)
+    img = _draw_equidistant_circle(img)
+    img = _draw_caption(img, sub_panel_config.title, face_map)
 
     return (img, bar)
 
 
-def draw_legend(
+def _draw_legend(
     img: PIL.Image.Image,
     bar: PIL.Image.Image,
     rain_cloud_config: weather_display.config.RainCloudConfig,
@@ -515,7 +515,7 @@ def draw_legend(
         PIL.Image.Resampling.NEAREST,
     )
     draw = PIL.ImageDraw.Draw(bar)
-    for i in range(len(RAINFALL_INTENSITY_LEVEL)):
+    for i in range(len(_RAINFALL_INTENSITY_LEVEL)):
         draw.rectangle(
             (
                 max(bar_size * i - 1, 0),
@@ -546,9 +546,9 @@ def draw_legend(
     )
 
     legend.paste(bar, (PADDING, PADDING + text_height))
-    for i in range(len(RAINFALL_INTENSITY_LEVEL)):
-        if "value" in RAINFALL_INTENSITY_LEVEL[i]:
-            text = str(RAINFALL_INTENSITY_LEVEL[i]["value"])
+    for i in range(len(_RAINFALL_INTENSITY_LEVEL)):
+        if "value" in _RAINFALL_INTENSITY_LEVEL[i]:
+            text = str(_RAINFALL_INTENSITY_LEVEL[i]["value"])
             pos_x = PADDING + bar_size * (i + 1)
             pos_y = PADDING - 5
             align = "center"
@@ -581,7 +581,7 @@ def draw_legend(
     return img
 
 
-def create_rain_cloud_panel_impl(
+def _create_rain_cloud_panel_impl(
     rain_cloud_config: weather_display.config.RainCloudConfig,
     context: my_lib.panel_config.NormalPanelContext,
     is_threaded: object = True,
@@ -621,7 +621,7 @@ def create_rain_cloud_panel_impl(
         (rain_cloud_config.panel.width, rain_cloud_config.panel.height),
         (255, 255, 255, 255),
     )
-    face_map = get_face_map(context.font_config)
+    face_map = _get_face_map(context.font_config)
 
     executor = (
         concurrent.futures.ThreadPoolExecutor(len(SUB_PANEL_CONFIG_LIST))
@@ -631,7 +631,7 @@ def create_rain_cloud_panel_impl(
 
     task_list = [
         executor.submit(
-            create_rain_cloud_img,
+            _create_rain_cloud_img,
             rain_cloud_config,
             sub_panel_config,
             face_map,
@@ -649,7 +649,7 @@ def create_rain_cloud_panel_impl(
     executor.shutdown(True)
 
     assert bar is not None  # noqa: S101 # SUB_PANEL_CONFIG_LIST は常に2要素
-    return draw_legend(img, bar, rain_cloud_config, face_map)
+    return _draw_legend(img, bar, rain_cloud_config, face_map)
 
 
 def create(
@@ -685,7 +685,7 @@ def create(
     )
 
     return my_lib.panel_util.draw_panel_patiently(
-        create_rain_cloud_panel_impl,
+        _create_rain_cloud_panel_impl,
         config.rain_cloud,
         context,
         is_threaded,
@@ -713,7 +713,7 @@ if __name__ == "__main__":
         is_side_by_side=True,
         trial=1,
     )
-    img = create_rain_cloud_panel_impl(config.rain_cloud, context)
+    img = _create_rain_cloud_panel_impl(config.rain_cloud, context)
 
     logging.info("Save %s.", out_file)
     my_lib.pil_util.convert_to_gray(img).save(out_file, "PNG")

@@ -23,12 +23,12 @@ class TestDrawClothing:
 
     def test_draw_clothing_low_value(self, config, clothing_icons):
         """clothing_info が 0 の場合 (icon_index == 0 のケース)"""
-        from weather_display.panel.weather import draw_clothing
+        from weather_display.panel.weather import _draw_clothing
 
         img = PIL.Image.new("RGBA", (800, 600), (255, 255, 255, 255))
 
         # clothing_info = 0 でテスト (icon_index = ceil(0/20) = 0 → 1 に補正)
-        draw_clothing(
+        _draw_clothing(
             img=img,
             pos_x=100,
             pos_y=100,
@@ -38,12 +38,12 @@ class TestDrawClothing:
 
     def test_draw_clothing_shadow_icon(self, config, clothing_icons):
         """clothing_info が低く shadow_icon が使われるケース"""
-        from weather_display.panel.weather import draw_clothing
+        from weather_display.panel.weather import _draw_clothing
 
         img = PIL.Image.new("RGBA", (800, 600), (255, 255, 255, 255))
 
         # clothing_info = 5 でテスト (最初のアイコンが shadow)
-        draw_clothing(
+        _draw_clothing(
             img=img,
             pos_x=100,
             pos_y=100,
@@ -53,12 +53,12 @@ class TestDrawClothing:
 
     def test_draw_clothing_half_icon(self, config, clothing_icons):
         """half_icon が使われるケース"""
-        from weather_display.panel.weather import draw_clothing
+        from weather_display.panel.weather import _draw_clothing
 
         img = PIL.Image.new("RGBA", (800, 600), (255, 255, 255, 255))
 
         # clothing_info = 15 でテスト (最初のアイコンが half)
-        draw_clothing(
+        _draw_clothing(
             img=img,
             pos_x=100,
             pos_y=100,
@@ -81,21 +81,21 @@ class TestDrawWind:
     @pytest.fixture
     def wind_face(self, config):
         """風表示用フォント (face_map["wind"] と同じ構造)"""
-        from weather_display.panel.weather import get_face_map
+        from weather_display.panel.weather import _get_face_map
 
-        face_map = get_face_map(config.font)
+        face_map = _get_face_map(config.font)
         return face_map["wind"]
 
     def test_draw_wind_zero_speed(self, config, wind_icons, wind_face):
         """wind.speed == 0 の場合 (lines 395-396)"""
         from my_lib.weather import WindInfo
 
-        from weather_display.panel.weather import draw_wind
+        from weather_display.panel.weather import _draw_wind
 
         img = PIL.Image.new("RGBA", (800, 600), (255, 255, 255, 255))
         wind = WindInfo(speed=0, dir="静穏")
 
-        result = draw_wind(
+        result = _draw_wind(
             img=img,
             wind=wind,
             is_first=True,
@@ -111,12 +111,12 @@ class TestDrawWind:
         """wind.dir == "静穏" の場合 (ROTATION_MAP[wind.dir] is None, line 414->430)"""
         from my_lib.weather import WindInfo
 
-        from weather_display.panel.weather import draw_wind
+        from weather_display.panel.weather import _draw_wind
 
         img = PIL.Image.new("RGBA", (800, 600), (255, 255, 255, 255))
         wind = WindInfo(speed=1, dir="静穏")  # speed != 0 but dir is calm
 
-        result = draw_wind(
+        result = _draw_wind(
             img=img,
             wind=wind,
             is_first=False,
@@ -132,12 +132,12 @@ class TestDrawWind:
         """wind.speed == 3 の場合 (lines 403-405)"""
         from my_lib.weather import WindInfo
 
-        from weather_display.panel.weather import draw_wind
+        from weather_display.panel.weather import _draw_wind
 
         img = PIL.Image.new("RGBA", (800, 600), (255, 255, 255, 255))
         wind = WindInfo(speed=3, dir="北")
 
-        result = draw_wind(
+        result = _draw_wind(
             img=img,
             wind=wind,
             is_first=False,
@@ -171,15 +171,15 @@ class TestDrawWeatherInfo:
     @pytest.fixture
     def weather_info_face_map(self, config):
         """フェイスマップ (weather.py の get_face_map を使用)"""
-        from weather_display.panel.weather import get_face_map
+        from weather_display.panel.weather import _get_face_map
 
-        return get_face_map(config.font)
+        return _get_face_map(config.font)
 
     def test_draw_weather_info_with_wbgt(self, config, weather_info_icons, weather_info_face_map, mocker):
         """is_wbgt_exist == True のケース (line 574)"""
         from my_lib.weather import HourlyData, WeatherInfo, WindInfo
 
-        from weather_display.panel.weather import draw_weather_info
+        from weather_display.panel.weather import _draw_hourly_weather
 
         weather = WeatherInfo(
             icon_url="https://example.com/sunny.png",
@@ -197,13 +197,13 @@ class TestDrawWeatherInfo:
 
         # Mock get_image to avoid network request
         mock_icon = PIL.Image.new("RGBA", (100, 100), (200, 200, 200, 255))
-        mocker.patch("weather_display.panel.weather.get_image", return_value=mock_icon)
+        mocker.patch("weather_display.panel.weather._get_image", return_value=mock_icon)
 
         img = PIL.Image.new("RGBA", (800, 800), (255, 255, 255, 255))
         overlay = PIL.Image.new("RGBA", (800, 800), (0, 0, 0, 0))
         wbgt = 28.5  # WBGT値が存在
 
-        result = draw_weather_info(
+        result = _draw_hourly_weather(
             img=img,
             info=info,
             wbgt=wbgt,

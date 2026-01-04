@@ -28,30 +28,30 @@ class PanelData(TypedDict):
     future: NotRequired[concurrent.futures.Future[None] | None]
 
 
-thread_pool: concurrent.futures.ThreadPoolExecutor | None = None
-panel_data_map: dict[str, PanelData] = {}
-create_image_path: pathlib.Path | str | None = None
+_thread_pool: concurrent.futures.ThreadPoolExecutor | None = None
+_panel_data_map: dict[str, PanelData] = {}
+_create_image_path: pathlib.Path | str | None = None
 
 
 def init(create_image_path_: pathlib.Path | str) -> None:
-    global thread_pool
-    global create_image_path
+    global _thread_pool
+    global _create_image_path
 
     # ThreadPoolExecutorに変更してより効率的な非同期処理を実現
-    thread_pool = concurrent.futures.ThreadPoolExecutor(max_workers=3, thread_name_prefix="image_gen")
-    create_image_path = create_image_path_
+    _thread_pool = concurrent.futures.ThreadPoolExecutor(max_workers=3, thread_name_prefix="image_gen")
+    _create_image_path = create_image_path_
 
 
 def term() -> None:
-    global thread_pool
+    global _thread_pool
 
-    if thread_pool:
-        thread_pool.shutdown(wait=True)
+    if _thread_pool:
+        _thread_pool.shutdown(wait=True)
 
 
-def image_reader(proc: subprocess.Popen[bytes], token: str) -> None:
-    global panel_data_map
-    panel_data = panel_data_map[token]
+def _image_reader(proc: subprocess.Popen[bytes], token: str) -> None:
+    global _panel_data_map
+    panel_data = _panel_data_map[token]
     img_stream = io.BytesIO()
 
     stdout = proc.stdout
@@ -81,10 +81,10 @@ def image_reader(proc: subprocess.Popen[bytes], token: str) -> None:
         logging.exception("Failed to generate image")
 
 
-def log_reader(proc: subprocess.Popen[bytes], token: str) -> None:
-    global panel_data_map
+def _log_reader(proc: subprocess.Popen[bytes], token: str) -> None:
+    global _panel_data_map
 
-    panel_data = panel_data_map[token]
+    panel_data = _panel_data_map[token]
     stderr = proc.stderr
     if stderr is None:
         return
@@ -99,18 +99,18 @@ def log_reader(proc: subprocess.Popen[bytes], token: str) -> None:
         logging.exception("Failed to read log")
 
 
-def generate_image_impl(
+def _generate_image_impl(
     config_file: str, is_small_mode: bool, is_dummy_mode: bool, is_test_mode: bool, token: str
 ) -> None:
-    global panel_data_map
+    global _panel_data_map
 
-    panel_data = panel_data_map[token]
-    if create_image_path is None:
+    panel_data = _panel_data_map[token]
+    if _create_image_path is None:
         logging.error("create_image_path is not initialized")
         panel_data["log"].put(None)
         return
 
-    cmd: list[str | pathlib.Path] = ["python3", create_image_path, "-c", config_file]
+    cmd: list[str | pathlib.Path] = ["python3", _create_image_path, "-c", config_file]
     if is_small_mode:
         cmd.append("-S")
     if is_dummy_mode:
@@ -122,8 +122,8 @@ def generate_image_impl(
         proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=False)  # noqa: S603
 
         # 非同期でstdoutとstderrを読み取り
-        stdout_thread = threading.Thread(target=image_reader, args=(proc, token))
-        stderr_thread = threading.Thread(target=log_reader, args=(proc, token))
+        stdout_thread = threading.Thread(target=_image_reader, args=(proc, token))
+        stderr_thread = threading.Thread(target=_log_reader, args=(proc, token))
 
         stdout_thread.start()
         stderr_thread.start()
@@ -154,32 +154,32 @@ def generate_image_impl(
         panel_data["log"].put(None)
 
 
-def clean_map() -> None:
-    global panel_data_map
+def _clean_map() -> None:
+    global _panel_data_map
 
     remove_token: list[str] = []
-    for token, panel_data in panel_data_map.items():
+    for token, panel_data in _panel_data_map.items():
         if (time.time() - panel_data["time"]) > 60:
             remove_token.append(token)
 
     for token in remove_token:
-        del panel_data_map[token]
+        del _panel_data_map[token]
 
 
 def generate_image(config_file: str, is_small_mode: bool, is_dummy_mode: bool, is_test_mode: bool) -> str:
-    global thread_pool
-    global panel_data_map
+    global _thread_pool
+    global _panel_data_map
 
-    if thread_pool is None:
-        msg = "thread_pool is not initialized. Call init() first."
+    if _thread_pool is None:
+        msg = "_thread_pool is not initialized. Call init() first."
         raise RuntimeError(msg)
 
-    clean_map()
+    _clean_map()
 
     token = str(uuid.uuid4())
     log_queue: queue.Queue[bytes | None] = queue.Queue()
 
-    panel_data_map[token] = {
+    _panel_data_map[token] = {
         "lock": threading.Lock(),
         "log": log_queue,
         "image": None,
@@ -188,10 +188,10 @@ def generate_image(config_file: str, is_small_mode: bool, is_dummy_mode: bool, i
     }
 
     # ThreadPoolExecutorのsubmitを使用して非同期実行
-    future = thread_pool.submit(
-        generate_image_impl, config_file, is_small_mode, is_dummy_mode, is_test_mode, token
+    future = _thread_pool.submit(
+        _generate_image_impl, config_file, is_small_mode, is_dummy_mode, is_test_mode, token
     )
-    panel_data_map[token]["future"] = future
+    _panel_data_map[token]["future"] = future
 
     return token
 
@@ -199,7 +199,7 @@ def generate_image(config_file: str, is_small_mode: bool, is_dummy_mode: bool, i
 @blueprint.route("/api/image", methods=["POST"])
 @my_lib.flask_util.gzipped
 def api_image() -> flask.Response | str:
-    global panel_data_map
+    global _panel_data_map
 
     # NOTE: @gzipped をつけた場合、キャッシュ用のヘッダを付与しているので、
     # 無効化する。
@@ -207,24 +207,24 @@ def api_image() -> flask.Response | str:
 
     token = flask.request.form.get("token", "")
 
-    if token not in panel_data_map:
+    if token not in _panel_data_map:
         return f"Invalid token: {token}"
 
-    image_data = panel_data_map[token]["image"]
+    image_data = _panel_data_map[token]["image"]
 
     return flask.Response(image_data, mimetype="image/png")
 
 
 @blueprint.route("/api/log", methods=["POST"])
 def api_log() -> flask.Response | str:
-    global panel_data_map
+    global _panel_data_map
 
     token = flask.request.form.get("token", "")
 
-    if token not in panel_data_map:
+    if token not in _panel_data_map:
         return f"Invalid token: {token}"
 
-    log_queue = panel_data_map[token]["log"]
+    log_queue = _panel_data_map[token]["log"]
 
     def generate() -> Any:
         try:

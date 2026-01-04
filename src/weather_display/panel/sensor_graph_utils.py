@@ -18,7 +18,7 @@ import my_lib.sensor_data
 import weather_display.config
 
 # エアコン動作判定の閾値（W）
-AIRCON_WORK_THRESHOLD = 30
+_AIRCON_WORK_THRESHOLD = 30
 
 # 無効値を示す定数
 EMPTY_VALUE = -100.0
@@ -80,7 +80,7 @@ def draw_aircon_icon(
     icon_config: weather_display.config.SensorIconConfig,
 ) -> None:
     """エアコン動作中アイコンを描画"""
-    if (power is None) or (power < AIRCON_WORK_THRESHOLD):
+    if (power is None) or (power < _AIRCON_WORK_THRESHOLD):
         return
 
     icon_file = icon_config.aircon.path

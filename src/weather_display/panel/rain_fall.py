@@ -32,27 +32,27 @@ import pytz
 
 import weather_display.config
 
-DATA_PATH = pathlib.Path("data")
-WINDOW_SIZE_CACHE = DATA_PATH / "window_size.cache"
-CACHE_EXPIRE_HOUR = 1
+_DATA_PATH = pathlib.Path("data")
+_WINDOW_SIZE_CACHE = _DATA_PATH / "window_size.cache"
+_CACHE_EXPIRE_HOUR = 1
 
-CLOUD_IMAGE_XPATH = '//div[contains(@id, "jmatile_map_")]'
+_CLOUD_IMAGE_XPATH = '//div[contains(@id, "jmatile_map_")]'
 
 
-FONT_SPEC: dict[str, my_lib.font_util.FontSpec] = {
+_FONT_SPEC: dict[str, my_lib.font_util.FontSpec] = {
     "value": ("en_bold", 80),
     "unit": ("en_bold", 30),
     "start": ("jp_medium", 40),
 }
 
 
-def get_face_map(
+def _get_face_map(
     font_config: my_lib.panel_config.FontConfigProtocol,
 ) -> dict[str, PIL.ImageFont.FreeTypeFont]:
-    return my_lib.font_util.build_pil_face_map(font_config, FONT_SPEC)
+    return my_lib.font_util.build_pil_face_map(font_config, _FONT_SPEC)
 
 
-def get_rainfall_status(
+def _get_rainfall_status(
     rain_fall_config: weather_display.config.RainFallConfig,
     db_config: my_lib.sensor_data.InfluxDBConfig,
 ) -> dict[str, object] | None:
@@ -107,7 +107,7 @@ def get_rainfall_status(
     }
 
 
-def gen_amount_text(amount: float) -> str:
+def _gen_amount_text(amount: float) -> str:
     if amount >= 10:
         return str(int(amount))
     elif (amount < 1) and (int(amount * 100) % 10 != 0):
@@ -116,7 +116,7 @@ def gen_amount_text(amount: float) -> str:
         return f"{amount:.1f}"
 
 
-def gen_start_text(start_time: datetime.datetime) -> str:
+def _gen_start_text(start_time: datetime.datetime) -> str:
     delta = datetime.datetime.now(pytz.utc) - start_time.astimezone(pytz.utc)
     total_minutes = delta.total_seconds() // 60
 
@@ -129,7 +129,7 @@ def gen_start_text(start_time: datetime.datetime) -> str:
         return f"({int(total_hours)}時間前〜)"
 
 
-def draw_rainfall(
+def _draw_rainfall(
     img: PIL.Image.Image,
     rainfall_status: dict[str, object],
     icon_config: weather_display.config.IconConfig,
@@ -157,13 +157,13 @@ def draw_rainfall(
     if not isinstance(amount, int | float) or amount < 0.01:
         return img
 
-    amount_text = gen_amount_text(amount)
+    amount_text = _gen_amount_text(amount)
 
     start = raining["start"]
     if not isinstance(start, datetime.datetime):
         return img
 
-    start_text = gen_start_text(start)
+    start_text = _gen_start_text(start)
 
     line_height = my_lib.pil_util.text_size(img, face_map["value"], "0")[1]
 
@@ -207,11 +207,11 @@ def draw_rainfall(
     return img
 
 
-def create_rain_fall_panel_impl(
+def _create_rain_fall_panel_impl(
     rain_fall_config: weather_display.config.RainFallConfig,
     context: my_lib.panel_config.DatabasePanelContext,
 ) -> PIL.Image.Image:
-    face_map = get_face_map(context.font_config)
+    face_map = _get_face_map(context.font_config)
 
     img = PIL.Image.new(
         "RGBA",
@@ -219,13 +219,13 @@ def create_rain_fall_panel_impl(
         (255, 255, 255, 0),
     )
 
-    status = get_rainfall_status(rain_fall_config, context.db_config)
+    status = _get_rainfall_status(rain_fall_config, context.db_config)
 
     if status is None:
         logging.warning("Unable to fetch rainfall status")
         return img
 
-    draw_rainfall(img, status, rain_fall_config.icon, face_map)
+    _draw_rainfall(img, status, rain_fall_config.icon, face_map)
 
     return img
 
@@ -246,7 +246,7 @@ def create(
 
     try:
         return (
-            create_rain_fall_panel_impl(config.rain_fall, context),
+            _create_rain_fall_panel_impl(config.rain_fall, context),
             time.perf_counter() - start,
         )
     except Exception:
