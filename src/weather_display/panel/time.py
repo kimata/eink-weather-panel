@@ -27,20 +27,20 @@ import PIL.ImageFont
 
 import weather_display.config
 
-FONT_SPEC_NESTED: dict[str, dict[str, my_lib.font_util.FontSpec]] = {
+_FONT_SPEC_NESTED: dict[str, dict[str, my_lib.font_util.FontSpec]] = {
     "time": {
         "value": ("en_bold", 130),
     },
 }
 
 
-def get_face_map(
+def _get_face_map(
     font_config: my_lib.panel_config.FontConfigProtocol,
 ) -> dict[str, dict[str, PIL.ImageFont.FreeTypeFont]]:
-    return my_lib.font_util.build_pil_face_map_nested(font_config, FONT_SPEC_NESTED)
+    return my_lib.font_util.build_pil_face_map_nested(font_config, _FONT_SPEC_NESTED)
 
 
-def draw_time(
+def _draw_time(
     img: PIL.Image.Image,
     pos_x: int,
     pos_y: int,
@@ -67,15 +67,15 @@ def draw_time(
     )
 
 
-def draw_panel_time(
+def _draw_panel_time(
     img: PIL.Image.Image,
     time_config: weather_display.config.TimeConfig,
     font_config: my_lib.panel_config.FontConfigProtocol,
 ) -> None:
-    face_map = get_face_map(font_config)
+    face_map = _get_face_map(font_config)
 
     # 右下に描画する
-    draw_time(
+    _draw_time(
         img,
         time_config.panel.width - 10,
         time_config.panel.height - 10,
@@ -93,7 +93,7 @@ def create(config: weather_display.config.AppConfig) -> tuple[PIL.Image.Image, f
         (255, 255, 255, 0),
     )
 
-    draw_panel_time(img, config.time, config.font)
+    _draw_panel_time(img, config.time, config.font)
 
     return (img, time.perf_counter() - start)
 

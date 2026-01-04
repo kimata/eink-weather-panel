@@ -17,34 +17,34 @@ class TestGetDriverProfileName:
 
     def test_profile_name_without_xdist(self, mocker):
         """PYTEST_XDIST_WORKER がない場合のプロファイル名"""
-        from weather_display.panel.rain_cloud import get_driver_profile_name
+        from weather_display.panel.rain_cloud import _get_driver_profile_name
 
         mocker.patch.dict(os.environ, {}, clear=True)
         # 環境変数がない場合を確実にするため
         if "PYTEST_XDIST_WORKER" in os.environ:
             del os.environ["PYTEST_XDIST_WORKER"]
 
-        result = get_driver_profile_name(False)
+        result = _get_driver_profile_name(False)
         assert result == "rain_cloud"
 
-        result = get_driver_profile_name(True)
+        result = _get_driver_profile_name(True)
         assert result == "rain_cloud_future"
 
     def test_profile_name_with_xdist(self, mocker):
         """PYTEST_XDIST_WORKER がある場合のプロファイル名"""
-        from weather_display.panel.rain_cloud import get_driver_profile_name
+        from weather_display.panel.rain_cloud import _get_driver_profile_name
 
         mocker.patch.dict(os.environ, {"PYTEST_XDIST_WORKER": "gw0"})
 
-        result = get_driver_profile_name(False)
+        result = _get_driver_profile_name(False)
         assert result == "rain_cloud_gw0"
 
-        result = get_driver_profile_name(True)
+        result = _get_driver_profile_name(True)
         assert result == "rain_cloud_future_gw0"
 
 
 class TestRetouchCloudImage:
-    """retouch_cloud_image 関数のテスト"""
+    """_retouch_cloud_image 関数のテスト"""
 
     @pytest.fixture
     def sample_image_bytes(self):
@@ -58,11 +58,11 @@ class TestRetouchCloudImage:
         img.save(buffer, format="PNG")
         return buffer.getvalue()
 
-    def test_retouch_cloud_image_with_white_areas(self, config, sample_image_bytes):
+    def test__retouch_cloud_image_with_white_areas(self, config, sample_image_bytes):
         """白地図処理のテスト"""
-        from weather_display.panel.rain_cloud import retouch_cloud_image
+        from weather_display.panel.rain_cloud import _retouch_cloud_image
 
-        result_img, result_bar = retouch_cloud_image(sample_image_bytes, config.rain_cloud)
+        result_img, result_bar = _retouch_cloud_image(sample_image_bytes, config.rain_cloud)
 
         assert result_img is not None
         assert result_bar is not None
@@ -122,7 +122,7 @@ class TestWindowSizeCache:
         cache_data = {"800x600": {"width": 850, "height": 650}}
         mocker.patch("my_lib.serializer.load", return_value=cache_data)
 
-        result = weather_display.panel.rain_cloud.change_window_size(mock_driver, 800, 600)
+        result = weather_display.panel.rain_cloud._change_window_size(mock_driver, 800, 600)
 
         assert result == {"width": 850, "height": 650}
 
@@ -143,11 +143,11 @@ class TestWindowSizeCache:
         mocker.patch("my_lib.serializer.store")
         mocker.patch.object(
             weather_display.panel.rain_cloud,
-            "change_window_size_fallback",
+            "_change_window_size_fallback",
             return_value={"width": 860, "height": 660},
         )
 
-        result = weather_display.panel.rain_cloud.change_window_size(mock_driver, 800, 600)
+        result = weather_display.panel.rain_cloud._change_window_size(mock_driver, 800, 600)
 
         assert result == {"width": 860, "height": 660}
 
@@ -155,7 +155,7 @@ class TestWindowSizeCache:
 class TestChangeWindowSizeFallback:
     """ウィンドウサイズ調整フォールバックのテスト"""
 
-    def test_change_window_size_fallback_adjusts_width(self, mocker):
+    def test__change_window_size_fallback_adjusts_width(self, mocker):
         """幅が一致しない場合にウィンドウサイズを調整すること (line 177-180)"""
         import weather_display.panel.rain_cloud
 
@@ -179,12 +179,12 @@ class TestChangeWindowSizeFallback:
         mock_driver.get_window_size.return_value = {"width": 850, "height": 650}
         mocker.patch("weather_display.panel.rain_cloud.time.sleep")
 
-        weather_display.panel.rain_cloud.change_window_size_fallback(mock_driver, 800, 600)
+        weather_display.panel.rain_cloud._change_window_size_fallback(mock_driver, 800, 600)
 
         # set_window_size が呼ばれていること（初期サイズ設定 + 幅調整）
         assert mock_driver.set_window_size.call_count >= 2
 
-    def test_change_window_size_fallback_adjusts_height(self, mocker):
+    def test__change_window_size_fallback_adjusts_height(self, mocker):
         """高さが一致しない場合にウィンドウサイズを調整すること (line 193-200)"""
         import weather_display.panel.rain_cloud
 
@@ -209,7 +209,7 @@ class TestChangeWindowSizeFallback:
 
         mocker.patch("weather_display.panel.rain_cloud.time.sleep")
 
-        weather_display.panel.rain_cloud.change_window_size_fallback(mock_driver, 800, 600)
+        weather_display.panel.rain_cloud._change_window_size_fallback(mock_driver, 800, 600)
 
         # set_window_size が複数回呼ばれていること
         assert mock_driver.set_window_size.call_count >= 2
@@ -235,11 +235,11 @@ class TestCacheSave:
         mocker.patch("weather_display.panel.rain_cloud.time.sleep")
         mocker.patch.object(
             weather_display.panel.rain_cloud,
-            "change_window_size_fallback",
+            "_change_window_size_fallback",
             return_value={"width": 850, "height": 650},
         )
 
-        weather_display.panel.rain_cloud.change_window_size(mock_driver, 800, 600)
+        weather_display.panel.rain_cloud._change_window_size(mock_driver, 800, 600)
 
         # キャッシュが保存されること
         mock_store.assert_called_once()
@@ -248,20 +248,20 @@ class TestCacheSave:
 class TestRetouchCloudImageWhiteMap:
     """白地図処理のテスト"""
 
-    def test_retouch_cloud_image_without_white_areas(self, config):
+    def test__retouch_cloud_image_without_white_areas(self, config):
         """白地図がない画像でも処理できること (line 321)"""
         import io
 
         import PIL.Image
 
-        from weather_display.panel.rain_cloud import retouch_cloud_image
+        from weather_display.panel.rain_cloud import _retouch_cloud_image
 
         # 彩度の高い画像（白ではない）を作成
         img = PIL.Image.new("RGB", (100, 100), (255, 0, 0))  # 赤
         buffer = io.BytesIO()
         img.save(buffer, format="PNG")
 
-        result_img, result_bar = retouch_cloud_image(buffer.getvalue(), config.rain_cloud)
+        result_img, result_bar = _retouch_cloud_image(buffer.getvalue(), config.rain_cloud)
 
         assert result_img is not None
         assert result_bar is not None
@@ -270,7 +270,7 @@ class TestRetouchCloudImageWhiteMap:
 class TestExceptionHandling:
     """例外ハンドリングのテスト"""
 
-    def test_create_rain_cloud_img_with_screenshot_error(self, config, mocker):
+    def test__create_rain_cloud_img_with_screenshot_error(self, config, mocker):
         """スクリーンショット取得エラー時も動作すること"""
         import weather_display.panel.rain_cloud
 
@@ -282,14 +282,14 @@ class TestExceptionHandling:
         mocker.patch("my_lib.selenium_util.create_driver", return_value=mock_driver)
         mocker.patch.object(
             weather_display.panel.rain_cloud,
-            "fetch_cloud_image",
+            "_fetch_cloud_image",
             side_effect=Exception("Fetch error"),
         )
         mocker.patch("weather_display.panel.rain_cloud.time.sleep")
         mocker.patch("my_lib.selenium_util.quit_driver_gracefully")
 
         # PATIENT_COUNT を超えた試行数で呼び出し
-        weather_display.panel.rain_cloud.PATIENT_COUNT = 0
+        weather_display.panel.rain_cloud._PATIENT_COUNT = 0
 
         # この場合はエラーがリトライで処理される
         result = weather_display.panel.rain_cloud.create(config)
@@ -297,22 +297,22 @@ class TestExceptionHandling:
         # エラー画像が返される
         assert len(result) >= 2
 
-    def test_create_rain_cloud_img_with_slack_notification(self, config, mocker):
+    def test__create_rain_cloud_img_with_slack_notification(self, config, mocker):
         """Slack通知が呼ばれること (line 441-456)"""
         import weather_display.panel.rain_cloud
 
         mocker.patch.dict(os.environ, {"DUMMY_MODE": "false"})
 
         # PATIENT_COUNT を0にして最初のエラーで通知
-        original_count = weather_display.panel.rain_cloud.PATIENT_COUNT
-        weather_display.panel.rain_cloud.PATIENT_COUNT = 0
+        original_count = weather_display.panel.rain_cloud._PATIENT_COUNT
+        weather_display.panel.rain_cloud._PATIENT_COUNT = 0
 
         mock_driver = mocker.MagicMock()
         mock_driver.get_screenshot_as_png.return_value = b"\x89PNG\r\n\x1a\n"
         mocker.patch("my_lib.selenium_util.create_driver", return_value=mock_driver)
         mocker.patch.object(
             weather_display.panel.rain_cloud,
-            "fetch_cloud_image",
+            "_fetch_cloud_image",
             side_effect=Exception("Fetch error"),
         )
         mock_sleep = mocker.patch("weather_display.panel.rain_cloud.time.sleep")
@@ -322,7 +322,7 @@ class TestExceptionHandling:
         try:
             weather_display.panel.rain_cloud.create(config)
         finally:
-            weather_display.panel.rain_cloud.PATIENT_COUNT = original_count
+            weather_display.panel.rain_cloud._PATIENT_COUNT = original_count
 
         # Slack通知が呼ばれていること
         assert mock_slack.called or mock_sleep.called
@@ -331,7 +331,7 @@ class TestExceptionHandling:
 class TestDriverNoneCase:
     """driver が None の場合のテスト"""
 
-    def test_create_rain_cloud_img_driver_creation_fails(self, config, mocker):
+    def test__create_rain_cloud_img_driver_creation_fails(self, config, mocker):
         """ドライバー作成失敗時に finally で driver が None のケース (line 460->466)"""
         import weather_display.panel.rain_cloud
 
@@ -378,10 +378,10 @@ class TestSlackNotificationBranch:
         mocker.patch("my_lib.selenium_util.create_driver", return_value=mock_driver)
         mocker.patch("my_lib.selenium_util.clear_cache")
 
-        # fetch_cloud_image で例外を発生させる
+        # _fetch_cloud_image で例外を発生させる
         mocker.patch.object(
             weather_display.panel.rain_cloud,
-            "fetch_cloud_image",
+            "_fetch_cloud_image",
             side_effect=Exception("Fetch error"),
         )
         mocker.patch("weather_display.panel.rain_cloud.time.sleep")
@@ -389,11 +389,11 @@ class TestSlackNotificationBranch:
         mock_slack = mocker.patch("my_lib.notify.slack.error_with_image")
 
         # PATIENT_COUNT を 0 に設定し、trial=0 で条件を満たす
-        original_count = weather_display.panel.rain_cloud.PATIENT_COUNT
-        weather_display.panel.rain_cloud.PATIENT_COUNT = 0
+        original_count = weather_display.panel.rain_cloud._PATIENT_COUNT
+        weather_display.panel.rain_cloud._PATIENT_COUNT = 0
 
         try:
-            # create_rain_cloud_img を直接呼び出して trial を制御
+            # _create_rain_cloud_img を直接呼び出して trial を制御
             face_map = {}
             from weather_display.panel.rain_cloud import SubPanelConfig
 
@@ -406,7 +406,7 @@ class TestSlackNotificationBranch:
                 offset_y=0,
             )
             try:
-                weather_display.panel.rain_cloud.create_rain_cloud_img(
+                weather_display.panel.rain_cloud._create_rain_cloud_img(
                     config.rain_cloud,
                     sub_panel_config,
                     face_map,
@@ -416,7 +416,7 @@ class TestSlackNotificationBranch:
             except Exception:
                 pass  # 例外は想定内
         finally:
-            weather_display.panel.rain_cloud.PATIENT_COUNT = original_count
+            weather_display.panel.rain_cloud._PATIENT_COUNT = original_count
 
         # Slack通知が呼ばれていること
         assert mock_slack.called
@@ -432,12 +432,12 @@ class TestSideBySideLayout:
 
         import weather_display.panel.rain_cloud
 
-        # create_rain_cloud_img をモックして高速化
+        # _create_rain_cloud_img をモックして高速化
         mock_img = PIL.Image.new("RGBA", (400, 300), (255, 255, 255, 255))
         mock_bar = PIL.Image.new("RGBA", (10, 100), (255, 0, 0, 255))
         mocker.patch.object(
             weather_display.panel.rain_cloud,
-            "create_rain_cloud_img",
+            "_create_rain_cloud_img",
             return_value=(mock_img, mock_bar),
         )
 
@@ -447,7 +447,7 @@ class TestSideBySideLayout:
             is_side_by_side=True,  # line 564-568
         )
 
-        result = weather_display.panel.rain_cloud.create_rain_cloud_panel_impl(
+        result = weather_display.panel.rain_cloud._create_rain_cloud_panel_impl(
             config.rain_cloud,
             context,
             is_threaded=False,
@@ -462,12 +462,12 @@ class TestSideBySideLayout:
 
         import weather_display.panel.rain_cloud
 
-        # create_rain_cloud_img をモックして高速化
+        # _create_rain_cloud_img をモックして高速化
         mock_img = PIL.Image.new("RGBA", (400, 300), (255, 255, 255, 255))
         mock_bar = PIL.Image.new("RGBA", (10, 100), (255, 0, 0, 255))
         mocker.patch.object(
             weather_display.panel.rain_cloud,
-            "create_rain_cloud_img",
+            "_create_rain_cloud_img",
             return_value=(mock_img, mock_bar),
         )
 
@@ -477,7 +477,7 @@ class TestSideBySideLayout:
             is_side_by_side=False,  # line 569-573
         )
 
-        result = weather_display.panel.rain_cloud.create_rain_cloud_panel_impl(
+        result = weather_display.panel.rain_cloud._create_rain_cloud_panel_impl(
             config.rain_cloud,
             context,
             is_threaded=False,
@@ -489,7 +489,7 @@ class TestSideBySideLayout:
 class TestDriverNoneCoverage:
     """driver が None の分岐カバレッジテスト"""
 
-    def test_create_rain_cloud_img_finally_with_driver_none(self, config, mocker):
+    def test__create_rain_cloud_img_finally_with_driver_none(self, config, mocker):
         """finally ブロックで driver が None の場合 (line 460->466 False branch)"""
         import weather_display.panel.rain_cloud
 
@@ -517,7 +517,7 @@ class TestDriverNoneCoverage:
 
         # 例外が発生するが、finally で driver が None なので quit は呼ばれない
         try:
-            weather_display.panel.rain_cloud.create_rain_cloud_img(
+            weather_display.panel.rain_cloud._create_rain_cloud_img(
                 config.rain_cloud,
                 sub_panel_config,
                 face_map,
@@ -530,7 +530,7 @@ class TestDriverNoneCoverage:
         # driver が None なので quit_driver_gracefully は呼ばれないことを確認
         assert not mock_quit.called
 
-    def test_create_rain_cloud_img_finally_with_driver_success(self, config, mocker):
+    def test__create_rain_cloud_img_finally_with_driver_success(self, config, mocker):
         """finally ブロックで driver が存在し正常終了する場合 (line 460->466 True branch)"""
         import io
 
@@ -552,29 +552,29 @@ class TestDriverNoneCoverage:
         mocker.patch("my_lib.selenium_util.create_driver", return_value=mock_driver)
         mocker.patch("my_lib.selenium_util.clear_cache")
 
-        # fetch_cloud_image が正常に画像を返す
+        # _fetch_cloud_image が正常に画像を返す
         mocker.patch.object(
             weather_display.panel.rain_cloud,
-            "fetch_cloud_image",
+            "_fetch_cloud_image",
             return_value=png_bytes,
         )
 
-        # retouch_cloud_image もモック
+        # _retouch_cloud_image もモック
         mock_result_img = PIL.Image.new("RGBA", (100, 100), (255, 255, 255, 255))
         mock_result_bar = PIL.Image.new("RGBA", (10, 100), (255, 0, 0, 255))
         mocker.patch.object(
             weather_display.panel.rain_cloud,
-            "retouch_cloud_image",
+            "_retouch_cloud_image",
             return_value=(mock_result_img, mock_result_bar),
         )
         mocker.patch.object(
             weather_display.panel.rain_cloud,
-            "draw_equidistant_circle",
+            "_draw_equidistant_circle",
             return_value=mock_result_img,
         )
         mocker.patch.object(
             weather_display.panel.rain_cloud,
-            "draw_caption",
+            "_draw_caption",
             return_value=mock_result_img,
         )
 
@@ -592,7 +592,7 @@ class TestDriverNoneCoverage:
             offset_y=0,
         )
 
-        result = weather_display.panel.rain_cloud.create_rain_cloud_img(
+        result = weather_display.panel.rain_cloud._create_rain_cloud_img(
             config.rain_cloud,
             sub_panel_config,
             face_map,
@@ -604,7 +604,7 @@ class TestDriverNoneCoverage:
         assert mock_quit.called
         assert result is not None
 
-    def test_create_rain_cloud_img_with_driver_none_but_success(self, config, mocker):
+    def test__create_rain_cloud_img_with_driver_none_but_success(self, config, mocker):
         """driver が None でも関数が正常終了する場合 (line 460->466 False branch)
 
         理論上は到達不能だが、テスト可能にするため全ての driver 操作をモック
@@ -631,29 +631,29 @@ class TestDriverNoneCoverage:
         mock_wait = mocker.MagicMock()
         mocker.patch("selenium.webdriver.support.wait.WebDriverWait", return_value=mock_wait)
 
-        # fetch_cloud_image が正常に画像を返す
+        # _fetch_cloud_image が正常に画像を返す
         mocker.patch.object(
             weather_display.panel.rain_cloud,
-            "fetch_cloud_image",
+            "_fetch_cloud_image",
             return_value=png_bytes,
         )
 
-        # retouch_cloud_image もモック
+        # _retouch_cloud_image もモック
         mock_result_img = PIL.Image.new("RGBA", (100, 100), (255, 255, 255, 255))
         mock_result_bar = PIL.Image.new("RGBA", (10, 100), (255, 0, 0, 255))
         mocker.patch.object(
             weather_display.panel.rain_cloud,
-            "retouch_cloud_image",
+            "_retouch_cloud_image",
             return_value=(mock_result_img, mock_result_bar),
         )
         mocker.patch.object(
             weather_display.panel.rain_cloud,
-            "draw_equidistant_circle",
+            "_draw_equidistant_circle",
             return_value=mock_result_img,
         )
         mocker.patch.object(
             weather_display.panel.rain_cloud,
-            "draw_caption",
+            "_draw_caption",
             return_value=mock_result_img,
         )
 
@@ -671,7 +671,7 @@ class TestDriverNoneCoverage:
             offset_y=0,
         )
 
-        result = weather_display.panel.rain_cloud.create_rain_cloud_img(
+        result = weather_display.panel.rain_cloud._create_rain_cloud_img(
             config.rain_cloud,
             sub_panel_config,
             face_map,

@@ -18,7 +18,7 @@ class TestExecPatiently:
 
         mock_func = mocker.MagicMock(return_value="success")
 
-        result = display.exec_patiently(mock_func, ("arg1", "arg2"))
+        result = display._exec_patiently(mock_func, ("arg1", "arg2"))
 
         assert result == "success"
         assert mock_func.call_count == 1
@@ -30,7 +30,7 @@ class TestExecPatiently:
         mock_func = mocker.MagicMock(side_effect=[RuntimeError(), RuntimeError(), "success"])
         mocker.patch("time.sleep")
 
-        result = display.exec_patiently(mock_func, ("arg1",))
+        result = display._exec_patiently(mock_func, ("arg1",))
 
         assert result == "success"
         assert mock_func.call_count == 3
@@ -43,7 +43,7 @@ class TestExecPatiently:
         mocker.patch("time.sleep")
 
         with pytest.raises(RuntimeError, match="Always fails"):
-            display.exec_patiently(mock_func, ())
+            display._exec_patiently(mock_func, ())
 
 
 class TestSshConnect:
@@ -128,7 +128,7 @@ class TestTerminateSessionProcesses:
         mock_kill = mocker.patch("os.kill")
         mocker.patch("time.sleep")
 
-        display.terminate_session_processes(1000)
+        display._terminate_session_processes(1000)
 
         # SIGTERM と SIGKILL が呼ばれること
         assert mock_kill.call_count >= 2
@@ -144,7 +144,7 @@ class TestTerminateSessionProcesses:
         mocker.patch("subprocess.run", return_value=mock_result)
 
         # 例外が発生しないこと
-        display.terminate_session_processes(1000)
+        display._terminate_session_processes(1000)
 
     def test_terminate_session_processes_handles_exception(self, mocker):
         """例外を適切に処理すること"""
@@ -153,7 +153,7 @@ class TestTerminateSessionProcesses:
         mocker.patch("subprocess.run", side_effect=Exception("Error"))
 
         # 例外が発生しないこと
-        display.terminate_session_processes(1000)
+        display._terminate_session_processes(1000)
 
 
 class TestExecute:
@@ -231,7 +231,7 @@ class TestExecute:
         mock_proc.communicate.side_effect = subprocess.TimeoutExpired(cmd="test", timeout=300)
 
         mocker.patch("subprocess.Popen", return_value=mock_proc)
-        mocker.patch.object(display, "terminate_session_processes")
+        mocker.patch.object(display, "_terminate_session_processes")
         mocker.patch("my_lib.proc_util.reap_zombie")
 
         with pytest.raises(RuntimeError, match="timed out"):
@@ -359,7 +359,7 @@ class TestSshKillAndCloseEdgeCases:
         mock_ssh.exec_command.return_value = (mock_stdin, mock_stdout, mock_stderr)
 
         # 例外が発生しないこと
-        display.ssh_kill_and_close_impl(mock_ssh, "fbi")
+        display._ssh_kill_and_close_impl(mock_ssh, "fbi")
 
         mock_ssh.close.assert_called()
 
@@ -371,7 +371,7 @@ class TestSshKillAndCloseEdgeCases:
         mock_ssh.exec_command.side_effect = RuntimeError("General error")
 
         with pytest.raises(RuntimeError, match="General error"):
-            display.ssh_kill_and_close_impl(mock_ssh, "fbi")
+            display._ssh_kill_and_close_impl(mock_ssh, "fbi")
 
 
 class TestCleanupSshChannels:

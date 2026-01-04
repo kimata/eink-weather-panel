@@ -28,20 +28,20 @@ import PIL.ImageFont
 
 import weather_display.config
 
-FONT_SPEC: dict[str, my_lib.font_util.FontSpec] = {
+_FONT_SPEC: dict[str, my_lib.font_util.FontSpec] = {
     "wbgt": ("en_bold", 80),
     "wbgt_symbol": ("jp_bold", 120),
     "wbgt_title": ("jp_medium", 30),
 }
 
 
-def get_face_map(
+def _get_face_map(
     font_config: my_lib.panel_config.FontConfigProtocol,
 ) -> dict[str, PIL.ImageFont.FreeTypeFont]:
-    return my_lib.font_util.build_pil_face_map(font_config, FONT_SPEC)
+    return my_lib.font_util.build_pil_face_map(font_config, _FONT_SPEC)
 
 
-def draw_wbgt(
+def _draw_wbgt(
     img: PIL.Image.Image,
     wbgt: float,
     wbgt_config: weather_display.config.WbgtConfig,
@@ -100,12 +100,12 @@ def draw_wbgt(
     return img
 
 
-def create_wbgt_panel_impl(
+def _create_wbgt_panel_impl(
     wbgt_config: weather_display.config.WbgtConfig,
     context: my_lib.panel_config.NormalPanelContext,
     opt_config: object = None,
 ) -> PIL.Image.Image:
-    face_map = get_face_map(context.font_config)
+    face_map = _get_face_map(context.font_config)
 
     img = PIL.Image.new(
         "RGBA",
@@ -118,7 +118,7 @@ def create_wbgt_panel_impl(
     if wbgt is None:
         return img
 
-    draw_wbgt(img, wbgt, wbgt_config, wbgt_config.icon, face_map)
+    _draw_wbgt(img, wbgt, wbgt_config, wbgt_config.icon, face_map)
 
     return img
 
@@ -135,7 +135,7 @@ def create(
     )
 
     return my_lib.panel_util.draw_panel_patiently(
-        create_wbgt_panel_impl, config.wbgt, context, error_image=False
+        _create_wbgt_panel_impl, config.wbgt, context, error_image=False
     )
 
 

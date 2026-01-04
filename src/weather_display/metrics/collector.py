@@ -21,14 +21,14 @@ import numpy as np
 from sklearn.ensemble import IsolationForest
 from sklearn.preprocessing import StandardScaler
 
-TIMEZONE = zoneinfo.ZoneInfo("Asia/Tokyo")
-DEFAULT_DB_PATH = pathlib.Path("data/metrics.db")
+_TIMEZONE = zoneinfo.ZoneInfo("Asia/Tokyo")
+_DEFAULT_DB_PATH = pathlib.Path("data/metrics.db")
 
 
 class MetricsCollector:
     """Collects and stores performance metrics for weather panel operations."""
 
-    def __init__(self, db_path: str | pathlib.Path = DEFAULT_DB_PATH):
+    def __init__(self, db_path: str | pathlib.Path = _DEFAULT_DB_PATH):
         """Initialize MetricsCollector with database path."""
         self.db_path = pathlib.Path(db_path)
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
@@ -143,7 +143,7 @@ class MetricsCollector:
 
         """
         if timestamp is None:
-            timestamp = datetime.datetime.now(TIMEZONE)
+            timestamp = datetime.datetime.now(_TIMEZONE)
 
         hour = timestamp.hour
         day_of_week = timestamp.weekday()
@@ -237,7 +237,7 @@ class MetricsCollector:
 
         """
         if timestamp is None:
-            timestamp = datetime.datetime.now(TIMEZONE)
+            timestamp = datetime.datetime.now(_TIMEZONE)
 
         hour = timestamp.hour
         day_of_week = timestamp.weekday()
@@ -285,7 +285,7 @@ class MetricsCollector:
 class MetricsAnalyzer:
     """Analyzes metrics data for patterns and anomalies."""
 
-    def __init__(self, db_path: str | pathlib.Path = DEFAULT_DB_PATH):
+    def __init__(self, db_path: str | pathlib.Path = _DEFAULT_DB_PATH):
         """Initialize MetricsAnalyzer with database path."""
         self.db_path = pathlib.Path(db_path)
         if not self.db_path.exists():
@@ -754,7 +754,7 @@ class MetricsAnalyzer:
             }
 
         alerts = []
-        since = datetime.datetime.now(TIMEZONE) - datetime.timedelta(hours=thresholds["recent_hours"])
+        since = datetime.datetime.now(_TIMEZONE) - datetime.timedelta(hours=thresholds["recent_hours"])
 
         with self._get_connection() as conn:
             cursor = conn.cursor()
@@ -940,7 +940,7 @@ class MetricsAnalyzer:
 _metrics_collector = None
 
 
-def get_metrics_collector(db_path: str | pathlib.Path = DEFAULT_DB_PATH) -> MetricsCollector:
+def get_metrics_collector(db_path: str | pathlib.Path = _DEFAULT_DB_PATH) -> MetricsCollector:
     """Get or create global metrics collector instance."""
     global _metrics_collector
     if _metrics_collector is None or _metrics_collector.db_path != pathlib.Path(db_path):

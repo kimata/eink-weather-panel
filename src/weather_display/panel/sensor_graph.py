@@ -45,7 +45,7 @@ matplotlib.use("Agg")
 
 pandas.plotting.register_matplotlib_converters()
 
-IMAGE_DPI = 100.0
+_IMAGE_DPI = 100.0
 
 
 @dataclass
@@ -67,7 +67,7 @@ class AxisConfig:
 
 
 @functools.lru_cache(maxsize=8)
-def get_shared_axis_config() -> AxisConfig:
+def _get_shared_axis_config() -> AxisConfig:
     """共通の軸設定を返す（キャッシュ付き）"""
     return AxisConfig(
         major_locator=matplotlib.dates.DayLocator(interval=1),
@@ -75,7 +75,7 @@ def get_shared_axis_config() -> AxisConfig:
     )
 
 
-FONT_SPEC: dict[str, my_lib.font_util.FontSpec] = {
+_FONT_SPEC: dict[str, my_lib.font_util.FontSpec] = {
     "title": ("jp_bold", 34),
     "value": ("en_cond", 65),
     "value_small": ("en_cond", 55),
@@ -85,13 +85,13 @@ FONT_SPEC: dict[str, my_lib.font_util.FontSpec] = {
 }
 
 
-def get_face_map(
+def _get_face_map(
     font_config: my_lib.panel_config.FontConfigProtocol,
 ) -> dict[str, matplotlib.font_manager.FontProperties]:
-    return my_lib.font_util.build_plot_face_map(font_config, FONT_SPEC)
+    return my_lib.font_util.build_plot_face_map(font_config, _FONT_SPEC)
 
 
-def plot_item(
+def _plot_item(
     ax: matplotlib.axes.Axes,
     title: str | None,
     unit: str,
@@ -108,7 +108,7 @@ def plot_item(
 
     # データがNoneの場合のフォールバック
     if data is None:
-        logging.warning("plot_item received invalid data: %s", type(data))
+        logging.warning("_plot_item received invalid data: %s", type(data))
         data = PlotData()
 
     # 事前に数値化された時間データを使用
@@ -200,11 +200,11 @@ def plot_item(
     ax.label_outer()
 
 
-def create_sensor_graph_impl(
+def _create_sensor_graph_impl(
     sensor_config: weather_display.config.SensorConfig,
     context: my_lib.panel_config.DatabasePanelContext,
 ) -> PIL.Image.Image:
-    face_map = get_face_map(context.font_config)
+    face_map = _get_face_map(context.font_config)
 
     room_list = sensor_config.room_list
     width = sensor_config.panel.width
@@ -215,7 +215,7 @@ def create_sensor_graph_impl(
     fig = matplotlib.pyplot.figure(facecolor="azure", edgecolor="coral", linewidth=2)
 
     try:
-        fig.set_size_inches(width / IMAGE_DPI, height / IMAGE_DPI)
+        fig.set_size_inches(width / _IMAGE_DPI, height / _IMAGE_DPI)
 
         # NOTE: 全データを並列で一度に取得してキャッシュ（最適化）
         data_cache: dict[str, dict[int, PlotData]] = {}
@@ -358,7 +358,7 @@ def create_sensor_graph_impl(
             )
 
         # 共通の軸設定を取得（日付変換最適化）
-        axis_config = get_shared_axis_config()
+        axis_config = _get_shared_axis_config()
 
         # 開始時間を数値化
         time_begin_numeric = float(matplotlib.dates.date2num(time_begin))
@@ -396,7 +396,7 @@ def create_sensor_graph_impl(
                     range_map[param.name] if param.range == "auto" else (param.range[0], param.range[1])
                 )
 
-                plot_item(
+                _plot_item(
                     ax,
                     title,
                     param.unit,
@@ -426,7 +426,7 @@ def create_sensor_graph_impl(
 
         with io.BytesIO() as buf:
             # グレースケール画像を直接生成（最適化）
-            matplotlib.pyplot.savefig(buf, format="png", dpi=IMAGE_DPI, facecolor="white", transparent=False)
+            matplotlib.pyplot.savefig(buf, format="png", dpi=_IMAGE_DPI, facecolor="white", transparent=False)
 
             buf.seek(0)
 
@@ -458,7 +458,7 @@ def create(
     )
 
     try:
-        img = create_sensor_graph_impl(sensor_config, context)
+        img = _create_sensor_graph_impl(sensor_config, context)
         elapsed_time = time.perf_counter() - start
 
         return (img, elapsed_time)

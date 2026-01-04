@@ -27,7 +27,7 @@ RETRY_WAIT = 2
 CREATE_IMAGE = pathlib.Path(__file__).parent.parent / "create_image.py"
 
 
-def exec_patiently(func: Callable[..., T], args: tuple[Any, ...]) -> T:
+def _exec_patiently(func: Callable[..., T], args: tuple[Any, ...]) -> T:
     for i in range(RETRY_COUNT):
         try:
             return func(*args)
@@ -41,7 +41,7 @@ def exec_patiently(func: Callable[..., T], args: tuple[Any, ...]) -> T:
     )  # pragma: no cover  # 論理的に到達不能（ループは必ず return か raise で終了）
 
 
-def ssh_connect_impl(hostname: str, key_filename: str) -> paramiko.SSHClient:
+def _ssh_connect_impl(hostname: str, key_filename: str) -> paramiko.SSHClient:
     logging.info("Connect to %s", hostname)
 
     ssh = paramiko.SSHClient()
@@ -67,7 +67,7 @@ def ssh_connect_impl(hostname: str, key_filename: str) -> paramiko.SSHClient:
     return ssh
 
 
-def ssh_kill_and_close_impl(ssh: paramiko.SSHClient | None, cmd: str) -> None:
+def _ssh_kill_and_close_impl(ssh: paramiko.SSHClient | None, cmd: str) -> None:
     if ssh is None:
         return
 
@@ -95,14 +95,14 @@ def ssh_kill_and_close_impl(ssh: paramiko.SSHClient | None, cmd: str) -> None:
 
 
 def ssh_kill_and_close(ssh: paramiko.SSHClient | None, cmd: str) -> None:
-    exec_patiently(ssh_kill_and_close_impl, (ssh, cmd))
+    _exec_patiently(_ssh_kill_and_close_impl, (ssh, cmd))
 
 
 def ssh_connect(hostname: str, key_file_path: str) -> paramiko.SSHClient:
-    return exec_patiently(ssh_connect_impl, (hostname, key_file_path))
+    return _exec_patiently(_ssh_connect_impl, (hostname, key_file_path))
 
 
-def terminate_session_processes(session_id: int) -> None:
+def _terminate_session_processes(session_id: int) -> None:
     """セッションIDに属する全プロセスを段階的に終了する"""
     try:
         # セッションIDに属する全プロセスを取得
@@ -152,7 +152,7 @@ def execute(
     ssh_stderr = None
 
     try:
-        ssh_stdin, ssh_stdout, ssh_stderr = exec_patiently(
+        ssh_stdin, ssh_stdout, ssh_stderr = _exec_patiently(
             ssh.exec_command,
             (
                 "cat - > /dev/shm/display.png && "
@@ -184,7 +184,7 @@ def execute(
             stdout_data, stderr_data = proc.communicate(timeout=300)  # 5分でタイムアウト
         except subprocess.TimeoutExpired:
             logging.warning("create_image.py process timed out, terminating session %d...", session_id)
-            terminate_session_processes(session_id)
+            _terminate_session_processes(session_id)
             my_lib.proc_util.reap_zombie()
             timeout_msg = "Image creation process timed out"
             raise RuntimeError(timeout_msg) from None

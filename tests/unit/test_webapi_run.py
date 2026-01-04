@@ -20,8 +20,8 @@ class TestInit:
 
         run.init("/path/to/create_image.py")
 
-        assert run.thread_pool is not None
-        assert run.create_image_path == "/path/to/create_image.py"
+        assert run._thread_pool is not None
+        assert run._create_image_path == "/path/to/create_image.py"
 
         run.term()
 
@@ -47,29 +47,29 @@ class TestCleanMap:
         """古いエントリが削除されること"""
         from weather_display.runner.webapi import run
 
-        run.panel_data_map = {
+        run._panel_data_map = {
             "old_token": {"time": time.time() - 120},  # 2分前
             "new_token": {"time": time.time()},  # 現在
         }
 
-        run.clean_map()
+        run._clean_map()
 
-        assert "old_token" not in run.panel_data_map
-        assert "new_token" in run.panel_data_map
+        assert "old_token" not in run._panel_data_map
+        assert "new_token" in run._panel_data_map
 
     def test_clean_map_keeps_recent_entries(self):
         """最近のエントリが保持されること"""
         from weather_display.runner.webapi import run
 
-        run.panel_data_map = {
+        run._panel_data_map = {
             "token1": {"time": time.time() - 30},  # 30秒前
             "token2": {"time": time.time() - 50},  # 50秒前
         }
 
-        run.clean_map()
+        run._clean_map()
 
-        assert "token1" in run.panel_data_map
-        assert "token2" in run.panel_data_map
+        assert "token1" in run._panel_data_map
+        assert "token2" in run._panel_data_map
 
 
 class TestGenerateImage:
@@ -79,10 +79,10 @@ class TestGenerateImage:
         """thread_pool が初期化されていない場合に RuntimeError が発生すること"""
         from weather_display.runner.webapi import run
 
-        # thread_pool を None に設定
-        run.thread_pool = None
+        # _thread_pool を None に設定
+        run._thread_pool = None
 
-        with pytest.raises(RuntimeError, match="thread_pool is not initialized"):
+        with pytest.raises(RuntimeError, match="_thread_pool is not initialized"):
             run.generate_image("config.yaml", False, False, True)
 
     def test_generate_image_creates_token(self, mocker):
@@ -91,13 +91,13 @@ class TestGenerateImage:
 
         run.init("/path/to/create_image.py")
 
-        mocker.patch.object(run.thread_pool, "submit")
+        mocker.patch.object(run._thread_pool, "submit")
 
         token = run.generate_image("config.yaml", False, False, True)
 
         assert token is not None
         assert len(token) == 36  # UUID format
-        assert token in run.panel_data_map
+        assert token in run._panel_data_map
 
         run.term()
 
@@ -106,11 +106,11 @@ class TestGenerateImage:
         from weather_display.runner.webapi import run
 
         run.init("/path/to/create_image.py")
-        mocker.patch.object(run.thread_pool, "submit")
+        mocker.patch.object(run._thread_pool, "submit")
 
         token = run.generate_image("config.yaml", True, True, False)
 
-        panel_data = run.panel_data_map[token]
+        panel_data = run._panel_data_map[token]
         assert "lock" in panel_data
         assert "log" in panel_data
         assert "image" in panel_data
@@ -128,7 +128,7 @@ class TestImageReader:
         from weather_display.runner.webapi import run
 
         token = "test_token"
-        run.panel_data_map[token] = {
+        run._panel_data_map[token] = {
             "lock": threading.Lock(),
             "log": queue.Queue(),
             "image": None,
@@ -139,9 +139,9 @@ class TestImageReader:
         mock_proc.poll.side_effect = [None, 0]
         mock_proc.stdout.read.side_effect = [b"image_data", b""]
 
-        run.image_reader(mock_proc, token)
+        run._image_reader(mock_proc, token)
 
-        assert run.panel_data_map[token]["image"] == b"image_data"
+        assert run._panel_data_map[token]["image"] == b"image_data"
 
 
 class TestLogReader:
@@ -153,7 +153,7 @@ class TestLogReader:
 
         token = "test_token"
         log_queue = queue.Queue()
-        run.panel_data_map[token] = {
+        run._panel_data_map[token] = {
             "lock": threading.Lock(),
             "log": log_queue,
             "image": None,
@@ -163,7 +163,7 @@ class TestLogReader:
         mock_proc = mocker.MagicMock()
         mock_proc.stderr.readline.side_effect = [b"log line 1\n", b"log line 2\n", b""]
 
-        run.log_reader(mock_proc, token)
+        run._log_reader(mock_proc, token)
 
         assert log_queue.get() == b"log line 1\n"
         assert log_queue.get() == b"log line 2\n"
@@ -174,7 +174,7 @@ class TestLogReader:
 
         token = "test_token_exc"
         log_queue = queue.Queue()
-        run.panel_data_map[token] = {
+        run._panel_data_map[token] = {
             "lock": threading.Lock(),
             "log": log_queue,
             "image": None,
@@ -185,7 +185,7 @@ class TestLogReader:
         mock_proc.stderr.readline.side_effect = RuntimeError("Read error")
 
         # 例外が発生しても関数が終了すること
-        run.log_reader(mock_proc, token)
+        run._log_reader(mock_proc, token)
 
 
 class TestImageReaderEdgeCases:
@@ -196,7 +196,7 @@ class TestImageReaderEdgeCases:
         from weather_display.runner.webapi import run
 
         token = "test_token_oserror"
-        run.panel_data_map[token] = {
+        run._panel_data_map[token] = {
             "lock": threading.Lock(),
             "log": queue.Queue(),
             "image": None,
@@ -207,17 +207,17 @@ class TestImageReaderEdgeCases:
         mock_proc.poll.side_effect = [None, None]
         mock_proc.stdout.read.side_effect = [b"data", OSError("Pipe closed")]
 
-        run.image_reader(mock_proc, token)
+        run._image_reader(mock_proc, token)
 
         # 一部データが読み取られていること
-        assert run.panel_data_map[token]["image"] == b"data"
+        assert run._panel_data_map[token]["image"] == b"data"
 
     def test_image_reader_handles_exception(self, mocker):
         """image_reader が一般例外を処理すること"""
         from weather_display.runner.webapi import run
 
         token = "test_token_general_exc"
-        run.panel_data_map[token] = {
+        run._panel_data_map[token] = {
             "lock": threading.Lock(),
             "log": queue.Queue(),
             "image": None,
@@ -228,14 +228,14 @@ class TestImageReaderEdgeCases:
         mock_proc.poll.side_effect = RuntimeError("Unexpected error")
 
         # 例外が発生しても関数が終了すること
-        run.image_reader(mock_proc, token)
+        run._image_reader(mock_proc, token)
 
     def test_image_reader_reads_remaining_after_process_ends(self, mocker):
         """プロセス終了後に残りのデータを読み取ること"""
         from weather_display.runner.webapi import run
 
         token = "test_token_remaining"
-        run.panel_data_map[token] = {
+        run._panel_data_map[token] = {
             "lock": threading.Lock(),
             "log": queue.Queue(),
             "image": None,
@@ -246,16 +246,16 @@ class TestImageReaderEdgeCases:
         mock_proc.poll.return_value = 0  # プロセスは既に終了
         mock_proc.stdout.read.return_value = b"remaining_data"
 
-        run.image_reader(mock_proc, token)
+        run._image_reader(mock_proc, token)
 
-        assert run.panel_data_map[token]["image"] == b"remaining_data"
+        assert run._panel_data_map[token]["image"] == b"remaining_data"
 
     def test_image_reader_waits_when_no_data(self, mocker):
         """データがない場合に待機すること"""
         from weather_display.runner.webapi import run
 
         token = "test_token_wait"
-        run.panel_data_map[token] = {
+        run._panel_data_map[token] = {
             "lock": threading.Lock(),
             "log": queue.Queue(),
             "image": None,
@@ -269,9 +269,9 @@ class TestImageReaderEdgeCases:
 
         mocker.patch("time.sleep")
 
-        run.image_reader(mock_proc, token)
+        run._image_reader(mock_proc, token)
 
-        assert run.panel_data_map[token]["image"] == b"data"
+        assert run._panel_data_map[token]["image"] == b"data"
 
 
 class TestTermEdgeCases:
@@ -281,7 +281,7 @@ class TestTermEdgeCases:
         """thread_pool が None の場合でも正常に終了すること"""
         from weather_display.runner.webapi import run
 
-        run.thread_pool = None
+        run._thread_pool = None
         run.term()  # 例外が発生しないこと
 
 
@@ -296,17 +296,17 @@ class TestGenerateImageImpl:
 
         token = "test_none_path_token"
         log_queue = queue.Queue()
-        run.panel_data_map[token] = {
+        run._panel_data_map[token] = {
             "lock": threading.Lock(),
             "log": log_queue,
             "image": None,
             "time": time.time(),
             "future": None,
         }
-        run.create_image_path = None
+        run._create_image_path = None
 
         with caplog.at_level(logging.ERROR):
-            run.generate_image_impl("config.yaml", False, False, True, token)
+            run._generate_image_impl("config.yaml", False, False, True, token)
 
         assert "create_image_path is not initialized" in caplog.text
         # 完了通知の None がキューに入っていること
@@ -318,17 +318,17 @@ class TestGenerateImageImpl:
 
         token = "test_impl_token"
         log_queue = queue.Queue()
-        run.panel_data_map[token] = {
+        run._panel_data_map[token] = {
             "lock": threading.Lock(),
             "log": log_queue,
             "image": None,
             "time": time.time(),
         }
-        run.create_image_path = "/path/to/create_image.py"
+        run._create_image_path = "/path/to/create_image.py"
 
         mock_proc = mocker.MagicMock()
         # poll()は最初にNone(実行中)、次に0(終了)を返す
-        # NOTE: image_reader スレッドも poll() を呼ぶため、多めに None を返す
+        # NOTE: _image_reader スレッドも poll() を呼ぶため、多めに None を返す
         mock_proc.poll.side_effect = [None] * 10 + [0] * 10
         mock_proc.wait.return_value = 0
         mock_proc.stdout.read.side_effect = [b"image", b"", b""]
@@ -337,7 +337,7 @@ class TestGenerateImageImpl:
         mock_popen = mocker.patch("subprocess.Popen", return_value=mock_proc)
         mocker.patch("time.sleep")
 
-        run.generate_image_impl("config.yaml", False, False, True, token)
+        run._generate_image_impl("config.yaml", False, False, True, token)
 
         mock_popen.assert_called_once()
         # コマンドライン引数に -t (test) が含まれていること
@@ -358,13 +358,13 @@ class TestGenerateImageImpl:
         from weather_display.runner.webapi import run
 
         token = "test_small_token"
-        run.panel_data_map[token] = {
+        run._panel_data_map[token] = {
             "lock": threading.Lock(),
             "log": queue.Queue(),
             "image": None,
             "time": time.time(),
         }
-        run.create_image_path = "/path/to/create_image.py"
+        run._create_image_path = "/path/to/create_image.py"
 
         mock_proc = mocker.MagicMock()
         mock_proc.poll.return_value = 0
@@ -375,7 +375,7 @@ class TestGenerateImageImpl:
         mock_popen = mocker.patch("subprocess.Popen", return_value=mock_proc)
         mocker.patch("time.sleep")
 
-        run.generate_image_impl("config.yaml", True, False, False, token)
+        run._generate_image_impl("config.yaml", True, False, False, token)
 
         cmd = mock_popen.call_args[0][0]
         assert "-S" in cmd
@@ -385,13 +385,13 @@ class TestGenerateImageImpl:
         from weather_display.runner.webapi import run
 
         token = "test_dummy_token"
-        run.panel_data_map[token] = {
+        run._panel_data_map[token] = {
             "lock": threading.Lock(),
             "log": queue.Queue(),
             "image": None,
             "time": time.time(),
         }
-        run.create_image_path = "/path/to/create_image.py"
+        run._create_image_path = "/path/to/create_image.py"
 
         mock_proc = mocker.MagicMock()
         mock_proc.poll.return_value = 0
@@ -402,7 +402,7 @@ class TestGenerateImageImpl:
         mock_popen = mocker.patch("subprocess.Popen", return_value=mock_proc)
         mocker.patch("time.sleep")
 
-        run.generate_image_impl("config.yaml", False, True, False, token)
+        run._generate_image_impl("config.yaml", False, True, False, token)
 
         cmd = mock_popen.call_args[0][0]
         assert "-d" in cmd
@@ -414,13 +414,13 @@ class TestGenerateImageImpl:
         from weather_display.runner.webapi import run
 
         token = "test_timeout_token"
-        run.panel_data_map[token] = {
+        run._panel_data_map[token] = {
             "lock": threading.Lock(),
             "log": queue.Queue(),
             "image": None,
             "time": time.time(),
         }
-        run.create_image_path = "/path/to/create_image.py"
+        run._create_image_path = "/path/to/create_image.py"
 
         mock_proc = mocker.MagicMock()
         mock_proc.poll.return_value = 0
@@ -431,7 +431,7 @@ class TestGenerateImageImpl:
         mocker.patch("subprocess.Popen", return_value=mock_proc)
         mocker.patch("time.sleep")
 
-        run.generate_image_impl("config.yaml", False, False, False, token)
+        run._generate_image_impl("config.yaml", False, False, False, token)
 
         mock_proc.terminate.assert_called()
 
@@ -442,13 +442,13 @@ class TestGenerateImageImpl:
         from weather_display.runner.webapi import run
 
         token = "test_kill_token"
-        run.panel_data_map[token] = {
+        run._panel_data_map[token] = {
             "lock": threading.Lock(),
             "log": queue.Queue(),
             "image": None,
             "time": time.time(),
         }
-        run.create_image_path = "/path/to/create_image.py"
+        run._create_image_path = "/path/to/create_image.py"
 
         mock_proc = mocker.MagicMock()
         mock_proc.poll.return_value = 0
@@ -463,7 +463,7 @@ class TestGenerateImageImpl:
         mocker.patch("subprocess.Popen", return_value=mock_proc)
         mocker.patch("time.sleep")
 
-        run.generate_image_impl("config.yaml", False, False, False, token)
+        run._generate_image_impl("config.yaml", False, False, False, token)
 
         mock_proc.terminate.assert_called()
         mock_proc.kill.assert_called()
@@ -473,20 +473,20 @@ class TestGenerateImageImpl:
         from weather_display.runner.webapi import run
 
         token = "test_exception_token"
-        run.panel_data_map[token] = {
+        run._panel_data_map[token] = {
             "lock": threading.Lock(),
             "log": queue.Queue(),
             "image": None,
             "time": time.time(),
         }
-        run.create_image_path = "/path/to/create_image.py"
+        run._create_image_path = "/path/to/create_image.py"
 
         mocker.patch("subprocess.Popen", side_effect=OSError("Failed to start"))
 
-        run.generate_image_impl("config.yaml", False, False, False, token)
+        run._generate_image_impl("config.yaml", False, False, False, token)
 
         # None がログキューに入っていること（完了通知）
-        assert run.panel_data_map[token]["log"].get() is None
+        assert run._panel_data_map[token]["log"].get() is None
 
 
 class TestApiEndpoints:
@@ -517,7 +517,7 @@ class TestApiEndpoints:
         """無効なトークンで api/image にアクセスした場合"""
         from weather_display.runner.webapi import run
 
-        run.panel_data_map = {}
+        run._panel_data_map = {}
 
         response = client.post("/api/image", data={"token": "invalid_token"})
 
@@ -529,7 +529,7 @@ class TestApiEndpoints:
         from weather_display.runner.webapi import run
 
         token = "valid_token"
-        run.panel_data_map = {
+        run._panel_data_map = {
             token: {
                 "lock": threading.Lock(),
                 "log": queue.Queue(),
@@ -547,7 +547,7 @@ class TestApiEndpoints:
         """無効なトークンで api/log にアクセスした場合"""
         from weather_display.runner.webapi import run
 
-        run.panel_data_map = {}
+        run._panel_data_map = {}
 
         response = client.post("/api/log", data={"token": "invalid_token"})
 
@@ -564,7 +564,7 @@ class TestApiEndpoints:
         log_queue.put(b"Log line 2\n")
         log_queue.put(None)  # 終了マーカー
 
-        run.panel_data_map = {
+        run._panel_data_map = {
             token: {
                 "lock": threading.Lock(),
                 "log": log_queue,
@@ -584,7 +584,7 @@ class TestApiEndpoints:
         from weather_display.runner.webapi import run
 
         run.init("/path/to/create_image.py")
-        mocker.patch.object(run.thread_pool, "submit")
+        mocker.patch.object(run._thread_pool, "submit")
 
         response = client.get("/api/run")
 

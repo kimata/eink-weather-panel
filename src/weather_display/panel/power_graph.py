@@ -42,7 +42,7 @@ import weather_display.config
 
 pandas.plotting.register_matplotlib_converters()
 
-IMAGE_DPI = 100.0
+_IMAGE_DPI = 100.0
 
 
 class EmptyDataError(Exception):
@@ -51,7 +51,7 @@ class EmptyDataError(Exception):
     pass
 
 
-FONT_SPEC: dict[str, my_lib.font_util.FontSpec] = {
+_FONT_SPEC: dict[str, my_lib.font_util.FontSpec] = {
     "title": ("jp_bold", 60),
     "value": ("en_cond_bold", 80),
     "value_unit": ("jp_regular", 18),
@@ -60,13 +60,13 @@ FONT_SPEC: dict[str, my_lib.font_util.FontSpec] = {
 }
 
 
-def get_face_map(
+def _get_face_map(
     font_config: my_lib.panel_config.FontConfigProtocol,
 ) -> dict[str, matplotlib.font_manager.FontProperties]:
-    return my_lib.font_util.build_plot_face_map(font_config, FONT_SPEC)
+    return my_lib.font_util.build_plot_face_map(font_config, _FONT_SPEC)
 
 
-def plot_item(
+def _plot_item(
     ax: matplotlib.axes.Axes,
     unit: str,
     data: my_lib.sensor_data.SensorDataResult,
@@ -79,7 +79,7 @@ def plot_item(
 
     # デバッグログ: データの状態を確認
     logging.info(
-        "plot_item debug: x length=%d, y length=%d, data_valid=%s",
+        "_plot_item debug: x length=%d, y length=%d, data_valid=%s",
         len(x),
         len(y),
         data.valid,
@@ -89,7 +89,7 @@ def plot_item(
     if not x or not y:
         diagnostic = data.get_diagnostic_message()
         logging.warning(
-            "Empty data detected in plot_item: x=%d, y=%d, diagnostic=%s", len(x), len(y), diagnostic
+            "Empty data detected in _plot_item: x=%d, y=%d, diagnostic=%s", len(x), len(y), diagnostic
         )
         # 空データの場合は何も描画せずに戻る
         ax.text(
@@ -179,11 +179,11 @@ def plot_item(
     ax.label_outer()
 
 
-def create_power_graph_impl(
+def _create_power_graph_impl(
     power_config: weather_display.config.PowerConfig,
     context: my_lib.panel_config.DatabasePanelContext,
 ) -> PIL.Image.Image:
-    face_map = get_face_map(context.font_config)
+    face_map = _get_face_map(context.font_config)
 
     width = power_config.panel.width
     height = power_config.panel.height
@@ -193,7 +193,7 @@ def create_power_graph_impl(
     fig = matplotlib.pyplot.figure(facecolor="azure", edgecolor="coral", linewidth=2)
 
     try:
-        fig.set_size_inches(width / IMAGE_DPI, height / IMAGE_DPI)
+        fig.set_size_inches(width / _IMAGE_DPI, height / _IMAGE_DPI)
 
         if os.environ.get("DUMMY_MODE", "false") == "true":
             period_start = "-228h"
@@ -238,7 +238,7 @@ def create_power_graph_impl(
                 logging.warning("value data is empty")
 
         ax = fig.add_subplot()
-        plot_item(
+        _plot_item(
             ax,
             power_config.data.param.unit,
             data,
@@ -251,7 +251,7 @@ def create_power_graph_impl(
         fig.tight_layout()
 
         with io.BytesIO() as buf:
-            matplotlib.pyplot.savefig(buf, format="png", dpi=IMAGE_DPI, transparent=True)
+            matplotlib.pyplot.savefig(buf, format="png", dpi=_IMAGE_DPI, transparent=True)
 
             buf.seek(0)
 
@@ -278,7 +278,7 @@ def create(
 
     try:
         return (
-            create_power_graph_impl(config.power, context),
+            _create_power_graph_impl(config.power, context),
             time.perf_counter() - start,
         )
     except Exception as e:

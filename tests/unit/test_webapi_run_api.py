@@ -49,7 +49,7 @@ class TestApiRun:
         """api_run がトークンを返すこと"""
         from weather_display.runner.webapi import run
 
-        mocker.patch.object(run.thread_pool, "submit")
+        mocker.patch.object(run._thread_pool, "submit")
 
         response = run_client.get("/panel/api/run")
 
@@ -62,7 +62,7 @@ class TestApiRun:
         """small モードで api_run が動作すること"""
         from weather_display.runner.webapi import run
 
-        mocker.patch.object(run.thread_pool, "submit")
+        mocker.patch.object(run._thread_pool, "submit")
 
         response = run_client.get("/panel/api/run?mode=small")
 
@@ -74,7 +74,7 @@ class TestApiRun:
         """test モードで api_run が動作すること"""
         from weather_display.runner.webapi import run
 
-        mocker.patch.object(run.thread_pool, "submit")
+        mocker.patch.object(run._thread_pool, "submit")
 
         response = run_client.get("/panel/api/run?test=true")
 
@@ -104,7 +104,7 @@ class TestApiImage:
         from weather_display.runner.webapi import run
 
         token = "test-token-12345678-1234-1234-1234"
-        run.panel_data_map[token] = {
+        run._panel_data_map[token] = {
             "lock": threading.Lock(),
             "log": queue.Queue(),
             "image": b"\x89PNG\r\n\x1a\n",  # PNG header
@@ -117,7 +117,7 @@ class TestApiImage:
         assert response.data == b"\x89PNG\r\n\x1a\n"
 
         # クリーンアップ
-        del run.panel_data_map[token]
+        del run._panel_data_map[token]
 
     def test_api_image_invalid_token(self, run_client):
         """無効なトークンでエラーを返すこと"""
@@ -147,7 +147,7 @@ class TestApiLog:
         log_queue.put(b"log line 2\n")
         log_queue.put(None)  # 完了通知
 
-        run.panel_data_map[token] = {
+        run._panel_data_map[token] = {
             "lock": threading.Lock(),
             "log": log_queue,
             "image": None,
@@ -163,7 +163,7 @@ class TestApiLog:
         assert b"log line 2" in response.data
 
         # クリーンアップ
-        del run.panel_data_map[token]
+        del run._panel_data_map[token]
 
     def test_api_log_waits_for_data(self, run_client, mocker):
         """api_log がデータを待機すること"""
@@ -174,7 +174,7 @@ class TestApiLog:
         # 最初は空、後でNoneを追加（完了通知）
         log_queue.put(None)
 
-        run.panel_data_map[token] = {
+        run._panel_data_map[token] = {
             "lock": threading.Lock(),
             "log": log_queue,
             "image": None,
@@ -188,7 +188,7 @@ class TestApiLog:
         assert response.status_code == 200
 
         # クリーンアップ
-        del run.panel_data_map[token]
+        del run._panel_data_map[token]
 
     def test_api_log_empty_queue_continues(self, run_client, mocker):
         """空のキューで continue が実行されること (line 205)"""
@@ -197,7 +197,7 @@ class TestApiLog:
         token = "test-empty-queue-1234-1234-1234"
         log_queue = queue.Queue()
 
-        run.panel_data_map[token] = {
+        run._panel_data_map[token] = {
             "lock": threading.Lock(),
             "log": log_queue,
             "image": None,
@@ -219,7 +219,7 @@ class TestApiLog:
         assert response.status_code == 200
 
         # クリーンアップ
-        del run.panel_data_map[token]
+        del run._panel_data_map[token]
 
     def test_api_log_handles_exception(self, run_client, mocker):
         """api_log が例外を処理すること"""
@@ -230,7 +230,7 @@ class TestApiLog:
         log_queue.empty.return_value = False
         log_queue.get.side_effect = RuntimeError("Queue error")
 
-        run.panel_data_map[token] = {
+        run._panel_data_map[token] = {
             "lock": threading.Lock(),
             "log": log_queue,
             "image": None,
@@ -243,4 +243,4 @@ class TestApiLog:
         assert response.status_code == 200
 
         # クリーンアップ
-        del run.panel_data_map[token]
+        del run._panel_data_map[token]

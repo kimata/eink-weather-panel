@@ -38,9 +38,9 @@ class TestWeatherPanelCalculations:
 
     def test_calc_misnar_formula_normal(self):
         """Misnar式で体感温度が計算されること"""
-        from weather_display.panel.weather import calc_misnar_formula
+        from weather_display.panel.weather import _calc_misnar_formula
 
-        result = calc_misnar_formula(25.0, 50.0, 3.0)
+        result = _calc_misnar_formula(25.0, 50.0, 3.0)
 
         # 妥当な範囲内であること
         assert 15 < result < 35
@@ -57,9 +57,9 @@ class TestWeatherPanelCalculations:
     )
     def test_calc_misnar_formula_various_conditions(self, temp, humi, wind):
         """様々な条件で体感温度が計算されること"""
-        from weather_display.panel.weather import calc_misnar_formula
+        from weather_display.panel.weather import _calc_misnar_formula
 
-        result = calc_misnar_formula(temp, humi, wind)
+        result = _calc_misnar_formula(temp, humi, wind)
 
         # 結果が数値であること
         assert isinstance(result, float)
@@ -213,7 +213,7 @@ class TestRotationMap:
 
     def test_rotation_map_has_all_directions(self):
         """すべての風向きが定義されていること"""
-        from weather_display.panel.weather import ROTATION_MAP
+        from weather_display.panel.weather import _ROTATION_MAP
 
         expected_directions = [
             "静穏",
@@ -236,13 +236,13 @@ class TestRotationMap:
         ]
 
         for direction in expected_directions:
-            assert direction in ROTATION_MAP
+            assert direction in _ROTATION_MAP
 
     def test_rotation_map_calm_is_none(self):
         """静穏は None であること"""
-        from weather_display.panel.weather import ROTATION_MAP
+        from weather_display.panel.weather import _ROTATION_MAP
 
-        assert ROTATION_MAP["静穏"] is None
+        assert _ROTATION_MAP["静穏"] is None
 
     @pytest.mark.parametrize(
         "direction,expected_range",
@@ -255,9 +255,9 @@ class TestRotationMap:
     )
     def test_rotation_map_values_in_range(self, direction, expected_range):
         """回転角度が正しい範囲内であること"""
-        from weather_display.panel.weather import ROTATION_MAP
+        from weather_display.panel.weather import _ROTATION_MAP
 
-        value = ROTATION_MAP[direction]
+        value = _ROTATION_MAP[direction]
         assert expected_range[0] <= value <= expected_range[1]
 
 
@@ -269,7 +269,7 @@ class TestDrawPrecipitation:
         import PIL.Image
         import PIL.ImageFont
 
-        from weather_display.panel.weather import draw_precip
+        from weather_display.panel.weather import _draw_precip
 
         img = PIL.Image.new("RGBA", (800, 600), (255, 255, 255, 255))
 
@@ -284,7 +284,7 @@ class TestDrawPrecipitation:
         # 様々な降水量をテスト（各閾値をカバー）
         precip_levels = [0, 0.5, 1.5, 5, 15, 25]
         for i, precip in enumerate(precip_levels):
-            draw_precip(
+            _draw_precip(
                 img=img,
                 precip=precip,
                 is_first=(i == 0),

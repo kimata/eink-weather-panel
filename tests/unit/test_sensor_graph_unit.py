@@ -47,16 +47,16 @@ class TestPlotItem:
     @pytest.fixture
     def axis_config(self):
         """軸設定"""
-        from weather_display.panel.sensor_graph import get_shared_axis_config
+        from weather_display.panel.sensor_graph import _get_shared_axis_config
 
-        return get_shared_axis_config()
+        return _get_shared_axis_config()
 
     def test_plot_item_with_none_data(self, plot_setup, face_map, axis_config):
         """data が None の場合のテスト"""
-        from weather_display.panel.sensor_graph import plot_item
+        from weather_display.panel.sensor_graph import _plot_item
 
         # data=None を渡してエラーにならないこと
-        plot_item(
+        _plot_item(
             ax=plot_setup["ax"],
             data=None,
             ylim=(0, 100),
@@ -72,7 +72,7 @@ class TestPlotItem:
 
     def test_plot_item_with_empty_time_numeric(self, plot_setup, face_map, axis_config):
         """time_numeric が空の場合のフォールバックテスト"""
-        from weather_display.panel.sensor_graph import PlotData, plot_item
+        from weather_display.panel.sensor_graph import PlotData, _plot_item
 
         # time_numeric を含まないデータを渡す（フォールバック処理が発生）
         data = PlotData(
@@ -81,7 +81,7 @@ class TestPlotItem:
             valid=False,
         )
 
-        plot_item(
+        _plot_item(
             ax=plot_setup["ax"],
             data=data,
             ylim=(0, 100),
@@ -97,7 +97,7 @@ class TestPlotItem:
 
     def test_plot_item_with_datetime_time(self, plot_setup, face_map, axis_config):
         """datetime型の時間データを含むデータのテスト（フォールバック処理）"""
-        from weather_display.panel.sensor_graph import PlotData, plot_item
+        from weather_display.panel.sensor_graph import PlotData, _plot_item
 
         now = datetime.datetime.now(datetime.UTC)
         time_list = [now - datetime.timedelta(hours=i) for i in range(10, 0, -1)]
@@ -109,7 +109,7 @@ class TestPlotItem:
             valid=True,
         )
 
-        plot_item(
+        _plot_item(
             ax=plot_setup["ax"],
             data=data,
             ylim=(0, 100),
@@ -125,7 +125,7 @@ class TestPlotItem:
 
     def test_plot_item_with_numeric_time(self, plot_setup, face_map, axis_config):
         """数値型の時間データを含むデータのテスト（フォールバック処理）"""
-        from weather_display.panel.sensor_graph import PlotData, plot_item
+        from weather_display.panel.sensor_graph import PlotData, _plot_item
 
         now = datetime.datetime.now(datetime.UTC)
         time_list = [now - datetime.timedelta(hours=i) for i in range(5, 0, -1)]
@@ -138,7 +138,7 @@ class TestPlotItem:
             valid=True,
         )
 
-        plot_item(
+        _plot_item(
             ax=plot_setup["ax"],
             data=data,
             ylim=(0, 100),
@@ -156,7 +156,7 @@ class TestPlotItem:
         """log スケールで None 値を含むデータのテスト"""
         import matplotlib.dates
 
-        from weather_display.panel.sensor_graph import PlotData, plot_item
+        from weather_display.panel.sensor_graph import PlotData, _plot_item
 
         now = datetime.datetime.now(datetime.UTC)
         time_list = [now - datetime.timedelta(hours=i) for i in range(10, 0, -1)]
@@ -169,7 +169,7 @@ class TestPlotItem:
             valid=True,
         )
 
-        plot_item(
+        _plot_item(
             ax=plot_setup["ax"],
             data=data,
             ylim=(1, 100000),

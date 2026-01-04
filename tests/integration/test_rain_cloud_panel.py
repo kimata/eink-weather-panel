@@ -70,7 +70,7 @@ class TestRainCloudPanelError:
                 raise RuntimeError()
             return click_xpath_orig(driver, xpath, wait, is_warn)
 
-        weather_display.panel.rain_cloud.PATIENT_COUNT = 1
+        weather_display.panel.rain_cloud._PATIENT_COUNT = 1
         mocker.patch("my_lib.selenium_util.click_xpath", side_effect=click_xpath_mock)
         mocker.patch("weather_display.panel.rain_cloud.time.sleep")
         mocker.patch.dict("os.environ", {"DUMMY_MODE": "false"})

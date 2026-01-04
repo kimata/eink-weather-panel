@@ -35,21 +35,21 @@ class TestDrawRainfall:
 
     def test_draw_rainfall_raining_not_dict(self, sample_image, icon_config, face_map):
         """raining が辞書でない場合"""
-        from weather_display.panel.rain_fall import draw_rainfall
+        from weather_display.panel.rain_fall import _draw_rainfall
 
         rainfall_status = {
             "amount": 5.0,
             "raining": "not a dict",
         }
 
-        result = draw_rainfall(sample_image, rainfall_status, icon_config, face_map)
+        result = _draw_rainfall(sample_image, rainfall_status, icon_config, face_map)
 
         # 画像がそのまま返される
         assert result is sample_image
 
     def test_draw_rainfall_start_not_datetime(self, sample_image, icon_config, face_map):
         """start が datetime でない場合"""
-        from weather_display.panel.rain_fall import draw_rainfall
+        from weather_display.panel.rain_fall import _draw_rainfall
 
         rainfall_status = {
             "amount": 5.0,
@@ -59,7 +59,7 @@ class TestDrawRainfall:
             },
         }
 
-        result = draw_rainfall(sample_image, rainfall_status, icon_config, face_map)
+        result = _draw_rainfall(sample_image, rainfall_status, icon_config, face_map)
 
         # アイコンだけ描画されて返る
         assert result is not None
@@ -72,7 +72,7 @@ class TestGetRainfallStatus:
         """データが無効な場合 None を返す"""
         from dataclasses import dataclass
 
-        from weather_display.panel.rain_fall import get_rainfall_status
+        from weather_display.panel.rain_fall import _get_rainfall_status
 
         @dataclass
         class InvalidResult:
@@ -85,7 +85,7 @@ class TestGetRainfallStatus:
 
         mocker.patch("my_lib.sensor_data.fetch_data", return_value=InvalidResult())
 
-        result = get_rainfall_status(config.rain_fall, config.influxdb)
+        result = _get_rainfall_status(config.rain_fall, config.influxdb)
 
         assert result is None
 
@@ -93,7 +93,7 @@ class TestGetRainfallStatus:
         """降雨中の場合に開始時刻を取得する"""
         from dataclasses import dataclass
 
-        from weather_display.panel.rain_fall import get_rainfall_status
+        from weather_display.panel.rain_fall import _get_rainfall_status
 
         now = datetime.datetime.now(datetime.UTC)
 
@@ -120,7 +120,7 @@ class TestGetRainfallStatus:
 
         mocker.patch("my_lib.sensor_data.get_last_event", return_value=now)
 
-        result = get_rainfall_status(config.rain_fall, config.influxdb)
+        result = _get_rainfall_status(config.rain_fall, config.influxdb)
 
         assert result is not None
         assert isinstance(result, dict)
@@ -133,7 +133,7 @@ class TestGetRainfallStatus:
         """降雨していない場合は start が None (line 97)"""
         from dataclasses import dataclass
 
-        from weather_display.panel.rain_fall import get_rainfall_status
+        from weather_display.panel.rain_fall import _get_rainfall_status
 
         @dataclass
         class ValidRainResult:
@@ -156,7 +156,7 @@ class TestGetRainfallStatus:
         fetch_mock = mocker.patch("my_lib.sensor_data.fetch_data")
         fetch_mock.side_effect = [ValidRainResult(), NotRainingResult()]
 
-        result = get_rainfall_status(config.rain_fall, config.influxdb)
+        result = _get_rainfall_status(config.rain_fall, config.influxdb)
 
         assert result is not None
         assert isinstance(result, dict)
@@ -184,9 +184,9 @@ class TestGenAmountText:
     )
     def test_gen_amount_text_various_values(self, amount, expected):
         """様々な降水量でテキスト生成"""
-        from weather_display.panel.rain_fall import gen_amount_text
+        from weather_display.panel.rain_fall import _gen_amount_text
 
-        result = gen_amount_text(amount)
+        result = _gen_amount_text(amount)
 
         assert result == expected
 
@@ -198,12 +198,12 @@ class TestGenStartText:
         """分単位の場合"""
         import pytz
 
-        from weather_display.panel.rain_fall import gen_start_text
+        from weather_display.panel.rain_fall import _gen_start_text
 
         now = datetime.datetime.now(pytz.utc)
         start = now - datetime.timedelta(minutes=30)
 
-        result = gen_start_text(start)
+        result = _gen_start_text(start)
 
         assert "30分前" in result
 
@@ -211,12 +211,12 @@ class TestGenStartText:
         """1時間以上2時間未満の場合"""
         import pytz
 
-        from weather_display.panel.rain_fall import gen_start_text
+        from weather_display.panel.rain_fall import _gen_start_text
 
         now = datetime.datetime.now(pytz.utc)
         start = now - datetime.timedelta(minutes=90)
 
-        result = gen_start_text(start)
+        result = _gen_start_text(start)
 
         assert "1時間" in result
 
@@ -224,11 +224,11 @@ class TestGenStartText:
         """2時間以上の場合"""
         import pytz
 
-        from weather_display.panel.rain_fall import gen_start_text
+        from weather_display.panel.rain_fall import _gen_start_text
 
         now = datetime.datetime.now(pytz.utc)
         start = now - datetime.timedelta(hours=5)
 
-        result = gen_start_text(start)
+        result = _gen_start_text(start)
 
         assert "5時間前" in result
