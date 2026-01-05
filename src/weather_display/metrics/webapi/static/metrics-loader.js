@@ -295,10 +295,13 @@ async function loadMetricsData() {
             "panel-trends",
             "/api/metrics/panel-trends",
             renderPanelTrends,
-            true,
+            false,
             ++currentSection,
             mainSections
         );
+
+        // パネル別日別推移データを追加で読み込み
+        await loadPanelDailyTrendsAsync();
 
         // メインセクション完了 - 進捗表示を更新
         const progressDisplay = document.getElementById("progress-display");
@@ -316,6 +319,33 @@ async function loadMetricsData() {
     } catch (error) {
         console.error("メトリクスデータの読み込みエラー:", error);
         showError(error.message);
+    }
+}
+
+// パネル別日別推移データを読み込み
+async function loadPanelDailyTrendsAsync() {
+    try {
+        const urlWithParams = `/api/metrics/panel-daily-trends?${getApiParams()}`;
+        console.log(`パネル別日別推移データの取得開始: ${urlWithParams}`);
+
+        const response = await fetch(window.metricsApiBaseUrl + urlWithParams);
+
+        if (!response.ok) {
+            throw new Error(`データの取得に失敗しました (${response.status})`);
+        }
+
+        const data = await response.json();
+        console.log("パネル別日別推移データの取得完了:", data);
+
+        // データをグローバル変数に設定
+        window.panelDailyTrendsData = data.panel_daily_trends;
+
+        // グラフを生成（chart-functions.js の関数を呼び出し）
+        if (typeof generatePanelDailyTrendsCharts === "function") {
+            generatePanelDailyTrendsCharts();
+        }
+    } catch (error) {
+        console.error("パネル別日別推移データの読み込みエラー:", error);
     }
 }
 
@@ -499,6 +529,9 @@ function setGlobalData(sectionId, data) {
             break;
         case "panel-trends":
             window.panelTrendsData = data.panel_trends;
+            break;
+        case "panel-daily-trends":
+            window.panelDailyTrendsData = data.panel_daily_trends;
             break;
         case "anomalies":
             window.anomaliesData = data.anomalies;
@@ -962,20 +995,14 @@ function renderPanelTrends() {
                     <i class="fas fa-link permalink-icon" onclick="copyPermalink('panel-timeseries')"></i>
                 </div>
             </h2>
-            <p class="subtitle is-6">各パネルの処理時間の時系列推移グラフ（時間軸での処理時間変化）</p>
+            <p class="subtitle is-6">各パネルの日別処理時間推移（ドラッグでズーム可能）</p>
 
-            <div class="columns">
-                <div class="column">
-                    <div class="card metrics-card" id="panel-time-series">
-                        <i class="fas fa-link card-permalink" onclick="copyPermalink('panel-time-series')"></i>
-                        <div class="card-header">
-                            <p class="card-header-title">パネル別処理時間推移</p>
-                        </div>
-                        <div class="card-content">
-                            <div class="chart-container">
-                                <canvas id="panelTimeSeriesChart"></canvas>
-                            </div>
-                        </div>
+            <div class="columns is-multiline" id="panelDailyTrendsContainer">
+                <!-- パネル別日別推移グラフがJavaScriptで動的に生成される -->
+                <div class="column is-full" style="display: flex; align-items: center; justify-content: center; min-height: 200px; color: #666;">
+                    <div style="display: flex; align-items: center;">
+                        <span class="loading-spinner" style="margin-right: 0.8rem;"></span>
+                        <span style="font-size: 1rem;">パネル別推移データを読み込み中...</span>
                     </div>
                 </div>
             </div>
@@ -985,7 +1012,6 @@ function renderPanelTrends() {
     // DOMに追加後、チャートを生成
     setTimeout(() => {
         generatePanelTrendsCharts();
-        generatePanelTimeSeriesChart();
     }, 100);
 
     return html;
