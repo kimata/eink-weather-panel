@@ -20,6 +20,19 @@ blueprint = flask.Blueprint(
     static_url_path="/static",
 )
 
+# デフォルトの期間（日数）
+_DEFAULT_DAYS = 30
+
+
+def _get_days_limit() -> int:
+    """リクエストから期間パラメータを取得する。"""
+    try:
+        days = flask.request.args.get("days", _DEFAULT_DAYS, type=int)
+        # 有効な範囲にクランプ（1日〜365日）
+        return max(1, min(365, days))
+    except (ValueError, TypeError):
+        return _DEFAULT_DAYS
+
 
 @blueprint.route("/api/metrics", methods=["GET"])
 @my_lib.flask_util.gzipped
@@ -55,25 +68,29 @@ def metrics_data():
                 }
             ), 503
 
+        # 期間パラメータを取得
+        days_limit = _get_days_limit()
+
         # メトリクス分析器を初期化
         analyzer = weather_display.metrics.collector.MetricsAnalyzer(db_path)
 
         # データ範囲を取得
         data_range = analyzer.get_data_range()
 
-        # すべてのメトリクスデータを収集（全期間）
-        basic_stats = analyzer.get_basic_statistics()
-        hourly_patterns = analyzer.get_hourly_patterns()
-        anomalies = analyzer.detect_anomalies()
-        trends = analyzer.get_performance_trends()
+        # すべてのメトリクスデータを収集（期間制限付き）
+        basic_stats = analyzer.get_basic_statistics(days_limit=days_limit)
+        hourly_patterns = analyzer.get_hourly_patterns(days_limit=days_limit)
+        anomalies = analyzer.detect_anomalies(days_limit=days_limit)
+        trends = analyzer.get_performance_trends(days_limit=days_limit)
         alerts = analyzer.check_performance_alerts()
-        panel_trends = analyzer.get_panel_performance_trends()
-        performance_stats = analyzer.get_performance_statistics()
+        panel_trends = analyzer.get_panel_performance_trends(days_limit=days_limit)
+        performance_stats = analyzer.get_performance_statistics(days_limit=days_limit)
 
         # JSONレスポンスを返す
         return flask.jsonify(
             {
                 "data_range": data_range,
+                "days_limit": days_limit,
                 "basic_stats": basic_stats,
                 "hourly_patterns": hourly_patterns,
                 "anomalies": anomalies,
@@ -123,8 +140,9 @@ def metrics_basic_stats():
             assert error_response is not None and error_code is not None  # noqa: S101
             return error_response, error_code
 
-        basic_stats = analyzer.get_basic_statistics()
-        return flask.jsonify({"basic_stats": basic_stats})
+        days_limit = _get_days_limit()
+        basic_stats = analyzer.get_basic_statistics(days_limit=days_limit)
+        return flask.jsonify({"basic_stats": basic_stats, "days_limit": days_limit})
 
     except Exception as e:
         logging.exception("基本統計データ取得エラー")
@@ -143,8 +161,9 @@ def metrics_hourly_patterns():
             assert error_response is not None and error_code is not None  # noqa: S101
             return error_response, error_code
 
-        hourly_patterns = analyzer.get_hourly_patterns()
-        return flask.jsonify({"hourly_patterns": hourly_patterns})
+        days_limit = _get_days_limit()
+        hourly_patterns = analyzer.get_hourly_patterns(days_limit=days_limit)
+        return flask.jsonify({"hourly_patterns": hourly_patterns, "days_limit": days_limit})
 
     except Exception as e:
         logging.exception("時間別パターンデータ取得エラー")
@@ -163,8 +182,9 @@ def metrics_trends():
             assert error_response is not None and error_code is not None  # noqa: S101
             return error_response, error_code
 
-        trends = analyzer.get_performance_trends()
-        return flask.jsonify({"trends": trends})
+        days_limit = _get_days_limit()
+        trends = analyzer.get_performance_trends(days_limit=days_limit)
+        return flask.jsonify({"trends": trends, "days_limit": days_limit})
 
     except Exception as e:
         logging.exception("パフォーマンス推移データ取得エラー")
@@ -183,8 +203,9 @@ def metrics_panel_trends():
             assert error_response is not None and error_code is not None  # noqa: S101
             return error_response, error_code
 
-        panel_trends = analyzer.get_panel_performance_trends()
-        return flask.jsonify({"panel_trends": panel_trends})
+        days_limit = _get_days_limit()
+        panel_trends = analyzer.get_panel_performance_trends(days_limit=days_limit)
+        return flask.jsonify({"panel_trends": panel_trends, "days_limit": days_limit})
 
     except Exception as e:
         logging.exception("パネル別処理時間推移データ取得エラー")
@@ -223,11 +244,17 @@ def metrics_anomalies():
             assert error_response is not None and error_code is not None  # noqa: S101
             return error_response, error_code
 
-        anomalies = analyzer.detect_anomalies()
-        performance_stats = analyzer.get_performance_statistics()
+        days_limit = _get_days_limit()
+        anomalies = analyzer.detect_anomalies(days_limit=days_limit)
+        performance_stats = analyzer.get_performance_statistics(days_limit=days_limit)
         data_range = analyzer.get_data_range()
         return flask.jsonify(
-            {"anomalies": anomalies, "performance_stats": performance_stats, "data_range": data_range}
+            {
+                "anomalies": anomalies,
+                "performance_stats": performance_stats,
+                "data_range": data_range,
+                "days_limit": days_limit,
+            }
         )
 
     except Exception as e:
@@ -503,6 +530,46 @@ def generate_metrics_html_skeleton():
                     </div>
                 </h1>
                 <p class="subtitle has-text-centered" id="subtitle">パフォーマンス監視と異常検知</p>
+
+                <!-- 期間選択 -->
+                <div class="box" id="period-selector" style="margin-bottom: 1.5rem;">
+                    <div class="field">
+                        <label class="label">
+                            <span class="icon" style="margin-right: 0.5em;">
+                                <i class="fas fa-calendar-alt"></i>
+                            </span>
+                            表示期間
+                        </label>
+                        <div class="field is-grouped is-grouped-multiline">
+                            <div class="control">
+                                <button class="button is-small" data-days="7" onclick="selectPeriod(7)">
+                                    過去7日間
+                                </button>
+                            </div>
+                            <div class="control">
+                                <button class="button is-small is-primary" data-days="30"
+                                        onclick="selectPeriod(30)">
+                                    過去1ヶ月間
+                                </button>
+                            </div>
+                            <div class="control">
+                                <button class="button is-small" data-days="90" onclick="selectPeriod(90)">
+                                    過去3ヶ月
+                                </button>
+                            </div>
+                            <div class="control">
+                                <button class="button is-small" data-days="180" onclick="selectPeriod(180)">
+                                    過去半年
+                                </button>
+                            </div>
+                            <div class="control">
+                                <button class="button is-small" data-days="365" onclick="selectPeriod(365)">
+                                    全期間
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
 
                 <!-- 統一進捗表示エリア（右下フローティング） -->
                 <div id="progress-display" style="

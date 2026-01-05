@@ -1,25 +1,68 @@
 // メトリクスデータの非同期読み込みとレンダリング
 
+// 現在選択中の期間（日数）
+let currentDaysLimit = 30;
+
+// 期間選択ボタンのクリックハンドラ
+function selectPeriod(days) {
+    currentDaysLimit = days;
+
+    // ボタンのスタイルを更新
+    const buttons = document.querySelectorAll("#period-selector button");
+    buttons.forEach((button) => {
+        const buttonDays = parseInt(button.getAttribute("data-days"));
+        if (buttonDays === days) {
+            button.classList.remove("is-light");
+            button.classList.add("is-primary");
+        } else {
+            button.classList.remove("is-primary");
+            button.classList.add("is-light");
+        }
+    });
+
+    // URLパラメータを更新
+    const url = new URL(window.location.href);
+    url.searchParams.set("days", days);
+    window.history.replaceState({}, "", url);
+
+    // サブタイトルを初期状態にリセット
+    window.subtitleUpdated = false;
+
+    // データを再読み込み
+    loadMetricsData();
+}
+
+// URLパラメータから初期の期間を取得
+function getInitialDaysLimit() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const days = urlParams.get("days");
+    if (days) {
+        const parsedDays = parseInt(days);
+        if (!isNaN(parsedDays) && parsedDays >= 1 && parsedDays <= 365) {
+            return parsedDays;
+        }
+    }
+    return 30; // デフォルトは30日
+}
+
 // データ取得とレンダリングのメイン処理
 async function loadMetricsData() {
     try {
         // コンテンツを表示
         document.getElementById("metrics-content").style.display = "block";
 
-        // サブタイトルはそのまま表示（デフォルトテキストが既に設定済み）
-
-        // 総セクション数を定義
-        const totalSections = 7; // alerts, basic-stats, hourly-patterns, diff-sec, trends, panel-trends, anomalies
+        // 総セクション数を定義（メイン6 + 異常検知1）
+        const mainSections = 6; // alerts, basic-stats, hourly-patterns, diff-sec, trends, panel-trends
         let currentSection = 0;
 
-        // 各セクションを個別に読み込んで順次表示
+        // メインセクションを順次読み込み（高速）
         await loadAndRenderSection(
             "alerts",
             "/api/metrics/alerts",
             renderAlerts,
             false,
             ++currentSection,
-            totalSections
+            mainSections
         );
         await loadAndRenderSection(
             "basic-stats",
@@ -27,7 +70,7 @@ async function loadMetricsData() {
             renderBasicStats,
             false,
             ++currentSection,
-            totalSections
+            mainSections
         );
         await loadAndRenderSection(
             "hourly-patterns",
@@ -35,7 +78,7 @@ async function loadMetricsData() {
             renderHourlyPatterns,
             false,
             ++currentSection,
-            totalSections
+            mainSections
         );
         await loadAndRenderSection(
             "diff-sec",
@@ -43,7 +86,7 @@ async function loadMetricsData() {
             renderDiffSec,
             false,
             ++currentSection,
-            totalSections
+            mainSections
         ); // 同じデータを使用
         await loadAndRenderSection(
             "trends",
@@ -51,24 +94,75 @@ async function loadMetricsData() {
             renderTrends,
             false,
             ++currentSection,
-            totalSections
+            mainSections
         );
         await loadAndRenderSection(
             "panel-trends",
             "/api/metrics/panel-trends",
             renderPanelTrends,
-            false,
-            ++currentSection,
-            totalSections
-        );
-        await loadAndRenderSection(
-            "anomalies",
-            "/api/metrics/anomalies",
-            renderAnomalies,
             true,
             ++currentSection,
-            totalSections
-        ); // 最後のセクション
+            mainSections
+        );
+
+        // メインセクション完了 - 進捗表示を更新
+        const progressDisplay = document.getElementById("progress-display");
+        if (progressDisplay) {
+            const progressText = document.getElementById("progress-text");
+            if (progressText) {
+                progressText.textContent = "異常検知データを読み込み中...";
+            }
+        }
+
+        console.log("メインセクションの読み込み完了 - 異常検知を非同期で読み込み開始");
+
+        // 異常検知セクションを非同期で読み込み（ブロックしない）
+        loadAnomaliesAsync();
+    } catch (error) {
+        console.error("メトリクスデータの読み込みエラー:", error);
+        showError(error.message);
+    }
+}
+
+// 異常検知セクションを非同期で読み込み
+async function loadAnomaliesAsync() {
+    const container = document.getElementById("anomalies-container");
+    if (!container) return;
+
+    // ローディング表示
+    container.innerHTML = `
+        <div style="display: flex; align-items: center; justify-content: center; min-height: 200px; color: #666;">
+            <div style="display: flex; align-items: center;">
+                <span class="loading-spinner" style="margin-right: 0.8rem;"></span>
+                <span style="font-size: 1rem;">異常検知データを分析中...</span>
+            </div>
+        </div>
+    `;
+
+    try {
+        const urlWithParams = `/api/metrics/anomalies?days=${currentDaysLimit}`;
+        console.log(`異常検知データの取得開始: ${urlWithParams}`);
+
+        const response = await fetch(window.metricsApiBaseUrl + urlWithParams);
+
+        if (!response.ok) {
+            throw new Error(`データの取得に失敗しました (${response.status})`);
+        }
+
+        const data = await response.json();
+        console.log("異常検知データの取得完了");
+
+        // データをグローバル変数に設定
+        window.anomaliesData = data.anomalies;
+        window.performanceStats = data.performance_stats;
+        if (!window.subtitleUpdated && data.data_range) {
+            updateSubtitle(data.data_range);
+            window.subtitleUpdated = true;
+        }
+
+        // コンテンツをレンダリング
+        const content = await renderAnomalies(data);
+        container.innerHTML = content;
 
         // 進捗表示を非表示
         const progressDisplay = document.getElementById("progress-display");
@@ -78,8 +172,20 @@ async function loadMetricsData() {
 
         console.log("全てのメトリクスデータの読み込み完了");
     } catch (error) {
-        console.error("メトリクスデータの読み込みエラー:", error);
-        showError(error.message);
+        console.error("異常検知データのレンダリングエラー:", error);
+        container.innerHTML = `
+            <div style="display: flex; align-items: center; justify-content: center; min-height: 200px;">
+                <div class="error-message" style="padding: 2rem; text-align: center; color: #721c24; background-color: #f8d7da; border: 1px solid #f5c6cb; border-radius: 6px;">
+                    <i class="fas fa-exclamation-triangle" style="margin-right: 0.5rem; color: #721c24;"></i>
+                    異常検知データの表示に失敗しました
+                </div>
+            </div>
+        `;
+        // エラーでも進捗表示は非表示に
+        const progressDisplay = document.getElementById("progress-display");
+        if (progressDisplay) {
+            progressDisplay.style.display = "none";
+        }
     }
 }
 
@@ -109,9 +215,11 @@ async function loadAndRenderSection(
     `;
 
     try {
-        console.log(`${sectionId}データの取得開始: ${apiUrl}`);
+        // 期間パラメータを追加
+        const urlWithParams = `${apiUrl}?days=${currentDaysLimit}`;
+        console.log(`${sectionId}データの取得開始: ${urlWithParams}`);
 
-        const response = await fetch(window.metricsApiBaseUrl + apiUrl);
+        const response = await fetch(window.metricsApiBaseUrl + urlWithParams);
 
         if (!response.ok) {
             const errorData = await response.json().catch(() => null);
@@ -716,6 +824,28 @@ function renderAnomalies(data) {
 
 // ページ読み込み時に実行
 document.addEventListener("DOMContentLoaded", function () {
+    // URLパラメータから初期の期間を取得
+    currentDaysLimit = getInitialDaysLimit();
+
+    // 期間選択ボタンの初期状態を設定
+    const buttons = document.querySelectorAll("#period-selector button");
+    buttons.forEach((button) => {
+        const buttonDays = parseInt(button.getAttribute("data-days"));
+        if (buttonDays === currentDaysLimit) {
+            button.classList.remove("is-light");
+            button.classList.add("is-primary");
+        } else {
+            button.classList.remove("is-primary");
+            button.classList.add("is-light");
+        }
+    });
+
+    // 進捗表示を表示
+    const progressDisplay = document.getElementById("progress-display");
+    if (progressDisplay) {
+        progressDisplay.style.display = "flex";
+    }
+
     // データを非同期で読み込み
     loadMetricsData();
 

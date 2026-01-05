@@ -320,12 +320,12 @@ function generateBoxplotCharts() {
 }
 
 function generateTrendsCharts() {
-    // 画像生成処理 - 日別推移
+    // 画像生成処理 - 日別推移（新しい統計量形式に対応）
     const drawPanelTrendsCtx = document.getElementById("drawPanelTrendsChart");
     if (drawPanelTrendsCtx && window.trendsData?.draw_panel_boxplot) {
         const boxplotData = window.trendsData.draw_panel_boxplot.map((d) => ({
             x: d.date,
-            y: d.elapsed_times,
+            y: d.stats, // 統計量オブジェクト {min, q1, median, q3, max, outliers}
         }));
 
         new Chart(drawPanelTrendsCtx, {
@@ -363,12 +363,12 @@ function generateTrendsCharts() {
         });
     }
 
-    // 表示実行処理 - 日別推移
+    // 表示実行処理 - 日別推移（新しい統計量形式に対応）
     const displayImageTrendsCtx = document.getElementById("displayImageTrendsChart");
     if (displayImageTrendsCtx && window.trendsData?.display_image_boxplot) {
         const boxplotData = window.trendsData.display_image_boxplot.map((d) => ({
             x: d.date,
-            y: d.elapsed_times,
+            y: d.stats, // 統計量オブジェクト
         }));
 
         new Chart(displayImageTrendsCtx, {
@@ -406,12 +406,12 @@ function generateTrendsCharts() {
         });
     }
 
-    // 表示タイミング - 日別推移
+    // 表示タイミング - 日別推移（新しい統計量形式に対応）
     const diffSecTrendsCtx = document.getElementById("diffSecTrendsChart");
     if (diffSecTrendsCtx && window.trendsData?.diff_sec_boxplot) {
         const boxplotData = window.trendsData.diff_sec_boxplot.map((d) => ({
             x: d.date,
-            y: d.diff_secs,
+            y: d.stats, // 統計量オブジェクト
         }));
 
         new Chart(diffSecTrendsCtx, {
@@ -458,139 +458,147 @@ function generatePanelTrendsCharts() {
     const container = document.getElementById("panelTrendsContainer");
     if (!container || !window.panelTrendsData) return;
 
-    const binCount = 20;
-    let index = 0;
+    // パネル名と統計量をリストに変換
+    const panelNames = Object.keys(window.panelTrendsData);
+    const panelStats = panelNames.map((name) => window.panelTrendsData[name]);
 
-    for (const panelName in window.panelTrendsData) {
-        const data = window.panelTrendsData[panelName];
-
-        // ヒストグラム生成の軽量化版
-        const panelMin = Math.min(...data);
-        const panelMax = Math.max(...data);
-        const binWidth = (panelMax - panelMin) / binCount;
-
-        const histogram = new Array(binCount).fill(0);
-        const binLabels = [];
-
-        for (let i = 0; i < binCount; i++) {
-            const binStart = panelMin + i * binWidth;
-            const binEnd = panelMin + (i + 1) * binWidth;
-            binLabels.push(`${binStart.toFixed(1)}-${binEnd.toFixed(1)}`);
-        }
-
-        for (const value of data) {
-            let binIndex = Math.floor((value - panelMin) / binWidth);
-            if (binIndex >= binCount) binIndex = binCount - 1;
-            if (binIndex >= 0) histogram[binIndex]++;
-        }
-
-        const totalCount = data.length;
-        const histogramPercent = histogram.map((count) => (count / totalCount) * 100);
-
-        // DOM要素の効率的な作成
-        const columnDiv = document.createElement("div");
-        columnDiv.className = "column is-half";
-        columnDiv.innerHTML = `
-            <div class="card metrics-card">
-                <div class="card-header">
-                    <p class="card-header-title">${panelName} パネル</p>
-                </div>
-                <div class="card-content">
-                    <div class="chart-container" style="height: 350px;">
-                        <canvas id="panelChart${index}"></canvas>
-                    </div>
+    // 全パネルをまとめた単一のboxplotチャートを作成
+    const columnDiv = document.createElement("div");
+    columnDiv.className = "column is-full";
+    columnDiv.innerHTML = `
+        <div class="card metrics-card">
+            <div class="card-header">
+                <p class="card-header-title">パネル別処理時間分布</p>
+            </div>
+            <div class="card-content">
+                <div class="chart-container" style="height: 400px;">
+                    <canvas id="panelBoxplotChart"></canvas>
                 </div>
             </div>
-        `;
+        </div>
+    `;
+    container.appendChild(columnDiv);
 
-        container.appendChild(columnDiv);
-
-        // チャート作成
-        const canvas = document.getElementById(`panelChart${index}`);
-        new Chart(canvas, {
-            type: "bar",
-            data: {
-                labels: binLabels,
-                datasets: [
-                    {
-                        label: "割合",
-                        data: histogramPercent,
-                        backgroundColor: getBoxplotColor(index),
-                        borderColor: getBorderColor(index),
-                        borderWidth: 1,
-                    },
-                ],
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: { legend: { display: false } },
-                scales: {
-                    x: {
-                        title: { display: true, text: "処理時間（秒）", font: { size: 12, weight: "bold" } },
-                        ticks: { maxRotation: 45, minRotation: 45 },
-                    },
-                    y: {
-                        beginAtZero: true,
-                        title: { display: true, text: "割合（%）", font: { size: 12, weight: "bold" } },
+    // boxplotチャートを作成（統計量オブジェクトをそのまま使用）
+    const canvas = document.getElementById("panelBoxplotChart");
+    new Chart(canvas, {
+        type: "boxplot",
+        data: {
+            labels: panelNames,
+            datasets: [
+                {
+                    label: "処理時間分布（秒）",
+                    data: panelStats, // 統計量オブジェクト {min, q1, median, q3, max, outliers}
+                    backgroundColor: panelNames.map((_, i) => getBoxplotColor(i)),
+                    borderColor: panelNames.map((_, i) => getBorderColor(i)),
+                    borderWidth: 2,
+                    outlierColor: "rgb(239, 68, 68)",
+                    medianColor: "rgb(255, 193, 7)",
+                },
+            ],
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            indexAxis: "y", // 横向きboxplot
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    backgroundColor: "rgba(0, 0, 0, 0.8)",
+                    titleColor: "white",
+                    bodyColor: "white",
+                    callbacks: {
+                        title: function (context) {
+                            return context[0].label + " パネル";
+                        },
+                        label: function (context) {
+                            const stats = context.parsed;
+                            const count = window.panelTrendsData[context.label]?.count || 0;
+                            return [
+                                "最小値: " + stats.min.toFixed(2) + "秒",
+                                "第1四分位: " + stats.q1.toFixed(2) + "秒",
+                                "中央値: " + stats.median.toFixed(2) + "秒",
+                                "第3四分位: " + stats.q3.toFixed(2) + "秒",
+                                "最大値: " + stats.max.toFixed(2) + "秒",
+                                "データ数: " + count + "件",
+                            ];
+                        },
                     },
                 },
             },
-        });
-
-        index++;
-    }
+            scales: {
+                x: {
+                    display: true,
+                    title: { display: true, text: "処理時間（秒）", font: { size: 14, weight: "bold" } },
+                },
+                y: {
+                    display: true,
+                    title: { display: true, text: "パネル", font: { size: 14, weight: "bold" } },
+                },
+            },
+        },
+    });
 }
 
 function generatePanelTimeSeriesChart() {
+    // 統計量形式では時系列データがないため、棒グラフで中央値を比較表示
     const panelTimeSeriesCtx = document.getElementById("panelTimeSeriesChart");
     if (!panelTimeSeriesCtx || !window.panelTrendsData) return;
 
-    const datasets = [];
     const panelNames = Object.keys(window.panelTrendsData);
-
-    panelNames.forEach((panelName, index) => {
-        const data = window.panelTrendsData[panelName];
-        if (!data || data.length === 0) return;
-
-        const timeSeriesData = data.map((value, i) => ({ x: i, y: value }));
-
-        datasets.push({
-            label: panelName + " パネル",
-            data: timeSeriesData,
-            borderColor: getBorderColor(index),
-            backgroundColor: getBoxplotColor(index),
-            tension: 0.1,
-            borderWidth: 2,
-            pointRadius: 1,
-            pointHoverRadius: 4,
-            fill: false,
-        });
-    });
+    const medians = panelNames.map((name) => window.panelTrendsData[name]?.median || 0);
+    const counts = panelNames.map((name) => window.panelTrendsData[name]?.count || 0);
 
     new Chart(panelTimeSeriesCtx, {
-        type: "line",
-        data: { datasets: datasets },
+        type: "bar",
+        data: {
+            labels: panelNames,
+            datasets: [
+                {
+                    label: "中央値（秒）",
+                    data: medians,
+                    backgroundColor: panelNames.map((_, i) => getBoxplotColor(i)),
+                    borderColor: panelNames.map((_, i) => getBorderColor(i)),
+                    borderWidth: 2,
+                },
+            ],
+        },
         options: {
             responsive: true,
             maintainAspectRatio: false,
             plugins: {
-                legend: { position: "top", labels: { usePointStyle: true, padding: 8, font: { size: 12 } } },
+                legend: { display: false },
+                tooltip: {
+                    backgroundColor: "rgba(0, 0, 0, 0.8)",
+                    titleColor: "white",
+                    bodyColor: "white",
+                    callbacks: {
+                        title: function (context) {
+                            return context[0].label + " パネル";
+                        },
+                        label: function (context) {
+                            const stats = window.panelTrendsData[context.label];
+                            return [
+                                "中央値: " + (stats?.median || 0).toFixed(2) + "秒",
+                                "データ数: " + (stats?.count || 0) + "件",
+                            ];
+                        },
+                    },
+                },
             },
             scales: {
                 x: {
-                    type: "linear",
+                    display: true,
+                    title: { display: true, text: "パネル", font: { size: 14, weight: "bold" } },
+                },
+                y: {
                     display: true,
                     title: {
                         display: true,
-                        text: "データポイント（時系列順）",
+                        text: "処理時間 中央値（秒）",
                         font: { size: 14, weight: "bold" },
                     },
-                },
-                y: {
-                    type: "linear",
-                    display: true,
-                    title: { display: true, text: "処理時間（秒）", font: { size: 14, weight: "bold" } },
+                    beginAtZero: true,
                 },
             },
         },
