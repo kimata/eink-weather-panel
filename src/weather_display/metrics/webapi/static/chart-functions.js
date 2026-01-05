@@ -1,51 +1,6 @@
 // Chart.js用の重いチャート生成関数（page_js.pyの内容を移動）
 
 // ============================================
-// プラグインの登録と確認
-// ============================================
-
-// chartjs-plugin-zoom の登録状態を確認・登録
-(function () {
-    console.log("chart-functions.js: Checking Chart.js plugins...");
-    console.log("  - Chart:", typeof Chart !== "undefined" ? "loaded" : "NOT LOADED");
-    console.log("  - ChartZoom:", typeof ChartZoom !== "undefined" ? "loaded" : "NOT LOADED");
-
-    // Chart.js が読み込まれているか確認
-    if (typeof Chart === "undefined") {
-        console.error("chart-functions.js: Chart.js is not loaded!");
-        return;
-    }
-
-    // chartjs-plugin-zoom が読み込まれている場合、明示的に登録
-    if (typeof ChartZoom !== "undefined") {
-        // 既に登録されているかチェック
-        const registeredPlugins = Chart.registry?.plugins?.items || [];
-        const zoomRegistered = Array.from(registeredPlugins).some(
-            (p) => p.id === "zoom" || p.name === "zoom"
-        );
-        console.log("  - Zoom plugin already registered:", zoomRegistered);
-
-        if (!zoomRegistered) {
-            try {
-                Chart.register(ChartZoom);
-                console.log("  - Zoom plugin registered successfully");
-            } catch (e) {
-                console.error("  - Failed to register zoom plugin:", e);
-            }
-        }
-    } else {
-        console.warn("chart-functions.js: ChartZoom is not available. Drag zoom will not work.");
-    }
-
-    // 登録されているプラグインを表示
-    if (Chart.registry?.plugins) {
-        const pluginIds = [];
-        Chart.registry.plugins.items.forEach((p) => pluginIds.push(p.id));
-        console.log("  - Registered plugins:", pluginIds.join(", "));
-    }
-})();
-
-// ============================================
 // 定数とユーティリティ関数
 // ============================================
 
@@ -864,3 +819,27 @@ function getBorderColor(index) {
     ];
     return colors[index % colors.length];
 }
+
+// ============================================
+// プラグイン登録確認（デバッグ用）
+// ============================================
+(function () {
+    console.log("chart-functions.js: Checking Chart.js plugins...");
+    console.log("  - Chart.js:", typeof Chart !== "undefined" ? "loaded" : "NOT LOADED");
+
+    if (typeof Chart !== "undefined" && Chart.registry?.plugins) {
+        // Chart.registry.plugins.items は Map オブジェクト
+        const pluginIds = [];
+        Chart.registry.plugins.items.forEach((plugin, id) => {
+            pluginIds.push(id);
+        });
+        console.log("  - Registered plugins:", pluginIds.join(", "));
+
+        // zoom プラグインが登録されているか確認
+        const zoomRegistered = pluginIds.includes("zoom");
+        console.log("  - Zoom plugin registered:", zoomRegistered);
+        if (!zoomRegistered) {
+            console.warn("  - WARNING: Drag zoom will not work without zoom plugin!");
+        }
+    }
+})();
