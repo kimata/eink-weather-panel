@@ -1026,8 +1026,6 @@ function renderAnomalies(data) {
 
     const dpAnomalyCount = (drawPanelAnomalies.anomalies_detected || 0).toLocaleString();
     const diAnomalyCount = (displayImageAnomalies.anomalies_detected || 0).toLocaleString();
-    const dpAnomalyRate = ((drawPanelAnomalies.anomaly_rate || 0) * 100).toFixed(2);
-    const diAnomalyRate = ((displayImageAnomalies.anomaly_rate || 0) * 100).toFixed(2);
 
     // データをグローバルに保存（ソート切り替え用）
     window.anomalyData = {
@@ -1108,15 +1106,9 @@ function renderAnomalies(data) {
                             <p class="card-header-title">画像生成処理の異常</p>
                         </div>
                         <div class="card-content">
-                            <div class="columns">
-                                <div class="column has-text-centered">
-                                    <p class="heading">検出された異常数</p>
-                                    <p class="stat-number has-text-warning">${dpAnomalyCount}</p>
-                                </div>
-                                <div class="column has-text-centered">
-                                    <p class="heading">異常率</p>
-                                    <p class="stat-number has-text-warning">${dpAnomalyRate}%</p>
-                                </div>
+                            <div class="has-text-centered" style="margin-bottom: 1rem;">
+                                <p class="heading">検出された異常数</p>
+                                <p class="stat-number has-text-warning">${dpAnomalyCount}</p>
                             </div>
                             ${sortButtons}
                             <div id="draw-panel-anomaly-list">${dpItems}</div>
@@ -1131,15 +1123,9 @@ function renderAnomalies(data) {
                             <p class="card-header-title">表示実行処理の異常</p>
                         </div>
                         <div class="card-content">
-                            <div class="columns">
-                                <div class="column has-text-centered">
-                                    <p class="heading">検出された異常数</p>
-                                    <p class="stat-number has-text-warning">${diAnomalyCount}</p>
-                                </div>
-                                <div class="column has-text-centered">
-                                    <p class="heading">異常率</p>
-                                    <p class="stat-number has-text-warning">${diAnomalyRate}%</p>
-                                </div>
+                            <div class="has-text-centered" style="margin-bottom: 1rem;">
+                                <p class="heading">検出された異常数</p>
+                                <p class="stat-number has-text-warning">${diAnomalyCount}</p>
                             </div>
                             ${sortButtonsDi}
                             <div id="display-image-anomaly-list">${diItems}</div>
