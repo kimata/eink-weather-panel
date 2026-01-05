@@ -9,12 +9,16 @@ This module provides functionality to:
 - Analyze relationships with time patterns
 """
 
+# ruff: noqa: S608  # date_filterはdays_limit（整数）から生成されるため安全
+
+import concurrent.futures
 import datetime
 import logging
 import pathlib
 import sqlite3
 import zoneinfo
 from contextlib import contextmanager
+from typing import Any
 
 import my_lib.sqlite_util
 import numpy as np
@@ -23,6 +27,41 @@ from sklearn.preprocessing import StandardScaler
 
 _TIMEZONE = zoneinfo.ZoneInfo("Asia/Tokyo")
 _DEFAULT_DB_PATH = pathlib.Path("data/metrics.db")
+_DEFAULT_DAYS_LIMIT = 30  # デフォルトは過去30日間
+
+
+def _calculate_boxplot_stats(arr: np.ndarray) -> dict[str, Any] | None:
+    """numpy配列から箱ヒゲ図統計量を計算する。
+
+    Args:
+        arr: 数値データのnumpy配列
+
+    Returns:
+        統計量の辞書（min, q1, median, q3, max, outliers, count）
+        データが空の場合はNone
+
+    """
+    if len(arr) == 0:
+        return None
+
+    q1, median, q3 = np.percentile(arr, [25, 50, 75])
+    iqr = q3 - q1
+    lower_bound = q1 - 1.5 * iqr
+    upper_bound = q3 + 1.5 * iqr
+
+    # 外れ値を抽出（最大20件に制限）
+    outliers = arr[(arr < lower_bound) | (arr > upper_bound)]
+    outliers_list = sorted(outliers)[:20]
+
+    return {
+        "min": float(np.min(arr)),
+        "q1": float(q1),
+        "median": float(median),
+        "q3": float(q3),
+        "max": float(np.max(arr)),
+        "outliers": [float(x) for x in outliers_list],
+        "count": len(arr),
+    }
 
 
 class MetricsCollector:
@@ -365,14 +404,28 @@ class MetricsAnalyzer:
                 },
             }
 
-    def get_basic_statistics(self) -> dict:
-        """Get basic statistics for all data."""
+    def get_basic_statistics(self, days_limit: int | None = None) -> dict:
+        """Get basic statistics for the specified period.
+
+        Args:
+            days_limit: 取得するデータの日数制限（Noneの場合はデフォルト値を使用）
+
+        Returns:
+            基本統計情報の辞書
+
+        """
+        if days_limit is None:
+            days_limit = _DEFAULT_DAYS_LIMIT
+
         with self._get_connection() as conn:
             cursor = conn.cursor()
 
+            # 期間制限のWHERE句を生成（days_limitは整数のためSQLインジェクションの危険なし）
+            date_filter = f"WHERE timestamp >= datetime('now', '-{days_limit} days')"
+
             # Draw panel statistics
             cursor.execute(
-                """
+                f"""
                 SELECT
                     COUNT(*) as total_operations,
                     AVG(total_elapsed_time) as avg_elapsed_time,
@@ -380,13 +433,14 @@ class MetricsAnalyzer:
                     MAX(total_elapsed_time) as max_elapsed_time,
                     SUM(CASE WHEN error_code > 0 THEN 1 ELSE 0 END) as error_count
                 FROM draw_panel_metrics
+                {date_filter}
             """
             )
             draw_panel_stats = dict(cursor.fetchone())
 
             # Display image statistics
             cursor.execute(
-                """
+                f"""
                 SELECT
                     COUNT(*) as total_operations,
                     AVG(elapsed_time) as avg_elapsed_time,
@@ -394,6 +448,7 @@ class MetricsAnalyzer:
                     MAX(elapsed_time) as max_elapsed_time,
                     SUM(CASE WHEN success = 0 THEN 1 ELSE 0 END) as error_count
                 FROM display_image_metrics
+                {date_filter}
             """
             )
             display_image_stats = dict(cursor.fetchone())
@@ -403,245 +458,292 @@ class MetricsAnalyzer:
                 "display_image": display_image_stats,
             }
 
-    def get_hourly_patterns(self) -> dict:
-        """Analyze performance patterns by hour of day for all data."""
-        with self._get_connection() as conn:
-            cursor = conn.cursor()
+    def get_hourly_patterns(self, days_limit: int | None = None) -> dict:
+        """Analyze performance patterns by hour of day.
 
-            # Draw panel hourly patterns (aggregated)
-            cursor.execute(
+        Args:
+            days_limit: 取得するデータの日数制限（Noneの場合はデフォルト値を使用）
+
+        Returns:
+            時間別のパフォーマンスパターンデータ
+
+        """
+        if days_limit is None:
+            days_limit = _DEFAULT_DAYS_LIMIT
+
+        date_filter = f"WHERE timestamp >= datetime('now', '-{days_limit} days')"
+
+        def fetch_draw_panel() -> tuple[list, list]:
+            with self._get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute(
+                    f"""
+                    SELECT hour, COUNT(*) as count,
+                           AVG(total_elapsed_time) as avg_elapsed_time,
+                           MIN(total_elapsed_time) as min_elapsed_time,
+                           MAX(total_elapsed_time) as max_elapsed_time,
+                           SUM(CASE WHEN error_code > 0 THEN 1 ELSE 0 END) * 100.0 / COUNT(*) as error_rate
+                    FROM draw_panel_metrics {date_filter} GROUP BY hour ORDER BY hour
                 """
-                SELECT
-                    hour,
-                    COUNT(*) as count,
-                    AVG(total_elapsed_time) as avg_elapsed_time,
-                    MIN(total_elapsed_time) as min_elapsed_time,
-                    MAX(total_elapsed_time) as max_elapsed_time,
-                    SUM(CASE WHEN error_code > 0 THEN 1 ELSE 0 END) * 100.0 / COUNT(*) as error_rate
-                FROM draw_panel_metrics
-                GROUP BY hour
-                ORDER BY hour
-            """
-            )
-            draw_panel_hourly = [dict(row) for row in cursor.fetchall()]
+                )
+                hourly = [dict(row) for row in cursor.fetchall()]
+                cursor.execute(
+                    f"SELECT hour, total_elapsed_time FROM draw_panel_metrics {date_filter} ORDER BY hour"
+                )
+                raw = cursor.fetchall()
+                return hourly, raw
 
-            # Display image hourly patterns (aggregated)
-            cursor.execute(
+        def fetch_display_image() -> tuple[list, list]:
+            with self._get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute(
+                    f"""
+                    SELECT hour, COUNT(*) as count, AVG(elapsed_time) as avg_elapsed_time,
+                           MIN(elapsed_time) as min_elapsed_time, MAX(elapsed_time) as max_elapsed_time,
+                           SUM(CASE WHEN success = 0 THEN 1 ELSE 0 END) * 100.0 / COUNT(*) as error_rate
+                    FROM display_image_metrics {date_filter} GROUP BY hour ORDER BY hour
                 """
-                SELECT
-                    hour,
-                    COUNT(*) as count,
-                    AVG(elapsed_time) as avg_elapsed_time,
-                    MIN(elapsed_time) as min_elapsed_time,
-                    MAX(elapsed_time) as max_elapsed_time,
-                    SUM(CASE WHEN success = 0 THEN 1 ELSE 0 END) * 100.0 / COUNT(*) as error_rate
-                FROM display_image_metrics
-                GROUP BY hour
-                ORDER BY hour
-            """
-            )
-            display_image_hourly = [dict(row) for row in cursor.fetchall()]
+                )
+                hourly = [dict(row) for row in cursor.fetchall()]
+                cursor.execute(
+                    f"SELECT hour, elapsed_time FROM display_image_metrics {date_filter} ORDER BY hour"
+                )
+                raw = cursor.fetchall()
+                return hourly, raw
 
-            # Display timing (diff_sec) hourly patterns
-            cursor.execute(
+        def fetch_diff_sec() -> tuple[list, list]:
+            with self._get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute(
+                    f"""
+                    SELECT hour, COUNT(*) as count,
+                           AVG(CAST(diff_sec AS REAL)) as avg_diff_sec,
+                           MIN(CAST(diff_sec AS REAL)) as min_diff_sec,
+                           MAX(CAST(diff_sec AS REAL)) as max_diff_sec
+                    FROM display_image_metrics {date_filter} AND diff_sec IS NOT NULL AND is_one_time = 0
+                    GROUP BY hour ORDER BY hour
                 """
-                SELECT
-                    hour,
-                    COUNT(*) as count,
-                    AVG(CAST(diff_sec AS REAL)) as avg_diff_sec,
-                    MIN(CAST(diff_sec AS REAL)) as min_diff_sec,
-                    MAX(CAST(diff_sec AS REAL)) as max_diff_sec
-                FROM display_image_metrics
-                WHERE diff_sec IS NOT NULL AND is_one_time = 0
-                GROUP BY hour
-                ORDER BY hour
-            """
-            )
-            diff_sec_hourly = [dict(row) for row in cursor.fetchall()]
+                )
+                hourly = [dict(row) for row in cursor.fetchall()]
+                cursor.execute(
+                    f"""SELECT hour, CAST(diff_sec AS REAL) FROM display_image_metrics
+                    {date_filter} AND diff_sec IS NOT NULL AND is_one_time = 0 ORDER BY hour"""
+                )
+                raw = cursor.fetchall()
+                return hourly, raw
 
-            # Get raw data for boxplots
-            cursor.execute(
-                """
-                SELECT hour, total_elapsed_time
-                FROM draw_panel_metrics
-                ORDER BY hour
-            """
-            )
-            draw_panel_raw = cursor.fetchall()
+        # 並列でデータ取得
+        with concurrent.futures.ThreadPoolExecutor(max_workers=3) as executor:
+            future_draw = executor.submit(fetch_draw_panel)
+            future_display = executor.submit(fetch_display_image)
+            future_diff = executor.submit(fetch_diff_sec)
 
-            cursor.execute(
-                """
-                SELECT hour, elapsed_time
-                FROM display_image_metrics
-                ORDER BY hour
-            """
-            )
-            display_image_raw = cursor.fetchall()
+            draw_panel_hourly, draw_panel_raw = future_draw.result()
+            display_image_hourly, display_image_raw = future_display.result()
+            diff_sec_hourly, diff_sec_raw = future_diff.result()
 
-            # Get diff_sec raw data for boxplots
-            cursor.execute(
-                """
-                SELECT hour, CAST(diff_sec AS REAL)
-                FROM display_image_metrics
-                WHERE diff_sec IS NOT NULL AND is_one_time = 0
-                ORDER BY hour
-            """
-            )
-            diff_sec_raw = cursor.fetchall()
+        # numpy配列に変換して統計量を計算
+        draw_panel_boxplot = self._compute_hourly_boxplot_stats(draw_panel_raw)
+        display_image_boxplot = self._compute_hourly_boxplot_stats(display_image_raw)
+        diff_sec_boxplot = self._compute_hourly_boxplot_stats(diff_sec_raw)
 
-            # Group raw data by hour for boxplots
-            draw_panel_boxplot = {}
-            for row in draw_panel_raw:
-                hour = row[0]
-                if hour not in draw_panel_boxplot:
-                    draw_panel_boxplot[hour] = []
-                draw_panel_boxplot[hour].append(row[1])
+        return {
+            "draw_panel": draw_panel_hourly,
+            "display_image": display_image_hourly,
+            "diff_sec": diff_sec_hourly,
+            "draw_panel_boxplot": draw_panel_boxplot,
+            "display_image_boxplot": display_image_boxplot,
+            "diff_sec_boxplot": diff_sec_boxplot,
+        }
 
-            display_image_boxplot = {}
-            for row in display_image_raw:
-                hour = row[0]
-                if hour not in display_image_boxplot:
-                    display_image_boxplot[hour] = []
-                display_image_boxplot[hour].append(row[1])
+    def _compute_hourly_boxplot_stats(self, raw_data: list) -> dict:
+        """生データから時間別のboxplot統計量を計算する。"""
+        if not raw_data:
+            return {}
 
-            diff_sec_boxplot = {}
-            for row in diff_sec_raw:
-                hour = row[0]
-                if hour not in diff_sec_boxplot:
-                    diff_sec_boxplot[hour] = []
-                diff_sec_boxplot[hour].append(row[1])
+        arr = np.array(raw_data)
+        hours = arr[:, 0].astype(int)
+        values = arr[:, 1].astype(float)
 
-            return {
-                "draw_panel": draw_panel_hourly,
-                "display_image": display_image_hourly,
-                "diff_sec": diff_sec_hourly,
-                "draw_panel_boxplot": draw_panel_boxplot,
-                "display_image_boxplot": display_image_boxplot,
-                "diff_sec_boxplot": diff_sec_boxplot,
-            }
+        boxplot_stats = {}
+        for hour in range(24):
+            mask = hours == hour
+            if mask.any():
+                stats = _calculate_boxplot_stats(values[mask])
+                if stats:
+                    boxplot_stats[hour] = stats
 
-    def detect_anomalies(self, contamination: float = 0.1) -> dict:
+        return boxplot_stats
+
+    def detect_anomalies(self, contamination: float = 0.1, days_limit: int | None = None) -> dict:
         """
         Detect anomalies in performance metrics using Isolation Forest.
 
         Args:
             contamination: Expected proportion of anomalies (0.0 to 0.5)
+            days_limit: 取得するデータの日数制限（Noneの場合はデフォルト値を使用）
 
         Returns:
             Dictionary with anomaly detection results
 
         """
-        with self._get_connection() as conn:
-            cursor = conn.cursor()
+        if days_limit is None:
+            days_limit = _DEFAULT_DAYS_LIMIT
 
-            # Get draw panel data
-            cursor.execute(
-                """
-                SELECT id, timestamp, hour, day_of_week, total_elapsed_time, error_code
-                FROM draw_panel_metrics
-                ORDER BY timestamp
-            """
-            )
-            draw_panel_data = [dict(row) for row in cursor.fetchall()]
+        date_filter = f"WHERE timestamp >= datetime('now', '-{days_limit} days')"
 
-            # Get display image data
-            cursor.execute(
-                """
-                SELECT id, timestamp, hour, day_of_week, elapsed_time, success
-                FROM display_image_metrics
-                ORDER BY timestamp
-            """
-            )
-            display_image_data = [dict(row) for row in cursor.fetchall()]
+        def fetch_and_analyze_draw_panel() -> dict | None:
+            with self._get_connection() as conn:
+                cursor = conn.cursor()
+                # 特徴量用データ（高速）
+                cursor.execute(
+                    f"""SELECT hour, day_of_week, total_elapsed_time, error_code
+                    FROM draw_panel_metrics {date_filter}"""
+                )
+                feature_data = cursor.fetchall()
+                if len(feature_data) <= 10:
+                    return None
+
+                features = np.array(feature_data, dtype=np.float64)
+                scaler = StandardScaler()
+                features_scaled = scaler.fit_transform(features)
+                isolation_forest = IsolationForest(
+                    contamination=contamination, random_state=42, n_estimators=50, n_jobs=-1
+                )
+                anomaly_labels = isolation_forest.fit_predict(features_scaled)
+
+                # 異常のみ詳細データを取得
+                anomaly_indices = np.where(anomaly_labels == -1)[0]
+                if len(anomaly_indices) == 0:
+                    return {
+                        "total_samples": len(feature_data),
+                        "anomalies_detected": 0,
+                        "anomaly_rate": 0.0,
+                        "anomalies": [],
+                    }
+
+                # 異常データのid, timestampを取得
+                cursor.execute(
+                    f"""SELECT id, timestamp, hour, total_elapsed_time, error_code
+                    FROM draw_panel_metrics {date_filter} ORDER BY timestamp"""
+                )
+                all_rows = cursor.fetchall()
+                anomalies = [
+                    {
+                        "id": all_rows[i][0],
+                        "timestamp": all_rows[i][1],
+                        "hour": all_rows[i][2],
+                        "elapsed_time": all_rows[i][3],
+                        "error_code": all_rows[i][4],
+                    }
+                    for i in anomaly_indices
+                    if i < len(all_rows)
+                ]
+                return {
+                    "total_samples": len(feature_data),
+                    "anomalies_detected": len(anomalies),
+                    "anomaly_rate": len(anomalies) / len(feature_data),
+                    "anomalies": anomalies,
+                }
+
+        def fetch_and_analyze_display_image() -> dict | None:
+            with self._get_connection() as conn:
+                cursor = conn.cursor()
+                # 特徴量用データ（高速）
+                cursor.execute(
+                    f"""SELECT hour, day_of_week, elapsed_time, CASE WHEN success THEN 0 ELSE 1 END
+                    FROM display_image_metrics {date_filter}"""
+                )
+                feature_data = cursor.fetchall()
+                if len(feature_data) <= 10:
+                    return None
+
+                features = np.array(feature_data, dtype=np.float64)
+                scaler = StandardScaler()
+                features_scaled = scaler.fit_transform(features)
+                isolation_forest = IsolationForest(
+                    contamination=contamination, random_state=42, n_estimators=50, n_jobs=-1
+                )
+                anomaly_labels = isolation_forest.fit_predict(features_scaled)
+
+                # 異常のみ詳細データを取得
+                anomaly_indices = np.where(anomaly_labels == -1)[0]
+                if len(anomaly_indices) == 0:
+                    return {
+                        "total_samples": len(feature_data),
+                        "anomalies_detected": 0,
+                        "anomaly_rate": 0.0,
+                        "anomalies": [],
+                    }
+
+                # 異常データのid, timestampを取得
+                cursor.execute(
+                    f"""SELECT id, timestamp, hour, elapsed_time, success
+                    FROM display_image_metrics {date_filter} ORDER BY timestamp"""
+                )
+                all_rows = cursor.fetchall()
+                anomalies = [
+                    {
+                        "id": all_rows[i][0],
+                        "timestamp": all_rows[i][1],
+                        "hour": all_rows[i][2],
+                        "elapsed_time": all_rows[i][3],
+                        "success": all_rows[i][4],
+                    }
+                    for i in anomaly_indices
+                    if i < len(all_rows)
+                ]
+                return {
+                    "total_samples": len(feature_data),
+                    "anomalies_detected": len(anomalies),
+                    "anomaly_rate": len(anomalies) / len(feature_data),
+                    "anomalies": anomalies,
+                }
+
+        # データ取得と分析を並列実行（各関数内で完結）
+        with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
+            future_draw = executor.submit(fetch_and_analyze_draw_panel)
+            future_display = executor.submit(fetch_and_analyze_display_image)
+            draw_result = future_draw.result()
+            display_result = future_display.result()
 
         results = {}
-
-        # Analyze draw panel anomalies
-        if len(draw_panel_data) > 10:
-            features = np.array(
-                [
-                    [row["hour"], row["day_of_week"], row["total_elapsed_time"], row["error_code"]]
-                    for row in draw_panel_data
-                ]
-            )
-
-            scaler = StandardScaler()
-            features_scaled = scaler.fit_transform(features)
-
-            isolation_forest = IsolationForest(contamination=contamination, random_state=42)  # type: ignore[arg-type]
-            anomaly_labels = isolation_forest.fit_predict(features_scaled)
-
-            draw_panel_anomalies = []
-            for i, label in enumerate(anomaly_labels):
-                if label == -1:  # Anomaly
-                    draw_panel_anomalies.append(
-                        {
-                            "id": draw_panel_data[i]["id"],
-                            "timestamp": draw_panel_data[i]["timestamp"],
-                            "elapsed_time": draw_panel_data[i]["total_elapsed_time"],
-                            "hour": draw_panel_data[i]["hour"],
-                            "error_code": draw_panel_data[i]["error_code"],
-                        }
-                    )
-
-            results["draw_panel"] = {
-                "total_samples": len(draw_panel_data),
-                "anomalies_detected": len(draw_panel_anomalies),
-                "anomaly_rate": len(draw_panel_anomalies) / len(draw_panel_data),
-                "anomalies": draw_panel_anomalies,
-            }
-
-        # Analyze display image anomalies
-        if len(display_image_data) > 10:
-            features = np.array(
-                [
-                    [row["hour"], row["day_of_week"], row["elapsed_time"], int(not row["success"])]
-                    for row in display_image_data
-                ]
-            )
-
-            scaler = StandardScaler()
-            features_scaled = scaler.fit_transform(features)
-
-            isolation_forest = IsolationForest(contamination=contamination, random_state=42)  # type: ignore[arg-type]
-            anomaly_labels = isolation_forest.fit_predict(features_scaled)
-
-            display_image_anomalies = []
-            for i, label in enumerate(anomaly_labels):
-                if label == -1:  # Anomaly
-                    display_image_anomalies.append(
-                        {
-                            "id": display_image_data[i]["id"],
-                            "timestamp": display_image_data[i]["timestamp"],
-                            "elapsed_time": display_image_data[i]["elapsed_time"],
-                            "hour": display_image_data[i]["hour"],
-                            "success": display_image_data[i]["success"],
-                        }
-                    )
-
-            results["display_image"] = {
-                "total_samples": len(display_image_data),
-                "anomalies_detected": len(display_image_anomalies),
-                "anomaly_rate": len(display_image_anomalies) / len(display_image_data),
-                "anomalies": display_image_anomalies,
-            }
+        if draw_result:
+            results["draw_panel"] = draw_result
+        if display_result:
+            results["display_image"] = display_result
 
         return results
 
-    def get_performance_trends(self) -> dict:
-        """Analyze performance trends over time for all data."""
+    def get_performance_trends(self, days_limit: int | None = None) -> dict:
+        """Analyze performance trends over time.
+
+        Args:
+            days_limit: 取得するデータの日数制限（Noneの場合はデフォルト値を使用）
+
+        Returns:
+            日別のパフォーマンス推移データ
+
+        """
+        if days_limit is None:
+            days_limit = _DEFAULT_DAYS_LIMIT
+
         with self._get_connection() as conn:
             cursor = conn.cursor()
 
+            # 期間制限のWHERE句を生成
+            date_filter = f"WHERE timestamp >= datetime('now', '-{days_limit} days')"
+
             # Daily trends for draw panel
             cursor.execute(
-                """
+                f"""
                 SELECT
                     DATE(timestamp) as date,
                     COUNT(*) as operations,
                     AVG(total_elapsed_time) as avg_elapsed_time,
                     SUM(CASE WHEN error_code > 0 THEN 1 ELSE 0 END) * 100.0 / COUNT(*) as error_rate
                 FROM draw_panel_metrics
+                {date_filter}
                 GROUP BY DATE(timestamp)
                 ORDER BY date
             """
@@ -650,13 +752,14 @@ class MetricsAnalyzer:
 
             # Daily trends for display image
             cursor.execute(
-                """
+                f"""
                 SELECT
                     DATE(timestamp) as date,
                     COUNT(*) as operations,
                     AVG(elapsed_time) as avg_elapsed_time,
                     SUM(CASE WHEN success = 0 THEN 1 ELSE 0 END) * 100.0 / COUNT(*) as error_rate
                 FROM display_image_metrics
+                {date_filter}
                 GROUP BY DATE(timestamp)
                 ORDER BY date
             """
@@ -665,18 +768,20 @@ class MetricsAnalyzer:
 
             # Get raw elapsed times for boxplot by day
             cursor.execute(
-                """
+                f"""
                 SELECT DATE(timestamp) as date, total_elapsed_time
                 FROM draw_panel_metrics
+                {date_filter}
                 ORDER BY date
             """
             )
             draw_panel_raw = cursor.fetchall()
 
             cursor.execute(
-                """
+                f"""
                 SELECT DATE(timestamp) as date, elapsed_time
                 FROM display_image_metrics
+                {date_filter}
                 ORDER BY date
             """
             )
@@ -684,47 +789,19 @@ class MetricsAnalyzer:
 
             # Get raw diff_sec data for boxplot by day
             cursor.execute(
-                """
+                f"""
                 SELECT DATE(timestamp) as date, CAST(diff_sec AS REAL)
                 FROM display_image_metrics
-                WHERE diff_sec IS NOT NULL AND is_one_time = 0
+                {date_filter} AND diff_sec IS NOT NULL AND is_one_time = 0
                 ORDER BY date
             """
             )
             diff_sec_raw = cursor.fetchall()
 
-            # Group by date for boxplot data
-            draw_panel_boxplot = {}
-            for row in draw_panel_raw:
-                date = row[0]
-                if date not in draw_panel_boxplot:
-                    draw_panel_boxplot[date] = []
-                draw_panel_boxplot[date].append(row[1])
-
-            display_image_boxplot = {}
-            for row in display_image_raw:
-                date = row[0]
-                if date not in display_image_boxplot:
-                    display_image_boxplot[date] = []
-                display_image_boxplot[date].append(row[1])
-
-            diff_sec_boxplot = {}
-            for row in diff_sec_raw:
-                date = row[0]
-                if date not in diff_sec_boxplot:
-                    diff_sec_boxplot[date] = []
-                diff_sec_boxplot[date].append(row[1])
-
-            # Convert to list format for JavaScript
-            draw_panel_boxplot_list = [
-                {"date": date, "elapsed_times": times} for date, times in draw_panel_boxplot.items()
-            ]
-            display_image_boxplot_list = [
-                {"date": date, "elapsed_times": times} for date, times in display_image_boxplot.items()
-            ]
-            diff_sec_boxplot_list = [
-                {"date": date, "diff_secs": times} for date, times in diff_sec_boxplot.items()
-            ]
+            # numpy配列を使って日別のboxplot統計量を計算
+            draw_panel_boxplot_list = self._compute_daily_boxplot_stats(draw_panel_raw, "elapsed_times")
+            display_image_boxplot_list = self._compute_daily_boxplot_stats(display_image_raw, "elapsed_times")
+            diff_sec_boxplot_list = self._compute_daily_boxplot_stats(diff_sec_raw, "diff_secs")
 
             return {
                 "draw_panel": draw_panel_trends,
@@ -733,6 +810,29 @@ class MetricsAnalyzer:
                 "display_image_boxplot": display_image_boxplot_list,
                 "diff_sec_boxplot": diff_sec_boxplot_list,
             }
+
+    def _compute_daily_boxplot_stats(self, raw_data: list, value_key: str) -> list:
+        """生データから日別のboxplot統計量を計算する。"""
+        if not raw_data:
+            return []
+
+        # 日付ごとにグループ化
+        daily_data: dict[str, list] = {}
+        for row in raw_data:
+            date = row[0]
+            if date not in daily_data:
+                daily_data[date] = []
+            daily_data[date].append(row[1])
+
+        # 統計量を計算
+        result = []
+        for date in sorted(daily_data.keys()):
+            arr = np.array(daily_data[date])
+            stats = _calculate_boxplot_stats(arr)
+            if stats:
+                result.append({"date": date, "stats": stats})
+
+        return result
 
     def check_performance_alerts(self, thresholds: dict | None = None) -> list[dict]:
         """
@@ -844,27 +944,41 @@ class MetricsAnalyzer:
 
         return alerts
 
-    def get_panel_performance_trends(self) -> dict:
-        """パネル別の処理時間推移を取得する。Get all data."""
+    def get_panel_performance_trends(self, days_limit: int | None = None) -> dict:
+        """パネル別の処理時間統計量を取得する。
+
+        Args:
+            days_limit: 取得するデータの日数制限（Noneの場合はデフォルト値を使用）
+
+        Returns:
+            パネル名をキーとした統計量の辞書
+
+        """
+        if days_limit is None:
+            days_limit = _DEFAULT_DAYS_LIMIT
+
         with self._get_connection() as conn:
             cursor = conn.cursor()
 
+            # 期間制限のWHERE句を生成
+            date_filter = f"WHERE dpm.timestamp >= datetime('now', '-{days_limit} days')"
+
             # パネル別の処理時間データを取得
             cursor.execute(
-                """
+                f"""
                 SELECT
                     pm.panel_name,
-                    pm.elapsed_time,
-                    dpm.timestamp
+                    pm.elapsed_time
                 FROM panel_metrics pm
                 JOIN draw_panel_metrics dpm ON pm.draw_panel_id = dpm.id
-                ORDER BY pm.panel_name, dpm.timestamp
+                {date_filter}
+                ORDER BY pm.panel_name
             """
             )
             panel_data = cursor.fetchall()
 
-            # パネル名ごとにグループ化
-            panel_groups = {}
+            # パネル名ごとにグループ化して統計量を計算
+            panel_groups: dict[str, list] = {}
             for row in panel_data:
                 panel_name = row[0]
                 elapsed_time = row[1]
@@ -873,63 +987,89 @@ class MetricsAnalyzer:
                     panel_groups[panel_name] = []
                 panel_groups[panel_name].append(elapsed_time)
 
-            return panel_groups
+            # 統計量を計算
+            panel_stats = {}
+            for panel_name, values in panel_groups.items():
+                arr = np.array(values)
+                stats = _calculate_boxplot_stats(arr)
+                if stats:
+                    panel_stats[panel_name] = stats
 
-    def get_performance_statistics(self) -> dict:
-        """パフォーマンス統計情報を取得する（異常検知詳細用）Get all data."""
+            return panel_stats
+
+    def get_performance_statistics(self, days_limit: int | None = None) -> dict:
+        """パフォーマンス統計情報を取得する（異常検知詳細用）。
+
+        Args:
+            days_limit: 取得するデータの日数制限（Noneの場合はデフォルト値を使用）
+
+        Returns:
+            統計情報の辞書
+
+        """
+        if days_limit is None:
+            days_limit = _DEFAULT_DAYS_LIMIT
+
         with self._get_connection() as conn:
             cursor = conn.cursor()
 
+            # 期間制限のWHERE句を生成
+            date_filter = f"WHERE timestamp >= datetime('now', '-{days_limit} days')"
+
             # 画像生成処理の統計
             cursor.execute(
-                """
+                f"""
                 SELECT
                     AVG(total_elapsed_time) as avg_time,
                     COUNT(*) as count,
                     MIN(total_elapsed_time) as min_time,
                     MAX(total_elapsed_time) as max_time
                 FROM draw_panel_metrics
+                {date_filter}
             """
             )
             draw_panel_stats = dict(cursor.fetchone())
 
-            # 標準偏差を計算（SQLiteにはSTDDEV関数がないため、手動計算）
+            # 標準偏差を計算（SQLiteにはSTDDEV関数がないため、numpy使用）
             cursor.execute(
-                """
+                f"""
                 SELECT total_elapsed_time
                 FROM draw_panel_metrics
+                {date_filter}
             """
             )
-            draw_panel_times = [row[0] for row in cursor.fetchall()]
+            draw_panel_times = np.array([row[0] for row in cursor.fetchall()])
 
             if len(draw_panel_times) > 1:
-                draw_panel_stats["std_time"] = np.std(draw_panel_times, ddof=1)
+                draw_panel_stats["std_time"] = float(np.std(draw_panel_times, ddof=1))
             else:
                 draw_panel_stats["std_time"] = 0
 
             # 表示実行処理の統計
             cursor.execute(
-                """
+                f"""
                 SELECT
                     AVG(elapsed_time) as avg_time,
                     COUNT(*) as count,
                     MIN(elapsed_time) as min_time,
                     MAX(elapsed_time) as max_time
                 FROM display_image_metrics
+                {date_filter}
             """
             )
             display_image_stats = dict(cursor.fetchone())
 
             cursor.execute(
-                """
+                f"""
                 SELECT elapsed_time
                 FROM display_image_metrics
+                {date_filter}
             """
             )
-            display_image_times = [row[0] for row in cursor.fetchall()]
+            display_image_times = np.array([row[0] for row in cursor.fetchall()])
 
             if len(display_image_times) > 1:
-                display_image_stats["std_time"] = np.std(display_image_times, ddof=1)
+                display_image_stats["std_time"] = float(np.std(display_image_times, ddof=1))
             else:
                 display_image_stats["std_time"] = 0
 
