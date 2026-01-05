@@ -260,15 +260,16 @@ function generateDiffSecCharts() {
     const diffSecBoxplotCtx = document.getElementById("diffSecBoxplotChart");
     if (diffSecBoxplotCtx && window.hourlyData?.diff_sec_boxplot) {
         const boxplotData = [];
-        const originalStats = []; // 元の値を保持
+        const originalStatsMap = {}; // ラベルをキーとしたマップ
         for (let hour = 0; hour < 24; hour++) {
             if (window.hourlyData.diff_sec_boxplot[hour]) {
                 const original = window.hourlyData.diff_sec_boxplot[hour];
+                const label = hour + "時";
                 boxplotData.push({
-                    x: hour + "時",
+                    x: label,
                     y: clampBoxplotStats(original),
                 });
-                originalStats.push(original);
+                originalStatsMap[label] = original;
             }
         }
 
@@ -302,8 +303,13 @@ function generateDiffSecCharts() {
                                 return "時刻: " + context[0].label;
                             },
                             label: function (context) {
-                                // 元の値を表示
-                                const stats = originalStats[context.dataIndex];
+                                // ラベルから元の値を取得
+                                const label = context.label;
+                                const stats = originalStatsMap[label];
+                                if (!stats) {
+                                    console.warn("Stats not found for label:", label);
+                                    return [];
+                                }
                                 return [
                                     "最小値: " + stats.min.toFixed(1) + "秒",
                                     "第1四分位: " + stats.q1.toFixed(1) + "秒",
@@ -328,19 +334,50 @@ function generateDiffSecCharts() {
 }
 
 function generateBoxplotCharts() {
+    // 共通のツールチップコールバック生成関数
+    function createBoxplotTooltipConfig(originalStatsMap) {
+        return {
+            backgroundColor: "rgba(0, 0, 0, 0.8)",
+            titleColor: "white",
+            bodyColor: "white",
+            callbacks: {
+                title: function (context) {
+                    return "時刻: " + context[0].label;
+                },
+                label: function (context) {
+                    // ラベル（例：「0時」）から元の値を取得
+                    const label = context.label;
+                    const stats = originalStatsMap[label];
+                    if (!stats) {
+                        console.warn("Stats not found for label:", label);
+                        return [];
+                    }
+                    return [
+                        "最小値: " + stats.min.toFixed(2) + "秒",
+                        "第1四分位: " + stats.q1.toFixed(2) + "秒",
+                        "中央値: " + stats.median.toFixed(2) + "秒",
+                        "第3四分位: " + stats.q3.toFixed(2) + "秒",
+                        "最大値: " + stats.max.toFixed(2) + "秒",
+                    ];
+                },
+            },
+        };
+    }
+
     // 画像生成処理 箱ひげ図
     const drawPanelBoxplotCtx = document.getElementById("drawPanelBoxplotChart");
     if (drawPanelBoxplotCtx && window.hourlyData?.draw_panel_boxplot) {
         const boxplotData = [];
-        const originalStats = []; // 元の値を保持
+        const originalStatsMap = {}; // ラベルをキーとしたマップ
         for (let hour = 0; hour < 24; hour++) {
             if (window.hourlyData.draw_panel_boxplot[hour]) {
                 const original = window.hourlyData.draw_panel_boxplot[hour];
+                const label = hour + "時";
                 boxplotData.push({
-                    x: hour + "時",
+                    x: label,
                     y: clampBoxplotStats(original),
                 });
-                originalStats.push(original);
+                originalStatsMap[label] = original;
             }
         }
 
@@ -365,27 +402,7 @@ function generateBoxplotCharts() {
                 maintainAspectRatio: false,
                 plugins: {
                     legend: { position: "top" },
-                    tooltip: {
-                        backgroundColor: "rgba(0, 0, 0, 0.8)",
-                        titleColor: "white",
-                        bodyColor: "white",
-                        callbacks: {
-                            title: function (context) {
-                                return "時刻: " + context[0].label;
-                            },
-                            label: function (context) {
-                                // 元の値を表示
-                                const stats = originalStats[context.dataIndex];
-                                return [
-                                    "最小値: " + stats.min.toFixed(2) + "秒",
-                                    "第1四分位: " + stats.q1.toFixed(2) + "秒",
-                                    "中央値: " + stats.median.toFixed(2) + "秒",
-                                    "第3四分位: " + stats.q3.toFixed(2) + "秒",
-                                    "最大値: " + stats.max.toFixed(2) + "秒",
-                                ];
-                            },
-                        },
-                    },
+                    tooltip: createBoxplotTooltipConfig(originalStatsMap),
                 },
                 scales: {
                     x: {
@@ -402,15 +419,16 @@ function generateBoxplotCharts() {
     const displayImageBoxplotCtx = document.getElementById("displayImageBoxplotChart");
     if (displayImageBoxplotCtx && window.hourlyData?.display_image_boxplot) {
         const boxplotData = [];
-        const originalStats = []; // 元の値を保持
+        const originalStatsMap = {}; // ラベルをキーとしたマップ
         for (let hour = 0; hour < 24; hour++) {
             if (window.hourlyData.display_image_boxplot[hour]) {
                 const original = window.hourlyData.display_image_boxplot[hour];
+                const label = hour + "時";
                 boxplotData.push({
-                    x: hour + "時",
+                    x: label,
                     y: clampBoxplotStats(original),
                 });
-                originalStats.push(original);
+                originalStatsMap[label] = original;
             }
         }
 
@@ -435,27 +453,7 @@ function generateBoxplotCharts() {
                 maintainAspectRatio: false,
                 plugins: {
                     legend: { position: "top" },
-                    tooltip: {
-                        backgroundColor: "rgba(0, 0, 0, 0.8)",
-                        titleColor: "white",
-                        bodyColor: "white",
-                        callbacks: {
-                            title: function (context) {
-                                return "時刻: " + context[0].label;
-                            },
-                            label: function (context) {
-                                // 元の値を表示
-                                const stats = originalStats[context.dataIndex];
-                                return [
-                                    "最小値: " + stats.min.toFixed(2) + "秒",
-                                    "第1四分位: " + stats.q1.toFixed(2) + "秒",
-                                    "中央値: " + stats.median.toFixed(2) + "秒",
-                                    "第3四分位: " + stats.q3.toFixed(2) + "秒",
-                                    "最大値: " + stats.max.toFixed(2) + "秒",
-                                ];
-                            },
-                        },
-                    },
+                    tooltip: createBoxplotTooltipConfig(originalStatsMap),
                 },
                 scales: {
                     x: {
