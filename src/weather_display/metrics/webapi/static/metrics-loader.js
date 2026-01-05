@@ -1024,8 +1024,8 @@ function renderAnomalies(data) {
     const drawPanelAnomalies = anomalies.draw_panel || {};
     const displayImageAnomalies = anomalies.display_image || {};
 
-    const dpAnomalyCount = drawPanelAnomalies.anomalies_detected || 0;
-    const diAnomalyCount = displayImageAnomalies.anomalies_detected || 0;
+    const dpAnomalyCount = (drawPanelAnomalies.anomalies_detected || 0).toLocaleString();
+    const diAnomalyCount = (displayImageAnomalies.anomalies_detected || 0).toLocaleString();
     const dpAnomalyRate = ((drawPanelAnomalies.anomaly_rate || 0) * 100).toFixed(2);
     const diAnomalyRate = ((displayImageAnomalies.anomaly_rate || 0) * 100).toFixed(2);
 

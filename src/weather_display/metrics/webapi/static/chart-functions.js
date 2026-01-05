@@ -752,7 +752,7 @@ function generatePanelTrendsCharts() {
                                 // context.raw から元の値（_original* プロパティ）を取得
                                 const raw = context.raw;
                                 if (!raw) return [];
-                                const count = raw.count || 0;
+                                const count = (raw.count || 0).toLocaleString();
                                 return [
                                     "最小値: " + raw._originalMin.toFixed(2) + "秒",
                                     "第1四分位: " + raw._originalQ1.toFixed(2) + "秒",
