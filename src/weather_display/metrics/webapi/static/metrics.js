@@ -133,14 +133,17 @@ function generateHourlyCharts() {
     // 表示実行 時間別パフォーマンス
     const displayImageCtx = document.getElementById("displayImageHourlyChart");
     if (displayImageCtx && window.hourlyData?.display_image) {
+        const MAX_Y = 30;
+        // データをクランプしつつ元の値を保持
+        const displayData = window.hourlyData.display_image;
         new Chart(displayImageCtx, {
             type: "line",
             data: {
-                labels: window.hourlyData.display_image.map((d) => d.hour + "時"),
+                labels: displayData.map((d) => d.hour + "時"),
                 datasets: [
                     {
                         label: "平均処理時間（秒）",
-                        data: window.hourlyData.display_image.map((d) => d.avg_elapsed_time),
+                        data: displayData.map((d) => Math.min(d.avg_elapsed_time, MAX_Y)),
                         borderColor: "rgb(54, 162, 235)",
                         backgroundColor: "rgba(54, 162, 235, 0.2)",
                         tension: 0.1,
@@ -151,7 +154,7 @@ function generateHourlyCharts() {
                     },
                     {
                         label: "最小処理時間（秒）",
-                        data: window.hourlyData.display_image.map((d) => d.min_elapsed_time),
+                        data: displayData.map((d) => Math.min(d.min_elapsed_time, MAX_Y)),
                         borderColor: "rgb(34, 197, 94)",
                         backgroundColor: "rgba(34, 197, 94, 0.1)",
                         tension: 0.1,
@@ -163,7 +166,7 @@ function generateHourlyCharts() {
                     },
                     {
                         label: "最大処理時間（秒）",
-                        data: window.hourlyData.display_image.map((d) => d.max_elapsed_time),
+                        data: displayData.map((d) => Math.min(d.max_elapsed_time, MAX_Y)),
                         borderColor: "rgb(239, 68, 68)",
                         backgroundColor: "rgba(239, 68, 68, 0.1)",
                         tension: 0.1,
@@ -175,7 +178,7 @@ function generateHourlyCharts() {
                     },
                     {
                         label: "エラー率（%）",
-                        data: window.hourlyData.display_image.map((d) => d.error_rate || 0),
+                        data: displayData.map((d) => d.error_rate || 0),
                         borderColor: "rgb(255, 99, 132)",
                         backgroundColor: "rgba(255, 99, 132, 0.2)",
                         tension: 0.1,
@@ -202,19 +205,28 @@ function generateHourlyCharts() {
                             label: function (context) {
                                 let label = context.dataset.label || "";
                                 if (label) label += ": ";
-                                if (context.parsed.y !== null) {
-                                    if (context.dataset.yAxisID === "y1") {
-                                        label += context.parsed.y.toFixed(1) + "%";
-                                    } else {
-                                        label += context.parsed.y.toFixed(2) + "秒";
+                                const dataIndex = context.dataIndex;
+                                const hourData = displayData[dataIndex];
+                                if (context.dataset.yAxisID === "y1") {
+                                    label += context.parsed.y.toFixed(1) + "%";
+                                } else {
+                                    // 元の値を表示
+                                    let originalValue = 0;
+                                    if (context.dataset.label.includes("平均")) {
+                                        originalValue = hourData.avg_elapsed_time;
+                                    } else if (context.dataset.label.includes("最小")) {
+                                        originalValue = hourData.min_elapsed_time;
+                                    } else if (context.dataset.label.includes("最大")) {
+                                        originalValue = hourData.max_elapsed_time;
                                     }
+                                    label += originalValue.toFixed(2) + "秒";
                                 }
                                 return label;
                             },
                             afterBody: function (context) {
                                 if (context.length > 0) {
                                     const dataIndex = context[0].dataIndex;
-                                    const hourData = window.hourlyData.display_image[dataIndex];
+                                    const hourData = displayData[dataIndex];
                                     if (hourData) return "実行回数: " + (hourData.count || 0) + "回";
                                 }
                                 return "";
@@ -227,11 +239,11 @@ function generateHourlyCharts() {
                         type: "linear",
                         display: true,
                         position: "left",
-                        max: 30,
+                        max: MAX_Y,
                         title: { display: true, text: "処理時間（秒）" },
                         ticks: {
                             callback: function (value) {
-                                if (value === 30) return "30以上";
+                                if (value === MAX_Y) return MAX_Y + "以上";
                                 return value;
                             },
                         },
