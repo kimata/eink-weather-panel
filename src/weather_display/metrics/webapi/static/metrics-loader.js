@@ -1083,17 +1083,6 @@ function renderAnomalies(data) {
                 </div>
             </h2>
 
-            <div class="notification is-info is-light">
-                <p><strong>異常検知について：</strong></p>
-                <p>機械学習の<strong>Isolation Forest</strong>アルゴリズムを使用して、
-                   以下の要素から異常なパターンを検知しています：</p>
-                <ul>
-                    <li><strong>処理時間</strong>：通常より極端に長い、または短い処理時間</li>
-                    <li><strong>エラー発生</strong>：エラーの有無も考慮要素</li>
-                </ul>
-                <p>例：異常に長い処理時間、エラーを伴う異常な処理時間など</p>
-            </div>
-
             <div class="columns">
                 <div class="column">
                     <div class="card metrics-card" id="draw-panel-anomalies">

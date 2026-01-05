@@ -20,8 +20,6 @@ from typing import Any
 
 import my_lib.sqlite_util
 import numpy as np
-from sklearn.ensemble import IsolationForest
-from sklearn.preprocessing import StandardScaler
 
 _TIMEZONE = zoneinfo.ZoneInfo("Asia/Tokyo")
 _DEFAULT_DB_PATH = pathlib.Path("data/metrics.db")
@@ -596,17 +594,20 @@ class MetricsAnalyzer:
 
         return boxplot_stats
 
-    def detect_anomalies(self, contamination: float = 0.02, days_limit: int | None = None) -> dict:
+    def detect_anomalies(self, iqr_multiplier: float = 3.0, days_limit: int | None = None) -> dict:
         """
-        Detect anomalies in performance metrics using Isolation Forest.
+        Detect anomalies in performance metrics using IQR (Interquartile Range) method.
+
+        処理時間が Q3 + k * IQR を超える値を異常として検出する。
+        箱ひげ図の外れ値定義と統計的に一貫性がある手法。
 
         Args:
-            contamination: Expected proportion of anomalies (0.0 to 0.5).
-                          デフォルト0.02は処理時間が通常の2-3倍以上のケースを検出。
+            iqr_multiplier: IQR に掛ける係数（デフォルト 3.0）。
+                           1.5 で標準的な外れ値、3.0 でより厳格な異常検出。
             days_limit: 取得するデータの日数制限（Noneの場合はデフォルト値を使用）
 
         Returns:
-            Dictionary with anomaly detection results
+            Dictionary with anomaly detection results including threshold info
 
         """
         if days_limit is None:
@@ -617,113 +618,83 @@ class MetricsAnalyzer:
         def fetch_and_analyze_draw_panel() -> dict | None:
             with self._get_connection() as conn:
                 cursor = conn.cursor()
-                # 特徴量用データ（高速）
-                cursor.execute(
-                    """SELECT hour, day_of_week, total_elapsed_time, error_code
-                    FROM draw_panel_metrics WHERE timestamp >= ?""",
-                    (cutoff_date,),
-                )
-                feature_data = cursor.fetchall()
-                if len(feature_data) <= 10:
-                    return None
-
-                features = np.array(feature_data, dtype=np.float64)
-                scaler = StandardScaler()
-                features_scaled = scaler.fit_transform(features)
-                isolation_forest = IsolationForest(
-                    contamination=contamination, random_state=42, n_estimators=50, n_jobs=-1
-                )
-                anomaly_labels = isolation_forest.fit_predict(features_scaled)
-
-                # 異常のみ詳細データを取得
-                anomaly_indices = np.where(anomaly_labels == -1)[0]
-                if len(anomaly_indices) == 0:
-                    return {
-                        "total_samples": len(feature_data),
-                        "anomalies_detected": 0,
-                        "anomaly_rate": 0.0,
-                        "anomalies": [],
-                    }
-
-                # 異常データのid, timestampを取得
                 cursor.execute(
                     """SELECT id, timestamp, hour, total_elapsed_time, error_code
                     FROM draw_panel_metrics WHERE timestamp >= ? ORDER BY timestamp""",
                     (cutoff_date,),
                 )
-                all_rows = cursor.fetchall()
+                rows = cursor.fetchall()
+                if len(rows) <= 10:
+                    return None
+
+                elapsed_times = np.array([row[3] for row in rows])
+                q1 = float(np.percentile(elapsed_times, 25))
+                q3 = float(np.percentile(elapsed_times, 75))
+                iqr = q3 - q1
+                threshold = q3 + iqr_multiplier * iqr
+
                 anomalies = [
                     {
-                        "id": all_rows[i][0],
-                        "timestamp": all_rows[i][1],
-                        "hour": all_rows[i][2],
-                        "elapsed_time": all_rows[i][3],
-                        "error_code": all_rows[i][4],
+                        "id": row[0],
+                        "timestamp": row[1],
+                        "hour": row[2],
+                        "elapsed_time": row[3],
+                        "error_code": row[4],
                     }
-                    for i in anomaly_indices
-                    if i < len(all_rows)
+                    for row in rows
+                    if row[3] > threshold
                 ]
+
                 return {
-                    "total_samples": len(feature_data),
+                    "total_samples": len(rows),
                     "anomalies_detected": len(anomalies),
-                    "anomaly_rate": len(anomalies) / len(feature_data),
+                    "anomaly_rate": len(anomalies) / len(rows),
                     "anomalies": anomalies,
+                    "threshold": threshold,
+                    "q1": q1,
+                    "q3": q3,
+                    "iqr": iqr,
                 }
 
         def fetch_and_analyze_display_image() -> dict | None:
             with self._get_connection() as conn:
                 cursor = conn.cursor()
-                # 特徴量用データ（高速）
-                cursor.execute(
-                    """SELECT hour, day_of_week, elapsed_time, CASE WHEN success THEN 0 ELSE 1 END
-                    FROM display_image_metrics WHERE timestamp >= ?""",
-                    (cutoff_date,),
-                )
-                feature_data = cursor.fetchall()
-                if len(feature_data) <= 10:
-                    return None
-
-                features = np.array(feature_data, dtype=np.float64)
-                scaler = StandardScaler()
-                features_scaled = scaler.fit_transform(features)
-                isolation_forest = IsolationForest(
-                    contamination=contamination, random_state=42, n_estimators=50, n_jobs=-1
-                )
-                anomaly_labels = isolation_forest.fit_predict(features_scaled)
-
-                # 異常のみ詳細データを取得
-                anomaly_indices = np.where(anomaly_labels == -1)[0]
-                if len(anomaly_indices) == 0:
-                    return {
-                        "total_samples": len(feature_data),
-                        "anomalies_detected": 0,
-                        "anomaly_rate": 0.0,
-                        "anomalies": [],
-                    }
-
-                # 異常データのid, timestampを取得
                 cursor.execute(
                     """SELECT id, timestamp, hour, elapsed_time, success
                     FROM display_image_metrics WHERE timestamp >= ? ORDER BY timestamp""",
                     (cutoff_date,),
                 )
-                all_rows = cursor.fetchall()
+                rows = cursor.fetchall()
+                if len(rows) <= 10:
+                    return None
+
+                elapsed_times = np.array([row[3] for row in rows])
+                q1 = float(np.percentile(elapsed_times, 25))
+                q3 = float(np.percentile(elapsed_times, 75))
+                iqr = q3 - q1
+                threshold = q3 + iqr_multiplier * iqr
+
                 anomalies = [
                     {
-                        "id": all_rows[i][0],
-                        "timestamp": all_rows[i][1],
-                        "hour": all_rows[i][2],
-                        "elapsed_time": all_rows[i][3],
-                        "success": all_rows[i][4],
+                        "id": row[0],
+                        "timestamp": row[1],
+                        "hour": row[2],
+                        "elapsed_time": row[3],
+                        "success": row[4],
                     }
-                    for i in anomaly_indices
-                    if i < len(all_rows)
+                    for row in rows
+                    if row[3] > threshold
                 ]
+
                 return {
-                    "total_samples": len(feature_data),
+                    "total_samples": len(rows),
                     "anomalies_detected": len(anomalies),
-                    "anomaly_rate": len(anomalies) / len(feature_data),
+                    "anomaly_rate": len(anomalies) / len(rows),
                     "anomalies": anomalies,
+                    "threshold": threshold,
+                    "q1": q1,
+                    "q3": q3,
+                    "iqr": iqr,
                 }
 
         # データ取得と分析を並列実行（各関数内で完結）

@@ -220,9 +220,9 @@ class TestMetricsAnalyzer:
 
         assert isinstance(result, dict)
 
-    def test_detect_anomalies_with_custom_contamination(self, analyzer):
-        """カスタム contamination パラメータで動作すること"""
-        result = analyzer.detect_anomalies(contamination=0.05)
+    def test_detect_anomalies_with_custom_iqr_multiplier(self, analyzer):
+        """カスタム iqr_multiplier パラメータで動作すること"""
+        result = analyzer.detect_anomalies(iqr_multiplier=1.5)
 
         assert isinstance(result, dict)
 
