@@ -1026,6 +1026,67 @@ class MetricsAnalyzer:
 
             return panel_stats
 
+    def get_panel_daily_trends(self, days_limit: int | None = None) -> dict:
+        """パネル別の日別処理時間推移を取得する。
+
+        Args:
+            days_limit: 取得するデータの日数制限（Noneの場合はデフォルト値を使用）
+
+        Returns:
+            パネル名をキーとした日別boxplot統計量のリストの辞書
+
+        """
+        if days_limit is None:
+            days_limit = _DEFAULT_DAYS_LIMIT
+
+        cutoff_date = _get_cutoff_date(days_limit)
+
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+
+            # パネル別の処理時間データを日付とともに取得
+            cursor.execute(
+                """
+                SELECT
+                    pm.panel_name,
+                    DATE(dpm.timestamp) as date,
+                    pm.elapsed_time
+                FROM panel_metrics pm
+                JOIN draw_panel_metrics dpm ON pm.draw_panel_id = dpm.id
+                WHERE dpm.timestamp >= ?
+                ORDER BY pm.panel_name, date
+            """,
+                (cutoff_date,),
+            )
+            panel_data = cursor.fetchall()
+
+            # パネル名と日付ごとにグループ化
+            panel_daily_groups: dict[str, dict[str, list]] = {}
+            for row in panel_data:
+                panel_name = row[0]
+                date = row[1]
+                elapsed_time = row[2]
+
+                if panel_name not in panel_daily_groups:
+                    panel_daily_groups[panel_name] = {}
+                if date not in panel_daily_groups[panel_name]:
+                    panel_daily_groups[panel_name][date] = []
+                panel_daily_groups[panel_name][date].append(elapsed_time)
+
+            # パネルごとに日別の統計量を計算
+            panel_daily_trends = {}
+            for panel_name, daily_data in panel_daily_groups.items():
+                daily_stats = []
+                for date in sorted(daily_data.keys()):
+                    arr = np.array(daily_data[date])
+                    stats = _calculate_boxplot_stats(arr)
+                    if stats:
+                        daily_stats.append({"date": date, "stats": stats})
+                if daily_stats:
+                    panel_daily_trends[panel_name] = daily_stats
+
+            return panel_daily_trends
+
     def get_performance_statistics(self, days_limit: int | None = None) -> dict:
         """パフォーマンス統計情報を取得する（異常検知詳細用）。
 

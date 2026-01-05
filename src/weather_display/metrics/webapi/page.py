@@ -244,6 +244,27 @@ def metrics_panel_trends():
         return flask.jsonify({"error": "internal_error", "message": str(e)}), 500
 
 
+@blueprint.route("/api/metrics/panel-daily-trends", methods=["GET"])
+@my_lib.flask_util.gzipped
+def metrics_panel_daily_trends():
+    """パネル別日別処理時間推移データをJSONで返す"""
+    flask.g.cache_max_age = 180
+
+    try:
+        analyzer, error_response, error_code = _get_analyzer()
+        if analyzer is None:
+            assert error_response is not None and error_code is not None  # noqa: S101
+            return error_response, error_code
+
+        days_limit = _get_days_limit()
+        panel_daily_trends = analyzer.get_panel_daily_trends(days_limit=days_limit)
+        return flask.jsonify({"panel_daily_trends": panel_daily_trends, "days_limit": days_limit})
+
+    except Exception as e:
+        logging.exception("パネル別日別処理時間推移データ取得エラー")
+        return flask.jsonify({"error": "internal_error", "message": str(e)}), 500
+
+
 @blueprint.route("/api/metrics/alerts", methods=["GET"])
 @my_lib.flask_util.gzipped
 def metrics_alerts():
