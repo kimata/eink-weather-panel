@@ -264,7 +264,7 @@ env RASP_HOSTNAME="hostname" uv run src/display_image.py
 | ------------------ | ------------------------------------------------------ |
 | 画像処理           | PIL/Pillow, matplotlib, opencv-contrib-python-headless |
 | データ             | influxdb-client, pandas, scipy, scikit-learn           |
-| Web スクレイピング | selenium, undetected-chromedriver                      |
+| Web スクレイピング | selenium                                               |
 | SSH                | paramiko                                               |
 | Web サーバー       | flask, flask-cors                                      |
 
