@@ -117,9 +117,9 @@ function getZoomPluginConfig(resetButtonId) {
 function createZoomResetButton(container, chartInstance, buttonId) {
     const btn = document.createElement("button");
     btn.id = buttonId;
-    btn.className = "button is-small is-info zoom-reset-btn";
+    btn.className = "button is-small is-warning zoom-reset-btn";
     btn.innerHTML = '<span class="icon is-small"><i class="fas fa-undo"></i></span><span>リセット</span>';
-    btn.style.cssText = "display:none; position:absolute; top:10px; right:10px; z-index:10;";
+    btn.style.cssText = "display:none; position:absolute; top:25px; right:10px; z-index:10;";
     btn.onclick = function () {
         chartInstance.resetZoom();
         btn.style.display = "none";
@@ -226,12 +226,19 @@ function generateDiffSecCharts() {
                         type: "linear",
                         display: true,
                         position: "left",
+                        max: MAX_ELAPSED_TIME,
                         title: {
                             display: true,
                             text: "タイミング差（秒）",
                             font: { size: 14, weight: "bold" },
                         },
                         grid: { color: "rgba(255, 159, 64, 0.2)" },
+                        ticks: {
+                            callback: function (value) {
+                                if (value === MAX_ELAPSED_TIME) return MAX_ELAPSED_TIME + "以上";
+                                return value;
+                            },
+                        },
                     },
                 },
             },

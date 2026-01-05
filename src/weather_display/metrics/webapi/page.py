@@ -311,6 +311,7 @@ def generate_metrics_html_skeleton():
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         .metrics-card {{ margin-bottom: 1rem; position: relative; }}
+        .section {{ padding-top: 1.5rem; padding-bottom: 1.5rem; }}
         @media (max-width: 768px) {{
             .metrics-card {{ margin-bottom: 0.75rem; }}
         }}
@@ -684,6 +685,7 @@ def generate_metrics_html(
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         .metrics-card {{ margin-bottom: 1rem; }}
+        .section {{ padding-top: 1.5rem; padding-bottom: 1.5rem; }}
         @media (max-width: 768px) {{
             .metrics-card {{ margin-bottom: 0.75rem; }}
         }}
