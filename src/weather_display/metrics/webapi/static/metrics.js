@@ -115,15 +115,8 @@ function generateHourlyCharts() {
                         type: "linear",
                         display: true,
                         position: "left",
-                        max: 60,
                         title: { display: true, text: "処理時間（秒）", font: { size: 14, weight: "bold" } },
                         grid: { color: "rgba(75, 192, 192, 0.2)" },
-                        ticks: {
-                            callback: function (value) {
-                                if (value === 60) return "60以上";
-                                return value;
-                            },
-                        },
                     },
                     y1: {
                         type: "linear",
@@ -234,11 +227,11 @@ function generateHourlyCharts() {
                         type: "linear",
                         display: true,
                         position: "left",
-                        max: 60,
+                        max: 30,
                         title: { display: true, text: "処理時間（秒）" },
                         ticks: {
                             callback: function (value) {
-                                if (value === 60) return "60以上";
+                                if (value === 30) return "30以上";
                                 return value;
                             },
                         },

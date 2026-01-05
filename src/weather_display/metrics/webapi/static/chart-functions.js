@@ -5,7 +5,7 @@
 // ============================================
 
 // 処理時間のY軸最大値（秒）
-const MAX_ELAPSED_TIME = 60;
+const MAX_ELAPSED_TIME = 30;
 
 // 値を最大値でクランプする
 function clampValue(value) {
