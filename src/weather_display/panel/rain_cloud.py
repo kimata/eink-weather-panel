@@ -451,7 +451,10 @@ def _create_rain_cloud_img(
         # undetected_chromedriver のパッチ処理は並列実行時に競合するためロックで保護
         with _driver_creation_lock:
             driver = my_lib.selenium_util.create_driver(
-                _get_driver_profile_name(sub_panel_config.is_future), _DATA_PATH, use_subprocess=True
+                _get_driver_profile_name(sub_panel_config.is_future),
+                _DATA_PATH,
+                use_undetected=True,
+                use_subprocess=True,
             )
 
         wait = selenium.webdriver.support.wait.WebDriverWait(driver, 5)
