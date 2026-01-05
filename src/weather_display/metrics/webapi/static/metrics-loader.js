@@ -808,111 +808,56 @@ function renderAnomalies(data) {
     const dpAnomalyRate = ((drawPanelAnomalies.anomaly_rate || 0) * 100).toFixed(2);
     const diAnomalyRate = ((displayImageAnomalies.anomaly_rate || 0) * 100).toFixed(2);
 
-    // 異常アイテムのHTML生成
-    function renderAnomalyItems(anomalyList, stats, type) {
-        if (!anomalyList || anomalyList.length === 0) return "";
+    // データをグローバルに保存（ソート切り替え用）
+    window.anomalyData = {
+        drawPanel: {
+            list: drawPanelAnomalies.anomalies || [],
+            stats: performanceStats.draw_panel || {},
+        },
+        displayImage: {
+            list: displayImageAnomalies.anomalies || [],
+            stats: performanceStats.display_image || {},
+        },
+    };
 
-        const avgTime = stats?.avg_time || 0;
-        const stdTime = stats?.std_time || 0;
-
-        // 新しいもの順でソート
-        const sorted = [...anomalyList].sort((a, b) => (b.timestamp || "").localeCompare(a.timestamp || ""));
-
-        let html = '<div class="content"><h5>最近の異常:</h5>';
-        for (const anomaly of sorted.slice(0, 20)) {
-            const elapsedTime = anomaly.elapsed_time || 0;
-            const reasons = [];
-            const details = [];
-
-            if (type === "draw_panel") {
-                if (elapsedTime > 60) {
-                    reasons.push('<span class="tag is-small is-warning">長時間処理</span>');
-                } else if (elapsedTime < 1) {
-                    reasons.push('<span class="tag is-small is-info">短時間処理</span>');
-                }
-                if (anomaly.error_code > 0) {
-                    reasons.push('<span class="tag is-small is-danger">エラー発生</span>');
-                    details.push(`エラーコード: <strong>${anomaly.error_code}</strong>`);
-                }
-            } else {
-                if (elapsedTime > 120) {
-                    reasons.push('<span class="tag is-small is-warning">長時間処理</span>');
-                } else if (elapsedTime < 5) {
-                    reasons.push('<span class="tag is-small is-info">短時間処理</span>');
-                }
-                if (anomaly.success === false || anomaly.success === 0) {
-                    reasons.push('<span class="tag is-small is-danger">実行失敗</span>');
-                    details.push("実行結果: <strong>失敗</strong>");
-                }
-            }
-
-            if (stdTime > 0) {
-                const sigma = (elapsedTime - avgTime) / stdTime;
-                const sign = sigma >= 0 ? "+" : "";
-                details.push(`平均値から<strong>${sign}${sigma.toFixed(1)}σ</strong>乖離`);
-            }
-            details.push(`実行時間: <strong>${elapsedTime.toFixed(2)}秒</strong>`);
-
-            if (reasons.length === 0) {
-                reasons.push('<span class="tag is-small is-light">パターン異常</span>');
-            }
-
-            // 日時フォーマット
-            let formattedTime = "不明";
-            try {
-                if (anomaly.timestamp) {
-                    const dt = new Date(anomaly.timestamp);
-                    const year = dt.getFullYear();
-                    const month = dt.getMonth() + 1;
-                    const day = dt.getDate();
-                    const hour = dt.getHours();
-                    const min = dt.getMinutes();
-                    formattedTime = `${year}年${month}月${day}日 ${hour}時${min}分`;
-
-                    const now = new Date();
-                    const elapsed = now - dt;
-                    const elapsedDays = Math.floor(elapsed / (1000 * 60 * 60 * 24));
-                    const elapsedHours = Math.floor(elapsed / (1000 * 60 * 60));
-                    const elapsedMins = Math.floor(elapsed / (1000 * 60));
-
-                    if (elapsedDays > 0) {
-                        formattedTime += ` (${elapsedDays}日前)`;
-                    } else if (elapsedHours > 0) {
-                        formattedTime += ` (${elapsedHours}時間前)`;
-                    } else if (elapsedMins > 0) {
-                        formattedTime += ` (${elapsedMins}分前)`;
-                    } else {
-                        formattedTime += " (たった今)";
-                    }
-                }
-            } catch (e) {
-                formattedTime = anomaly.timestamp || "不明";
-            }
-
-            html += `<div class="anomaly-item">
-                <div class="mb-2">
-                    <span class="tag is-warning">${formattedTime}</span>
-                    ${reasons.join(" ")}
-                </div>
-                <div class="pl-3 has-text-grey-dark" style="font-size: 0.9rem;">
-                    ${details.join(" | ")}
-                </div>
-            </div>`;
-        }
-        html += "</div>";
-        return html;
-    }
-
-    const dpItems = renderAnomalyItems(
+    const dpItems = renderAnomalyItemsGlobal(
         drawPanelAnomalies.anomalies,
         performanceStats.draw_panel,
-        "draw_panel"
+        "draw_panel",
+        "sigma"
     );
-    const diItems = renderAnomalyItems(
+    const diItems = renderAnomalyItemsGlobal(
         displayImageAnomalies.anomalies,
         performanceStats.display_image,
-        "display_image"
+        "display_image",
+        "sigma"
     );
+
+    // ソート選択ボタンのHTML
+    const sortButtons = `
+        <div class="buttons has-addons mb-3">
+            <button class="button is-small anomaly-sort-btn is-info" data-sort="sigma" data-target="draw-panel">
+                <span class="icon is-small"><i class="fas fa-sort-amount-down"></i></span>
+                <span>外れ幅順</span>
+            </button>
+            <button class="button is-small anomaly-sort-btn" data-sort="date" data-target="draw-panel">
+                <span class="icon is-small"><i class="fas fa-calendar"></i></span>
+                <span>日付順</span>
+            </button>
+        </div>
+    `;
+    const sortButtonsDi = `
+        <div class="buttons has-addons mb-3">
+            <button class="button is-small anomaly-sort-btn is-info" data-sort="sigma" data-target="display-image">
+                <span class="icon is-small"><i class="fas fa-sort-amount-down"></i></span>
+                <span>外れ幅順</span>
+            </button>
+            <button class="button is-small anomaly-sort-btn" data-sort="date" data-target="display-image">
+                <span class="icon is-small"><i class="fas fa-calendar"></i></span>
+                <span>日付順</span>
+            </button>
+        </div>
+    `;
 
     return `
         <div class="section" id="anomaly-detection">
@@ -952,7 +897,8 @@ function renderAnomalies(data) {
                                     <p class="stat-number has-text-warning">${dpAnomalyRate}%</p>
                                 </div>
                             </div>
-                            ${dpItems}
+                            ${sortButtons}
+                            <div id="draw-panel-anomaly-list">${dpItems}</div>
                         </div>
                     </div>
                 </div>
@@ -974,7 +920,8 @@ function renderAnomalies(data) {
                                     <p class="stat-number has-text-warning">${diAnomalyRate}%</p>
                                 </div>
                             </div>
-                            ${diItems}
+                            ${sortButtonsDi}
+                            <div id="display-image-anomaly-list">${diItems}</div>
                         </div>
                     </div>
                 </div>
@@ -983,8 +930,159 @@ function renderAnomalies(data) {
     `;
 }
 
+// 異常アイテムのHTML生成（グローバル関数）
+function renderAnomalyItemsGlobal(anomalyList, stats, type, sortBy = "sigma") {
+    if (!anomalyList || anomalyList.length === 0) return "";
+
+    const avgTime = stats?.avg_time || 0;
+    const stdTime = stats?.std_time || 0;
+
+    // σ値を計算してリストに追加
+    const itemsWithSigma = anomalyList.map((anomaly) => {
+        const sigma = stdTime > 0 ? Math.abs((anomaly.elapsed_time - avgTime) / stdTime) : 0;
+        return { ...anomaly, _sigma: sigma };
+    });
+
+    // ソート（デフォルトはσの絶対値が大きい順）
+    let sorted;
+    if (sortBy === "date") {
+        sorted = [...itemsWithSigma].sort((a, b) => (b.timestamp || "").localeCompare(a.timestamp || ""));
+    } else {
+        sorted = [...itemsWithSigma].sort((a, b) => b._sigma - a._sigma);
+    }
+
+    let html = '<div class="content">';
+    for (const anomaly of sorted.slice(0, 20)) {
+        const elapsedTime = anomaly.elapsed_time || 0;
+        const reasons = [];
+        const details = [];
+
+        if (type === "draw_panel") {
+            if (elapsedTime > 60) {
+                reasons.push('<span class="tag is-small is-warning">長時間処理</span>');
+            } else if (elapsedTime < 1) {
+                reasons.push('<span class="tag is-small is-info">短時間処理</span>');
+            }
+            if (anomaly.error_code > 0) {
+                reasons.push('<span class="tag is-small is-danger">エラー発生</span>');
+                details.push(`エラーコード: <strong>${anomaly.error_code}</strong>`);
+            }
+        } else {
+            if (elapsedTime > 120) {
+                reasons.push('<span class="tag is-small is-warning">長時間処理</span>');
+            } else if (elapsedTime < 5) {
+                reasons.push('<span class="tag is-small is-info">短時間処理</span>');
+            }
+            if (anomaly.success === false || anomaly.success === 0) {
+                reasons.push('<span class="tag is-small is-danger">実行失敗</span>');
+                details.push("実行結果: <strong>失敗</strong>");
+            }
+        }
+
+        if (stdTime > 0) {
+            const sigma = (elapsedTime - avgTime) / stdTime;
+            const sign = sigma >= 0 ? "+" : "";
+            details.push(`平均値から<strong>${sign}${sigma.toFixed(1)}σ</strong>乖離`);
+        }
+        details.push(`実行時間: <strong>${elapsedTime.toFixed(2)}秒</strong>`);
+
+        if (reasons.length === 0) {
+            reasons.push('<span class="tag is-small is-light">パターン異常</span>');
+        }
+
+        // 日時フォーマット
+        let formattedTime = "不明";
+        try {
+            if (anomaly.timestamp) {
+                const dt = new Date(anomaly.timestamp);
+                const year = dt.getFullYear();
+                const month = dt.getMonth() + 1;
+                const day = dt.getDate();
+                const hour = dt.getHours();
+                const min = dt.getMinutes();
+                formattedTime = `${year}年${month}月${day}日 ${hour}時${min}分`;
+
+                const now = new Date();
+                const elapsed = now - dt;
+                const elapsedDays = Math.floor(elapsed / (1000 * 60 * 60 * 24));
+                const elapsedHours = Math.floor(elapsed / (1000 * 60 * 60));
+                const elapsedMins = Math.floor(elapsed / (1000 * 60));
+
+                if (elapsedDays > 0) {
+                    formattedTime += ` (${elapsedDays}日前)`;
+                } else if (elapsedHours > 0) {
+                    formattedTime += ` (${elapsedHours}時間前)`;
+                } else if (elapsedMins > 0) {
+                    formattedTime += ` (${elapsedMins}分前)`;
+                } else {
+                    formattedTime += " (たった今)";
+                }
+            }
+        } catch (e) {
+            formattedTime = anomaly.timestamp || "不明";
+        }
+
+        html += `<div class="anomaly-item">
+            <div class="mb-2">
+                <span class="tag is-warning">${formattedTime}</span>
+                ${reasons.join(" ")}
+            </div>
+            <div class="pl-3 has-text-grey-dark" style="font-size: 0.9rem;">
+                ${details.join(" | ")}
+            </div>
+        </div>`;
+    }
+    html += "</div>";
+    return html;
+}
+
+// ソートボタンのクリックハンドラを設定
+function setupAnomalySortButtons() {
+    document.addEventListener("click", function (e) {
+        const btn = e.target.closest(".anomaly-sort-btn");
+        if (!btn) return;
+
+        const sortBy = btn.getAttribute("data-sort");
+        const target = btn.getAttribute("data-target");
+
+        // ボタングループ内のボタン状態を更新
+        const buttonGroup = btn.closest(".buttons");
+        if (buttonGroup) {
+            buttonGroup.querySelectorAll(".anomaly-sort-btn").forEach((b) => {
+                b.classList.remove("is-info");
+            });
+            btn.classList.add("is-info");
+        }
+
+        // 対象のリストを再レンダリング
+        if (target === "draw-panel" && window.anomalyData?.drawPanel) {
+            const container = document.getElementById("draw-panel-anomaly-list");
+            if (container) {
+                container.innerHTML = renderAnomalyItemsGlobal(
+                    window.anomalyData.drawPanel.list,
+                    window.anomalyData.drawPanel.stats,
+                    "draw_panel",
+                    sortBy
+                );
+            }
+        } else if (target === "display-image" && window.anomalyData?.displayImage) {
+            const container = document.getElementById("display-image-anomaly-list");
+            if (container) {
+                container.innerHTML = renderAnomalyItemsGlobal(
+                    window.anomalyData.displayImage.list,
+                    window.anomalyData.displayImage.stats,
+                    "display_image",
+                    sortBy
+                );
+            }
+        }
+    });
+}
+
 // ページ読み込み時に実行
 document.addEventListener("DOMContentLoaded", function () {
+    // ソートボタンのイベントハンドラを設定
+    setupAnomalySortButtons();
     // URLパラメータから初期の期間を取得
     currentDaysLimit = getInitialDaysLimit();
 
