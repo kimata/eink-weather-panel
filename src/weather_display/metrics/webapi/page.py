@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import datetime
 import json
 import logging
 import pathlib
@@ -24,14 +25,45 @@ blueprint = flask.Blueprint(
 _DEFAULT_DAYS = 30
 
 
-def _get_days_limit() -> int:
-    """リクエストから期間パラメータを取得する。"""
+def _get_period_params() -> tuple[int | None, datetime.datetime | None, datetime.datetime | None]:
+    """リクエストから期間パラメータを取得する。
+
+    Returns:
+        tuple: (days_limit, start_date, end_date)
+            - カスタム期間の場合: (None, start_date, end_date)
+            - 日数指定の場合: (days_limit, None, None)
+    """
     try:
+        # まずカスタム期間（start/end）をチェック
+        start_str = flask.request.args.get("start")
+        end_str = flask.request.args.get("end")
+
+        if start_str and end_str:
+            try:
+                start_date = datetime.datetime.fromisoformat(start_str.replace("Z", "+00:00"))
+                end_date = datetime.datetime.fromisoformat(end_str.replace("Z", "+00:00"))
+                return None, start_date, end_date
+            except ValueError:
+                pass  # 無効な日付形式の場合はフォールバック
+
+        # 日数パラメータを取得
         days = flask.request.args.get("days", _DEFAULT_DAYS, type=int)
         # 有効な範囲にクランプ（1日〜365日）
-        return max(1, min(365, days))
+        return max(1, min(365, days)), None, None
     except (ValueError, TypeError):
-        return _DEFAULT_DAYS
+        return _DEFAULT_DAYS, None, None
+
+
+def _get_days_limit() -> int:
+    """リクエストから期間パラメータを取得する（後方互換性のため維持）。"""
+    days_limit, start_date, end_date = _get_period_params()
+    if days_limit is not None:
+        return days_limit
+    # カスタム期間の場合は日数を計算
+    if start_date and end_date:
+        delta = end_date - start_date
+        return max(1, min(365, delta.days + 1))
+    return _DEFAULT_DAYS
 
 
 @blueprint.route("/api/metrics", methods=["GET"])
@@ -568,6 +600,47 @@ def generate_metrics_html_skeleton():
                             <div class="control">
                                 <button class="button is-small" data-days="365" onclick="selectPeriod(365)">
                                     全期間
+                                </button>
+                            </div>
+                            <div class="control">
+                                <button class="button is-small" data-days="custom" id="custom-period-btn"
+                                        onclick="toggleCustomPeriod()">
+                                    カスタム
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- カスタム期間入力フォーム（初期非表示） -->
+                    <div id="custom-period-form" style="display: none; margin-top: 1rem;">
+                        <div class="columns">
+                            <div class="column">
+                                <div class="field">
+                                    <label class="label is-small">開始日時</label>
+                                    <div class="control">
+                                        <input type="datetime-local" id="custom-start"
+                                               class="input is-small" onchange="onCustomDateChange()"
+                                               onkeypress="onCustomKeyPress(event)">
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="column">
+                                <div class="field">
+                                    <label class="label is-small">終了日時</label>
+                                    <div class="control">
+                                        <input type="datetime-local" id="custom-end"
+                                               class="input is-small" onchange="onCustomDateChange()"
+                                               onkeypress="onCustomKeyPress(event)">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="field">
+                            <div class="control">
+                                <button id="apply-custom-period" class="button is-small is-fullwidth"
+                                        onclick="applyCustomPeriod()" disabled>
+                                    <span class="icon is-small"><i class="fas fa-check"></i></span>
+                                    <span>期間を確定して更新</span>
                                 </button>
                             </div>
                         </div>

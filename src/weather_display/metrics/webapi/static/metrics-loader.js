@@ -1,17 +1,28 @@
 // メトリクスデータの非同期読み込みとレンダリング
 
-// 現在選択中の期間（日数）
+// 現在選択中の期間（日数）または カスタム期間
 let currentDaysLimit = 30;
+let customStartDate = null;
+let customEndDate = null;
+let isCustomPeriod = false;
+let hasCustomChanges = false;
 
 // 期間選択ボタンのクリックハンドラ
 function selectPeriod(days) {
     currentDaysLimit = days;
+    isCustomPeriod = false;
+    customStartDate = null;
+    customEndDate = null;
+
+    // カスタムフォームを非表示
+    const customForm = document.getElementById("custom-period-form");
+    if (customForm) customForm.style.display = "none";
 
     // ボタンのスタイルを更新
     const buttons = document.querySelectorAll("#period-selector button");
     buttons.forEach((button) => {
-        const buttonDays = parseInt(button.getAttribute("data-days"));
-        if (buttonDays === days) {
+        const buttonDays = button.getAttribute("data-days");
+        if (buttonDays === String(days)) {
             button.classList.remove("is-light");
             button.classList.add("is-primary");
         } else {
@@ -23,6 +34,8 @@ function selectPeriod(days) {
     // URLパラメータを更新
     const url = new URL(window.location.href);
     url.searchParams.set("days", days);
+    url.searchParams.delete("start");
+    url.searchParams.delete("end");
     window.history.replaceState({}, "", url);
 
     // サブタイトルを初期状態にリセット
@@ -32,9 +45,191 @@ function selectPeriod(days) {
     loadMetricsData();
 }
 
+// カスタム期間ボタンのトグル
+function toggleCustomPeriod() {
+    const customForm = document.getElementById("custom-period-form");
+    const customBtn = document.getElementById("custom-period-btn");
+
+    if (customForm.style.display === "none") {
+        // フォームを表示
+        customForm.style.display = "block";
+
+        // 他のボタンを非選択状態に
+        const buttons = document.querySelectorAll("#period-selector button");
+        buttons.forEach((button) => {
+            button.classList.remove("is-primary");
+            button.classList.add("is-light");
+        });
+        customBtn.classList.remove("is-light");
+        customBtn.classList.add("is-primary");
+
+        // 初期値を設定（現在選択中の期間に基づく）
+        initializeCustomDateInputs();
+
+        // 開始日時入力にフォーカス
+        setTimeout(() => {
+            const startInput = document.getElementById("custom-start");
+            if (startInput) startInput.focus();
+        }, 100);
+    } else {
+        // フォームを非表示
+        customForm.style.display = "none";
+        customBtn.classList.remove("is-primary");
+        customBtn.classList.add("is-light");
+
+        // 以前の期間ボタンを再選択
+        if (!isCustomPeriod) {
+            const buttons = document.querySelectorAll("#period-selector button");
+            buttons.forEach((button) => {
+                const buttonDays = button.getAttribute("data-days");
+                if (buttonDays === String(currentDaysLimit)) {
+                    button.classList.remove("is-light");
+                    button.classList.add("is-primary");
+                }
+            });
+        }
+    }
+}
+
+// カスタム日時入力の初期化
+function initializeCustomDateInputs() {
+    const startInput = document.getElementById("custom-start");
+    const endInput = document.getElementById("custom-end");
+
+    if (!startInput || !endInput) return;
+
+    // 終了日時は現在
+    const now = new Date();
+    now.setSeconds(0, 0);
+
+    // 開始日時は現在の期間設定に基づく
+    const start = new Date(now);
+    start.setDate(start.getDate() - currentDaysLimit);
+    start.setSeconds(0, 0);
+
+    // datetime-local形式に変換
+    startInput.value = formatDateForInput(start);
+    endInput.value = formatDateForInput(now);
+
+    // 変更フラグをリセット
+    hasCustomChanges = false;
+    updateApplyButtonState();
+}
+
+// 日付をdatetime-local入力用にフォーマット
+function formatDateForInput(date) {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    const hours = String(date.getHours()).padStart(2, "0");
+    const minutes = String(date.getMinutes()).padStart(2, "0");
+    return `${year}-${month}-${day}T${hours}:${minutes}`;
+}
+
+// カスタム日時変更時のハンドラ
+function onCustomDateChange() {
+    hasCustomChanges = true;
+    updateApplyButtonState();
+}
+
+// Enterキー押下時のハンドラ
+function onCustomKeyPress(event) {
+    if (event.key === "Enter" && hasCustomChanges) {
+        applyCustomPeriod();
+    }
+}
+
+// 適用ボタンの状態を更新
+function updateApplyButtonState() {
+    const applyBtn = document.getElementById("apply-custom-period");
+    if (!applyBtn) return;
+
+    if (hasCustomChanges) {
+        applyBtn.disabled = false;
+        applyBtn.classList.remove("is-light");
+        applyBtn.classList.add("is-info");
+        applyBtn.innerHTML =
+            '<span class="icon is-small"><i class="fas fa-sync-alt"></i></span><span>期間を確定して更新</span>';
+    } else {
+        applyBtn.disabled = true;
+        applyBtn.classList.remove("is-info");
+        applyBtn.classList.add("is-light");
+        applyBtn.innerHTML =
+            '<span class="icon is-small"><i class="fas fa-check"></i></span><span>期間を確定して更新</span>';
+    }
+}
+
+// カスタム期間を適用
+function applyCustomPeriod() {
+    const startInput = document.getElementById("custom-start");
+    const endInput = document.getElementById("custom-end");
+
+    if (!startInput || !endInput) return;
+
+    const start = new Date(startInput.value);
+    const end = new Date(endInput.value);
+
+    // バリデーション
+    if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+        alert("有効な日時を入力してください");
+        return;
+    }
+
+    if (start >= end) {
+        alert("開始日時は終了日時より前に設定してください");
+        return;
+    }
+
+    // カスタム期間を設定
+    customStartDate = start;
+    customEndDate = end;
+    isCustomPeriod = true;
+    hasCustomChanges = false;
+
+    // URLパラメータを更新
+    const url = new URL(window.location.href);
+    url.searchParams.delete("days");
+    url.searchParams.set("start", start.toISOString());
+    url.searchParams.set("end", end.toISOString());
+    window.history.replaceState({}, "", url);
+
+    // ボタン状態を更新
+    updateApplyButtonState();
+
+    // サブタイトルを初期状態にリセット
+    window.subtitleUpdated = false;
+
+    // データを再読み込み
+    loadMetricsData();
+}
+
+// APIリクエスト用のパラメータを取得
+function getApiParams() {
+    if (isCustomPeriod && customStartDate && customEndDate) {
+        return `start=${customStartDate.toISOString()}&end=${customEndDate.toISOString()}`;
+    }
+    return `days=${currentDaysLimit}`;
+}
+
 // URLパラメータから初期の期間を取得
 function getInitialDaysLimit() {
     const urlParams = new URLSearchParams(window.location.search);
+
+    // カスタム期間のパラメータをチェック
+    const startParam = urlParams.get("start");
+    const endParam = urlParams.get("end");
+    if (startParam && endParam) {
+        const start = new Date(startParam);
+        const end = new Date(endParam);
+        if (!isNaN(start.getTime()) && !isNaN(end.getTime())) {
+            customStartDate = start;
+            customEndDate = end;
+            isCustomPeriod = true;
+            return null; // カスタム期間を使用
+        }
+    }
+
+    // 日数パラメータをチェック
     const days = urlParams.get("days");
     if (days) {
         const parsedDays = parseInt(days);
@@ -140,7 +335,7 @@ async function loadAnomaliesAsync() {
     `;
 
     try {
-        const urlWithParams = `/api/metrics/anomalies?days=${currentDaysLimit}`;
+        const urlWithParams = `/api/metrics/anomalies?${getApiParams()}`;
         console.log(`異常検知データの取得開始: ${urlWithParams}`);
 
         const response = await fetch(window.metricsApiBaseUrl + urlWithParams);
@@ -218,7 +413,7 @@ async function loadAndRenderSection(
 
     try {
         // 期間パラメータを追加
-        const urlWithParams = `${apiUrl}?days=${currentDaysLimit}`;
+        const urlWithParams = `${apiUrl}?${getApiParams()}`;
         console.log(`${sectionId}データの取得開始: ${urlWithParams}`);
 
         const response = await fetch(window.metricsApiBaseUrl + urlWithParams);
@@ -1084,13 +1279,20 @@ document.addEventListener("DOMContentLoaded", function () {
     // ソートボタンのイベントハンドラを設定
     setupAnomalySortButtons();
     // URLパラメータから初期の期間を取得
-    currentDaysLimit = getInitialDaysLimit();
+    const initialDays = getInitialDaysLimit();
+    if (initialDays !== null) {
+        currentDaysLimit = initialDays;
+    }
 
     // 期間選択ボタンの初期状態を設定
     const buttons = document.querySelectorAll("#period-selector button");
     buttons.forEach((button) => {
-        const buttonDays = parseInt(button.getAttribute("data-days"));
-        if (buttonDays === currentDaysLimit) {
+        const buttonDays = button.getAttribute("data-days");
+        if (isCustomPeriod && buttonDays === "custom") {
+            // カスタム期間が選択されている場合
+            button.classList.remove("is-light");
+            button.classList.add("is-primary");
+        } else if (!isCustomPeriod && buttonDays === String(currentDaysLimit)) {
             button.classList.remove("is-light");
             button.classList.add("is-primary");
         } else {
@@ -1098,6 +1300,19 @@ document.addEventListener("DOMContentLoaded", function () {
             button.classList.add("is-light");
         }
     });
+
+    // カスタム期間の場合、フォームを表示して値を設定
+    if (isCustomPeriod && customStartDate && customEndDate) {
+        const customForm = document.getElementById("custom-period-form");
+        const startInput = document.getElementById("custom-start");
+        const endInput = document.getElementById("custom-end");
+
+        if (customForm && startInput && endInput) {
+            customForm.style.display = "block";
+            startInput.value = formatDateForInput(customStartDate);
+            endInput.value = formatDateForInput(customEndDate);
+        }
+    }
 
     // 進捗表示を表示
     const progressDisplay = document.getElementById("progress-display");
