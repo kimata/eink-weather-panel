@@ -137,8 +137,13 @@ function generateDiffSecCharts() {
     // 表示タイミング 時間別パフォーマンス
     const diffSecCtx = document.getElementById("diffSecHourlyChart");
     if (diffSecCtx && window.hourlyData?.diff_sec) {
-        // データをクランプしつつ元の値を保持
+        // データをクランプしつつ元の値をマップで保持
         const diffSecData = window.hourlyData.diff_sec;
+        const originalDataMap = {}; // ラベルをキーとしたマップ
+        diffSecData.forEach((d) => {
+            originalDataMap[d.hour + "時"] = d;
+        });
+
         new Chart(diffSecCtx, {
             type: "line",
             data: {
@@ -202,8 +207,12 @@ function generateDiffSecCharts() {
                             label: function (context) {
                                 let label = context.dataset.label || "";
                                 if (label) label += ": ";
-                                const dataIndex = context.dataIndex;
-                                const hourData = diffSecData[dataIndex];
+                                // ラベルから元の値を取得
+                                const hourLabel = context.label;
+                                const hourData = originalDataMap[hourLabel];
+                                if (!hourData) {
+                                    return label + context.parsed.y.toFixed(1) + "秒";
+                                }
                                 // 元の値を表示
                                 let originalValue = 0;
                                 if (context.dataset.label.includes("平均")) {
@@ -218,8 +227,8 @@ function generateDiffSecCharts() {
                             },
                             afterBody: function (context) {
                                 if (context.length > 0) {
-                                    const dataIndex = context[0].dataIndex;
-                                    const hourData = diffSecData[dataIndex];
+                                    const hourLabel = context[0].label;
+                                    const hourData = originalDataMap[hourLabel];
                                     if (hourData) return "実行回数: " + (hourData.count || 0) + "回";
                                 }
                                 return "";
@@ -260,7 +269,7 @@ function generateDiffSecCharts() {
     const diffSecBoxplotCtx = document.getElementById("diffSecBoxplotChart");
     if (diffSecBoxplotCtx && window.hourlyData?.diff_sec_boxplot) {
         const boxplotData = [];
-        const originalStatsMap = {}; // ラベルをキーとしたマップ
+        const originalStatsArray = []; // インデックスと対応する配列
         for (let hour = 0; hour < 24; hour++) {
             if (window.hourlyData.diff_sec_boxplot[hour]) {
                 const original = window.hourlyData.diff_sec_boxplot[hour];
@@ -269,14 +278,15 @@ function generateDiffSecCharts() {
                     x: label,
                     y: clampBoxplotStats(original),
                 });
-                originalStatsMap[label] = original;
+                originalStatsArray.push(original);
             }
         }
+        const labels = boxplotData.map((d) => d.x);
 
         new Chart(diffSecBoxplotCtx, {
             type: "boxplot",
             data: {
-                labels: boxplotData.map((d) => d.x),
+                labels: labels,
                 datasets: [
                     {
                         label: "タイミング差分布（秒）",
@@ -300,14 +310,13 @@ function generateDiffSecCharts() {
                         bodyColor: "white",
                         callbacks: {
                             title: function (context) {
-                                return "時刻: " + context[0].label;
+                                const idx = context[0].dataIndex;
+                                return "時刻: " + labels[idx];
                             },
                             label: function (context) {
-                                // ラベルから元の値を取得
-                                const label = context.label;
-                                const stats = originalStatsMap[label];
+                                // dataIndexから直接元の値を取得
+                                const stats = originalStatsArray[context.dataIndex];
                                 if (!stats) {
-                                    console.warn("Stats not found for label:", label);
                                     return [];
                                 }
                                 return [
@@ -334,22 +343,21 @@ function generateDiffSecCharts() {
 }
 
 function generateBoxplotCharts() {
-    // 共通のツールチップコールバック生成関数
-    function createBoxplotTooltipConfig(originalStatsMap) {
+    // 共通のツールチップコールバック生成関数（配列とラベルを受け取る）
+    function createBoxplotTooltipConfig(originalStatsArray, labels) {
         return {
             backgroundColor: "rgba(0, 0, 0, 0.8)",
             titleColor: "white",
             bodyColor: "white",
             callbacks: {
                 title: function (context) {
-                    return "時刻: " + context[0].label;
+                    const idx = context[0].dataIndex;
+                    return "時刻: " + labels[idx];
                 },
                 label: function (context) {
-                    // ラベル（例：「0時」）から元の値を取得
-                    const label = context.label;
-                    const stats = originalStatsMap[label];
+                    // dataIndexから直接元の値を取得
+                    const stats = originalStatsArray[context.dataIndex];
                     if (!stats) {
-                        console.warn("Stats not found for label:", label);
                         return [];
                     }
                     return [
@@ -368,7 +376,7 @@ function generateBoxplotCharts() {
     const drawPanelBoxplotCtx = document.getElementById("drawPanelBoxplotChart");
     if (drawPanelBoxplotCtx && window.hourlyData?.draw_panel_boxplot) {
         const boxplotData = [];
-        const originalStatsMap = {}; // ラベルをキーとしたマップ
+        const originalStatsArray = []; // インデックスと対応する配列
         for (let hour = 0; hour < 24; hour++) {
             if (window.hourlyData.draw_panel_boxplot[hour]) {
                 const original = window.hourlyData.draw_panel_boxplot[hour];
@@ -377,14 +385,15 @@ function generateBoxplotCharts() {
                     x: label,
                     y: clampBoxplotStats(original),
                 });
-                originalStatsMap[label] = original;
+                originalStatsArray.push(original);
             }
         }
+        const labels = boxplotData.map((d) => d.x);
 
         new Chart(drawPanelBoxplotCtx, {
             type: "boxplot",
             data: {
-                labels: boxplotData.map((d) => d.x),
+                labels: labels,
                 datasets: [
                     {
                         label: "処理時間分布（秒）",
@@ -402,7 +411,7 @@ function generateBoxplotCharts() {
                 maintainAspectRatio: false,
                 plugins: {
                     legend: { position: "top" },
-                    tooltip: createBoxplotTooltipConfig(originalStatsMap),
+                    tooltip: createBoxplotTooltipConfig(originalStatsArray, labels),
                 },
                 scales: {
                     x: {
@@ -419,7 +428,7 @@ function generateBoxplotCharts() {
     const displayImageBoxplotCtx = document.getElementById("displayImageBoxplotChart");
     if (displayImageBoxplotCtx && window.hourlyData?.display_image_boxplot) {
         const boxplotData = [];
-        const originalStatsMap = {}; // ラベルをキーとしたマップ
+        const originalStatsArray = []; // インデックスと対応する配列
         for (let hour = 0; hour < 24; hour++) {
             if (window.hourlyData.display_image_boxplot[hour]) {
                 const original = window.hourlyData.display_image_boxplot[hour];
@@ -428,14 +437,15 @@ function generateBoxplotCharts() {
                     x: label,
                     y: clampBoxplotStats(original),
                 });
-                originalStatsMap[label] = original;
+                originalStatsArray.push(original);
             }
         }
+        const labels = boxplotData.map((d) => d.x);
 
         new Chart(displayImageBoxplotCtx, {
             type: "boxplot",
             data: {
-                labels: boxplotData.map((d) => d.x),
+                labels: labels,
                 datasets: [
                     {
                         label: "処理時間分布（秒）",
@@ -453,7 +463,7 @@ function generateBoxplotCharts() {
                 maintainAspectRatio: false,
                 plugins: {
                     legend: { position: "top" },
-                    tooltip: createBoxplotTooltipConfig(originalStatsMap),
+                    tooltip: createBoxplotTooltipConfig(originalStatsArray, labels),
                 },
                 scales: {
                     x: {
