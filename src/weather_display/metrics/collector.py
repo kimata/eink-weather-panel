@@ -596,12 +596,13 @@ class MetricsAnalyzer:
 
         return boxplot_stats
 
-    def detect_anomalies(self, contamination: float = 0.1, days_limit: int | None = None) -> dict:
+    def detect_anomalies(self, contamination: float = 0.02, days_limit: int | None = None) -> dict:
         """
         Detect anomalies in performance metrics using Isolation Forest.
 
         Args:
-            contamination: Expected proportion of anomalies (0.0 to 0.5)
+            contamination: Expected proportion of anomalies (0.0 to 0.5).
+                          デフォルト0.02は処理時間が通常の2-3倍以上のケースを検出。
             days_limit: 取得するデータの日数制限（Noneの場合はデフォルト値を使用）
 
         Returns:
