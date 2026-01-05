@@ -1,15 +1,68 @@
 // Chart.js用の重いチャート生成関数（page_js.pyの内容を移動）
 
 // ============================================
+// プラグインの登録と確認
+// ============================================
+
+// chartjs-plugin-zoom の登録状態を確認・登録
+(function () {
+    console.log("chart-functions.js: Checking Chart.js plugins...");
+    console.log("  - Chart:", typeof Chart !== "undefined" ? "loaded" : "NOT LOADED");
+    console.log("  - ChartZoom:", typeof ChartZoom !== "undefined" ? "loaded" : "NOT LOADED");
+
+    // Chart.js が読み込まれているか確認
+    if (typeof Chart === "undefined") {
+        console.error("chart-functions.js: Chart.js is not loaded!");
+        return;
+    }
+
+    // chartjs-plugin-zoom が読み込まれている場合、明示的に登録
+    if (typeof ChartZoom !== "undefined") {
+        // 既に登録されているかチェック
+        const registeredPlugins = Chart.registry?.plugins?.items || [];
+        const zoomRegistered = Array.from(registeredPlugins).some(
+            (p) => p.id === "zoom" || p.name === "zoom"
+        );
+        console.log("  - Zoom plugin already registered:", zoomRegistered);
+
+        if (!zoomRegistered) {
+            try {
+                Chart.register(ChartZoom);
+                console.log("  - Zoom plugin registered successfully");
+            } catch (e) {
+                console.error("  - Failed to register zoom plugin:", e);
+            }
+        }
+    } else {
+        console.warn("chart-functions.js: ChartZoom is not available. Drag zoom will not work.");
+    }
+
+    // 登録されているプラグインを表示
+    if (Chart.registry?.plugins) {
+        const pluginIds = [];
+        Chart.registry.plugins.items.forEach((p) => pluginIds.push(p.id));
+        console.log("  - Registered plugins:", pluginIds.join(", "));
+    }
+})();
+
+// ============================================
 // 定数とユーティリティ関数
 // ============================================
 
 // 処理時間のY軸最大値（秒）
 const MAX_ELAPSED_TIME = 30;
 
+// パネル別処理時間のX軸最大値（秒）
+const MAX_PANEL_ELAPSED_TIME = 15;
+
 // 値を最大値でクランプする
 function clampValue(value) {
     return Math.min(value, MAX_ELAPSED_TIME);
+}
+
+// パネル別処理時間用に値をクランプする
+function clampPanelValue(value) {
+    return Math.min(value, MAX_PANEL_ELAPSED_TIME);
 }
 
 // 箱ひげ図の統計量をクランプする
@@ -23,6 +76,20 @@ function clampBoxplotStats(stats) {
         q3: clampValue(stats.q3),
         max: clampValue(stats.max),
         outliers: (stats.outliers || []).map(clampValue),
+    };
+}
+
+// パネル別処理時間用に箱ひげ図の統計量をクランプする
+function clampPanelBoxplotStats(stats) {
+    if (!stats) return stats;
+    return {
+        ...stats,
+        min: clampPanelValue(stats.min),
+        q1: clampPanelValue(stats.q1),
+        median: clampPanelValue(stats.median),
+        q3: clampPanelValue(stats.q3),
+        max: clampPanelValue(stats.max),
+        outliers: (stats.outliers || []).map(clampPanelValue),
     };
 }
 
@@ -50,6 +117,21 @@ function getElapsedTimeXAxisConfig(titleText = "処理時間（秒）") {
         ticks: {
             callback: function (value) {
                 if (value === MAX_ELAPSED_TIME) return MAX_ELAPSED_TIME + "以上";
+                return value;
+            },
+        },
+    };
+}
+
+// パネル別処理時間用X軸設定を取得（横向きboxplot用）
+function getPanelElapsedTimeXAxisConfig(titleText = "処理時間（秒）") {
+    return {
+        display: true,
+        max: MAX_PANEL_ELAPSED_TIME,
+        title: { display: true, text: titleText, font: { size: 14, weight: "bold" } },
+        ticks: {
+            callback: function (value) {
+                if (value === MAX_PANEL_ELAPSED_TIME) return MAX_PANEL_ELAPSED_TIME + "以上";
                 return value;
             },
         },
@@ -583,9 +665,9 @@ function generatePanelTrendsCharts() {
         return;
     }
 
-    // パネル名と統計量をリストに変換（クランプ適用）
+    // パネル名と統計量をリストに変換（パネル別処理時間用クランプ適用）
     const panelNames = Object.keys(window.panelTrendsData);
-    const panelStats = panelNames.map((name) => clampBoxplotStats(window.panelTrendsData[name]));
+    const panelStats = panelNames.map((name) => clampPanelBoxplotStats(window.panelTrendsData[name]));
     console.log("generatePanelTrendsCharts: panelNames=", panelNames, "panelStats count=", panelStats.length);
 
     // 全パネルをまとめた単一のboxplotチャートを作成
@@ -654,7 +736,7 @@ function generatePanelTrendsCharts() {
                     },
                 },
                 scales: {
-                    x: getElapsedTimeXAxisConfig(),
+                    x: getPanelElapsedTimeXAxisConfig(),
                     y: {
                         display: true,
                         title: { display: true, text: "パネル", font: { size: 14, weight: "bold" } },
