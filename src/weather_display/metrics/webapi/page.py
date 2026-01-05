@@ -303,6 +303,8 @@ def generate_metrics_html_skeleton():
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bulma@0.9.4/css/bulma.min.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@sgratzl/chartjs-chart-boxplot"></script>
+    <script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.1"></script>
     <script defer src="{my_lib.webapp.config.URL_PREFIX}/static/metrics.js"></script>
     <script defer src="{my_lib.webapp.config.URL_PREFIX}/static/chart-functions.js"></script>
     <script defer src="{my_lib.webapp.config.URL_PREFIX}/static/metrics-loader.js"></script>
@@ -675,6 +677,8 @@ def generate_metrics_html(
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bulma@0.9.4/css/bulma.min.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@sgratzl/chartjs-chart-boxplot"></script>
+    <script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.1"></script>
     <script defer src="{my_lib.webapp.config.URL_PREFIX}/static/metrics.js"></script>
     <script defer src="{my_lib.webapp.config.URL_PREFIX}/static/chart-functions.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">

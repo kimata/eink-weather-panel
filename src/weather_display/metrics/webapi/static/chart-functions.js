@@ -1,5 +1,101 @@
 // Chart.js用の重いチャート生成関数（page_js.pyの内容を移動）
 
+// ============================================
+// 定数とユーティリティ関数
+// ============================================
+
+// 処理時間のY軸最大値（秒）
+const MAX_ELAPSED_TIME = 60;
+
+// 値を最大値でクランプする
+function clampValue(value) {
+    return Math.min(value, MAX_ELAPSED_TIME);
+}
+
+// 箱ひげ図の統計量をクランプする
+function clampBoxplotStats(stats) {
+    if (!stats) return stats;
+    return {
+        ...stats,
+        min: clampValue(stats.min),
+        q1: clampValue(stats.q1),
+        median: clampValue(stats.median),
+        q3: clampValue(stats.q3),
+        max: clampValue(stats.max),
+        outliers: (stats.outliers || []).map(clampValue),
+    };
+}
+
+// 処理時間用Y軸設定を取得
+function getElapsedTimeYAxisConfig(titleText = "処理時間（秒）") {
+    return {
+        display: true,
+        max: MAX_ELAPSED_TIME,
+        title: { display: true, text: titleText, font: { size: 14, weight: "bold" } },
+        ticks: {
+            callback: function (value) {
+                if (value === MAX_ELAPSED_TIME) return MAX_ELAPSED_TIME + "以上";
+                return value;
+            },
+        },
+    };
+}
+
+// 処理時間用X軸設定を取得（横向きboxplot用）
+function getElapsedTimeXAxisConfig(titleText = "処理時間（秒）") {
+    return {
+        display: true,
+        max: MAX_ELAPSED_TIME,
+        title: { display: true, text: titleText, font: { size: 14, weight: "bold" } },
+        ticks: {
+            callback: function (value) {
+                if (value === MAX_ELAPSED_TIME) return MAX_ELAPSED_TIME + "以上";
+                return value;
+            },
+        },
+    };
+}
+
+// ズームプラグイン設定を取得
+function getZoomPluginConfig(resetButtonId) {
+    return {
+        pan: { enabled: true, mode: "x" },
+        zoom: {
+            drag: {
+                enabled: true,
+                backgroundColor: "rgba(54, 162, 235, 0.3)",
+                borderColor: "rgba(54, 162, 235, 0.8)",
+                borderWidth: 1,
+            },
+            mode: "x",
+            onZoomComplete: function () {
+                const btn = document.getElementById(resetButtonId);
+                if (btn) btn.style.display = "inline-block";
+            },
+        },
+    };
+}
+
+// ズームリセットボタンを作成
+function createZoomResetButton(container, chartInstance, buttonId) {
+    const btn = document.createElement("button");
+    btn.id = buttonId;
+    btn.className = "button is-small is-info zoom-reset-btn";
+    btn.innerHTML = '<span class="icon is-small"><i class="fas fa-undo"></i></span><span>リセット</span>';
+    btn.style.cssText = "display:none; position:absolute; top:10px; right:10px; z-index:10;";
+    btn.onclick = function () {
+        chartInstance.resetZoom();
+        btn.style.display = "none";
+    };
+    container.style.position = "relative";
+    container.appendChild(btn);
+    return btn;
+}
+
+// ============================================
+// チャート生成関数
+// ============================================
+
 function generateDiffSecCharts() {
     // 表示タイミング 時間別パフォーマンス
     const diffSecCtx = document.getElementById("diffSecHourlyChart");
@@ -188,7 +284,7 @@ function generateBoxplotCharts() {
             if (window.hourlyData.draw_panel_boxplot[hour]) {
                 boxplotData.push({
                     x: hour + "時",
-                    y: window.hourlyData.draw_panel_boxplot[hour],
+                    y: clampBoxplotStats(window.hourlyData.draw_panel_boxplot[hour]),
                 });
             }
         }
@@ -240,10 +336,7 @@ function generateBoxplotCharts() {
                         display: true,
                         title: { display: true, text: "時間", font: { size: 14, weight: "bold" } },
                     },
-                    y: {
-                        display: true,
-                        title: { display: true, text: "処理時間（秒）", font: { size: 14, weight: "bold" } },
-                    },
+                    y: getElapsedTimeYAxisConfig(),
                 },
             },
         });
@@ -257,7 +350,7 @@ function generateBoxplotCharts() {
             if (window.hourlyData.display_image_boxplot[hour]) {
                 boxplotData.push({
                     x: hour + "時",
-                    y: window.hourlyData.display_image_boxplot[hour],
+                    y: clampBoxplotStats(window.hourlyData.display_image_boxplot[hour]),
                 });
             }
         }
@@ -309,10 +402,7 @@ function generateBoxplotCharts() {
                         display: true,
                         title: { display: true, text: "時間", font: { size: 14, weight: "bold" } },
                     },
-                    y: {
-                        display: true,
-                        title: { display: true, text: "処理時間（秒）", font: { size: 14, weight: "bold" } },
-                    },
+                    y: getElapsedTimeYAxisConfig(),
                 },
             },
         });
@@ -325,10 +415,11 @@ function generateTrendsCharts() {
     if (drawPanelTrendsCtx && window.trendsData?.draw_panel_boxplot) {
         const boxplotData = window.trendsData.draw_panel_boxplot.map((d) => ({
             x: d.date,
-            y: d.stats, // 統計量オブジェクト {min, q1, median, q3, max, outliers}
+            y: clampBoxplotStats(d.stats), // 統計量をクランプ
         }));
 
-        new Chart(drawPanelTrendsCtx, {
+        const drawPanelResetBtnId = "drawPanelTrendsChart-reset";
+        const drawPanelChart = new Chart(drawPanelTrendsCtx, {
             type: "boxplot",
             data: {
                 labels: boxplotData.map((d) => d.x),
@@ -347,20 +438,22 @@ function generateTrendsCharts() {
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
-                plugins: { legend: { display: false } },
+                plugins: {
+                    legend: { display: false },
+                    zoom: getZoomPluginConfig(drawPanelResetBtnId),
+                },
                 scales: {
                     x: {
                         display: true,
                         title: { display: true, text: "日付", font: { size: 12, weight: "bold" } },
                         ticks: { maxRotation: 45, minRotation: 45 },
                     },
-                    y: {
-                        display: true,
-                        title: { display: true, text: "時間（秒）", font: { size: 12, weight: "bold" } },
-                    },
+                    y: getElapsedTimeYAxisConfig("時間（秒）"),
                 },
             },
         });
+        // リセットボタンを追加
+        createZoomResetButton(drawPanelTrendsCtx.parentElement, drawPanelChart, drawPanelResetBtnId);
     }
 
     // 表示実行処理 - 日別推移（新しい統計量形式に対応）
@@ -368,10 +461,11 @@ function generateTrendsCharts() {
     if (displayImageTrendsCtx && window.trendsData?.display_image_boxplot) {
         const boxplotData = window.trendsData.display_image_boxplot.map((d) => ({
             x: d.date,
-            y: d.stats, // 統計量オブジェクト
+            y: clampBoxplotStats(d.stats), // 統計量をクランプ
         }));
 
-        new Chart(displayImageTrendsCtx, {
+        const displayImageResetBtnId = "displayImageTrendsChart-reset";
+        const displayImageChart = new Chart(displayImageTrendsCtx, {
             type: "boxplot",
             data: {
                 labels: boxplotData.map((d) => d.x),
@@ -390,20 +484,22 @@ function generateTrendsCharts() {
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
-                plugins: { legend: { display: false } },
+                plugins: {
+                    legend: { display: false },
+                    zoom: getZoomPluginConfig(displayImageResetBtnId),
+                },
                 scales: {
                     x: {
                         display: true,
                         title: { display: true, text: "日付", font: { size: 12, weight: "bold" } },
                         ticks: { maxRotation: 45, minRotation: 45 },
                     },
-                    y: {
-                        display: true,
-                        title: { display: true, text: "時間（秒）", font: { size: 12, weight: "bold" } },
-                    },
+                    y: getElapsedTimeYAxisConfig("時間（秒）"),
                 },
             },
         });
+        // リセットボタンを追加
+        createZoomResetButton(displayImageTrendsCtx.parentElement, displayImageChart, displayImageResetBtnId);
     }
 
     // 表示タイミング - 日別推移（新しい統計量形式に対応）
@@ -411,10 +507,11 @@ function generateTrendsCharts() {
     if (diffSecTrendsCtx && window.trendsData?.diff_sec_boxplot) {
         const boxplotData = window.trendsData.diff_sec_boxplot.map((d) => ({
             x: d.date,
-            y: d.stats, // 統計量オブジェクト
+            y: d.stats, // タイミング差は60秒制限なし
         }));
 
-        new Chart(diffSecTrendsCtx, {
+        const diffSecResetBtnId = "diffSecTrendsChart-reset";
+        const diffSecChart = new Chart(diffSecTrendsCtx, {
             type: "boxplot",
             data: {
                 labels: boxplotData.map((d) => d.x),
@@ -433,7 +530,10 @@ function generateTrendsCharts() {
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
-                plugins: { legend: { display: false } },
+                plugins: {
+                    legend: { display: false },
+                    zoom: getZoomPluginConfig(diffSecResetBtnId),
+                },
                 scales: {
                     x: {
                         display: true,
@@ -451,6 +551,8 @@ function generateTrendsCharts() {
                 },
             },
         });
+        // リセットボタンを追加
+        createZoomResetButton(diffSecTrendsCtx.parentElement, diffSecChart, diffSecResetBtnId);
     }
 }
 
@@ -481,9 +583,9 @@ function generatePanelTrendsCharts() {
         return;
     }
 
-    // パネル名と統計量をリストに変換
+    // パネル名と統計量をリストに変換（クランプ適用）
     const panelNames = Object.keys(window.panelTrendsData);
-    const panelStats = panelNames.map((name) => window.panelTrendsData[name]);
+    const panelStats = panelNames.map((name) => clampBoxplotStats(window.panelTrendsData[name]));
     console.log("generatePanelTrendsCharts: panelNames=", panelNames, "panelStats count=", panelStats.length);
 
     // 全パネルをまとめた単一のboxplotチャートを作成
@@ -552,10 +654,7 @@ function generatePanelTrendsCharts() {
                     },
                 },
                 scales: {
-                    x: {
-                        display: true,
-                        title: { display: true, text: "処理時間（秒）", font: { size: 14, weight: "bold" } },
-                    },
+                    x: getElapsedTimeXAxisConfig(),
                     y: {
                         display: true,
                         title: { display: true, text: "パネル", font: { size: 14, weight: "bold" } },
