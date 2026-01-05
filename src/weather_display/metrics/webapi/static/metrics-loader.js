@@ -150,7 +150,9 @@ async function loadAnomaliesAsync() {
         }
 
         const data = await response.json();
-        console.log("異常検知データの取得完了");
+        console.log("異常検知データの取得完了:", data);
+        console.log("anomalies:", data.anomalies);
+        console.log("performance_stats:", data.performance_stats);
 
         // データをグローバル変数に設定
         window.anomaliesData = data.anomalies;
@@ -795,10 +797,123 @@ function renderPanelTrends() {
 }
 
 function renderAnomalies(data) {
-    const anomalies = data.anomalies;
-    const performanceStats = data.performance_stats;
-    // 既存のgenerate_anomalies_sectionの内容をJavaScript化
-    // （長いので省略しますが、page.pyのgenerate_anomalies_sectionと同じロジック）
+    const anomalies = data.anomalies || {};
+    const performanceStats = data.performance_stats || {};
+
+    const drawPanelAnomalies = anomalies.draw_panel || {};
+    const displayImageAnomalies = anomalies.display_image || {};
+
+    const dpAnomalyCount = drawPanelAnomalies.anomalies_detected || 0;
+    const diAnomalyCount = displayImageAnomalies.anomalies_detected || 0;
+    const dpAnomalyRate = ((drawPanelAnomalies.anomaly_rate || 0) * 100).toFixed(2);
+    const diAnomalyRate = ((displayImageAnomalies.anomaly_rate || 0) * 100).toFixed(2);
+
+    // 異常アイテムのHTML生成
+    function renderAnomalyItems(anomalyList, stats, type) {
+        if (!anomalyList || anomalyList.length === 0) return "";
+
+        const avgTime = stats?.avg_time || 0;
+        const stdTime = stats?.std_time || 0;
+
+        // 新しいもの順でソート
+        const sorted = [...anomalyList].sort((a, b) => (b.timestamp || "").localeCompare(a.timestamp || ""));
+
+        let html = '<div class="content"><h5>最近の異常:</h5>';
+        for (const anomaly of sorted.slice(0, 20)) {
+            const elapsedTime = anomaly.elapsed_time || 0;
+            const reasons = [];
+            const details = [];
+
+            if (type === "draw_panel") {
+                if (elapsedTime > 60) {
+                    reasons.push('<span class="tag is-small is-warning">長時間処理</span>');
+                } else if (elapsedTime < 1) {
+                    reasons.push('<span class="tag is-small is-info">短時間処理</span>');
+                }
+                if (anomaly.error_code > 0) {
+                    reasons.push('<span class="tag is-small is-danger">エラー発生</span>');
+                    details.push(`エラーコード: <strong>${anomaly.error_code}</strong>`);
+                }
+            } else {
+                if (elapsedTime > 120) {
+                    reasons.push('<span class="tag is-small is-warning">長時間処理</span>');
+                } else if (elapsedTime < 5) {
+                    reasons.push('<span class="tag is-small is-info">短時間処理</span>');
+                }
+                if (anomaly.success === false || anomaly.success === 0) {
+                    reasons.push('<span class="tag is-small is-danger">実行失敗</span>');
+                    details.push("実行結果: <strong>失敗</strong>");
+                }
+            }
+
+            if (stdTime > 0) {
+                const sigma = (elapsedTime - avgTime) / stdTime;
+                const sign = sigma >= 0 ? "+" : "";
+                details.push(`平均値から<strong>${sign}${sigma.toFixed(1)}σ</strong>乖離`);
+            }
+            details.push(`実行時間: <strong>${elapsedTime.toFixed(2)}秒</strong>`);
+
+            if (reasons.length === 0) {
+                reasons.push('<span class="tag is-small is-light">パターン異常</span>');
+            }
+
+            // 日時フォーマット
+            let formattedTime = "不明";
+            try {
+                if (anomaly.timestamp) {
+                    const dt = new Date(anomaly.timestamp);
+                    const year = dt.getFullYear();
+                    const month = dt.getMonth() + 1;
+                    const day = dt.getDate();
+                    const hour = dt.getHours();
+                    const min = dt.getMinutes();
+                    formattedTime = `${year}年${month}月${day}日 ${hour}時${min}分`;
+
+                    const now = new Date();
+                    const elapsed = now - dt;
+                    const elapsedDays = Math.floor(elapsed / (1000 * 60 * 60 * 24));
+                    const elapsedHours = Math.floor(elapsed / (1000 * 60 * 60));
+                    const elapsedMins = Math.floor(elapsed / (1000 * 60));
+
+                    if (elapsedDays > 0) {
+                        formattedTime += ` (${elapsedDays}日前)`;
+                    } else if (elapsedHours > 0) {
+                        formattedTime += ` (${elapsedHours}時間前)`;
+                    } else if (elapsedMins > 0) {
+                        formattedTime += ` (${elapsedMins}分前)`;
+                    } else {
+                        formattedTime += " (たった今)";
+                    }
+                }
+            } catch (e) {
+                formattedTime = anomaly.timestamp || "不明";
+            }
+
+            html += `<div class="anomaly-item">
+                <div class="mb-2">
+                    <span class="tag is-warning">${formattedTime}</span>
+                    ${reasons.join(" ")}
+                </div>
+                <div class="pl-3 has-text-grey-dark" style="font-size: 0.9rem;">
+                    ${details.join(" | ")}
+                </div>
+            </div>`;
+        }
+        html += "</div>";
+        return html;
+    }
+
+    const dpItems = renderAnomalyItems(
+        drawPanelAnomalies.anomalies,
+        performanceStats.draw_panel,
+        "draw_panel"
+    );
+    const diItems = renderAnomalyItems(
+        displayImageAnomalies.anomalies,
+        performanceStats.display_image,
+        "display_image"
+    );
+
     return `
         <div class="section" id="anomaly-detection">
             <h2 class="title is-4 section-header">
@@ -807,6 +922,7 @@ function renderAnomalies(data) {
                     <i class="fas fa-link permalink-icon" onclick="copyPermalink('anomaly-detection')"></i>
                 </div>
             </h2>
+
             <div class="notification is-info is-light">
                 <p><strong>異常検知について：</strong></p>
                 <p>機械学習の<strong>Isolation Forest</strong>アルゴリズムを使用して、
@@ -817,7 +933,52 @@ function renderAnomalies(data) {
                 </ul>
                 <p>例：異常に長い処理時間、エラーを伴う異常な処理時間など</p>
             </div>
-            <!-- 簡略化のため詳細は省略 -->
+
+            <div class="columns">
+                <div class="column">
+                    <div class="card metrics-card" id="draw-panel-anomalies">
+                        <i class="fas fa-link card-permalink" onclick="copyPermalink('draw-panel-anomalies')"></i>
+                        <div class="card-header">
+                            <p class="card-header-title">画像生成処理の異常</p>
+                        </div>
+                        <div class="card-content">
+                            <div class="columns">
+                                <div class="column has-text-centered">
+                                    <p class="heading">検出された異常数</p>
+                                    <p class="stat-number has-text-warning">${dpAnomalyCount}</p>
+                                </div>
+                                <div class="column has-text-centered">
+                                    <p class="heading">異常率</p>
+                                    <p class="stat-number has-text-warning">${dpAnomalyRate}%</p>
+                                </div>
+                            </div>
+                            ${dpItems}
+                        </div>
+                    </div>
+                </div>
+
+                <div class="column">
+                    <div class="card metrics-card" id="display-anomalies">
+                        <i class="fas fa-link card-permalink" onclick="copyPermalink('display-anomalies')"></i>
+                        <div class="card-header">
+                            <p class="card-header-title">表示実行処理の異常</p>
+                        </div>
+                        <div class="card-content">
+                            <div class="columns">
+                                <div class="column has-text-centered">
+                                    <p class="heading">検出された異常数</p>
+                                    <p class="stat-number has-text-warning">${diAnomalyCount}</p>
+                                </div>
+                                <div class="column has-text-centered">
+                                    <p class="heading">異常率</p>
+                                    <p class="stat-number has-text-warning">${diAnomalyRate}%</p>
+                                </div>
+                            </div>
+                            ${diItems}
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
     `;
 }
