@@ -20,31 +20,59 @@ function clampPanelValue(value) {
     return Math.min(value, MAX_PANEL_ELAPSED_TIME);
 }
 
-// 箱ひげ図の統計量をクランプする
+// 箱ひげ図の統計量をクランプする（元の値も保持）
 function clampBoxplotStats(stats) {
     if (!stats) return stats;
     return {
-        ...stats,
         min: clampValue(stats.min),
         q1: clampValue(stats.q1),
         median: clampValue(stats.median),
         q3: clampValue(stats.q3),
         max: clampValue(stats.max),
         outliers: (stats.outliers || []).map(clampValue),
+        // 元の値を保持（ツールチップ用）
+        _originalMin: stats.min,
+        _originalQ1: stats.q1,
+        _originalMedian: stats.median,
+        _originalQ3: stats.q3,
+        _originalMax: stats.max,
+        _originalOutliers: stats.outliers || [],
     };
 }
 
-// パネル別処理時間用に箱ひげ図の統計量をクランプする
-function clampPanelBoxplotStats(stats) {
+// 箱ひげ図の統計量に元の値を追加（クランプなし、ツールチップ用）
+function addOriginalStats(stats) {
     if (!stats) return stats;
     return {
         ...stats,
+        // 元の値を保持（ツールチップ用）
+        _originalMin: stats.min,
+        _originalQ1: stats.q1,
+        _originalMedian: stats.median,
+        _originalQ3: stats.q3,
+        _originalMax: stats.max,
+        _originalOutliers: stats.outliers || [],
+    };
+}
+
+// パネル別処理時間用に箱ひげ図の統計量をクランプする（元の値も保持）
+function clampPanelBoxplotStats(stats) {
+    if (!stats) return stats;
+    return {
         min: clampPanelValue(stats.min),
         q1: clampPanelValue(stats.q1),
         median: clampPanelValue(stats.median),
         q3: clampPanelValue(stats.q3),
         max: clampPanelValue(stats.max),
         outliers: (stats.outliers || []).map(clampPanelValue),
+        count: stats.count,
+        // 元の値を保持（ツールチップ用）
+        _originalMin: stats.min,
+        _originalQ1: stats.q1,
+        _originalMedian: stats.median,
+        _originalQ3: stats.q3,
+        _originalMax: stats.max,
+        _originalOutliers: stats.outliers || [],
     };
 }
 
@@ -137,17 +165,14 @@ function generateDiffSecCharts() {
     // 表示タイミング 時間別パフォーマンス
     const diffSecCtx = document.getElementById("diffSecHourlyChart");
     if (diffSecCtx && window.hourlyData?.diff_sec) {
-        // データをクランプしつつ元の値をマップで保持
+        // 元のデータ配列を保持（クロージャでアクセス可能）
         const diffSecData = window.hourlyData.diff_sec;
-        const originalDataMap = {}; // ラベルをキーとしたマップ
-        diffSecData.forEach((d) => {
-            originalDataMap[d.hour + "時"] = d;
-        });
+        const chartLabels = diffSecData.map((d) => d.hour + "時");
 
         new Chart(diffSecCtx, {
             type: "line",
             data: {
-                labels: diffSecData.map((d) => d.hour + "時"),
+                labels: chartLabels,
                 datasets: [
                     {
                         label: "平均タイミング差（秒）",
@@ -202,33 +227,31 @@ function generateDiffSecCharts() {
                         borderWidth: 1,
                         callbacks: {
                             title: function (context) {
-                                return "時刻: " + context[0].label;
+                                const idx = context[0].dataIndex;
+                                return "時刻: " + chartLabels[idx];
                             },
                             label: function (context) {
-                                let label = context.dataset.label || "";
-                                if (label) label += ": ";
-                                // ラベルから元の値を取得
-                                const hourLabel = context.label;
-                                const hourData = originalDataMap[hourLabel];
+                                const datasetLabel = context.dataset.label || "";
+                                let prefix = datasetLabel ? datasetLabel + ": " : "";
+                                // dataIndexから直接元のデータを取得
+                                const hourData = diffSecData[context.dataIndex];
                                 if (!hourData) {
-                                    return label + context.parsed.y.toFixed(1) + "秒";
+                                    return prefix + context.parsed.y.toFixed(1) + "秒";
                                 }
                                 // 元の値を表示
                                 let originalValue = 0;
-                                if (context.dataset.label.includes("平均")) {
+                                if (datasetLabel.includes("平均")) {
                                     originalValue = hourData.avg_diff_sec;
-                                } else if (context.dataset.label.includes("最小")) {
+                                } else if (datasetLabel.includes("最小")) {
                                     originalValue = hourData.min_diff_sec;
-                                } else if (context.dataset.label.includes("最大")) {
+                                } else if (datasetLabel.includes("最大")) {
                                     originalValue = hourData.max_diff_sec;
                                 }
-                                label += originalValue.toFixed(1) + "秒";
-                                return label;
+                                return prefix + originalValue.toFixed(1) + "秒";
                             },
                             afterBody: function (context) {
                                 if (context.length > 0) {
-                                    const hourLabel = context[0].label;
-                                    const hourData = originalDataMap[hourLabel];
+                                    const hourData = diffSecData[context[0].dataIndex];
                                     if (hourData) return "実行回数: " + (hourData.count || 0) + "回";
                                 }
                                 return "";
@@ -269,24 +292,22 @@ function generateDiffSecCharts() {
     const diffSecBoxplotCtx = document.getElementById("diffSecBoxplotChart");
     if (diffSecBoxplotCtx && window.hourlyData?.diff_sec_boxplot) {
         const boxplotData = [];
-        const originalStatsArray = []; // インデックスと対応する配列
         for (let hour = 0; hour < 24; hour++) {
             if (window.hourlyData.diff_sec_boxplot[hour]) {
                 const original = window.hourlyData.diff_sec_boxplot[hour];
                 const label = hour + "時";
                 boxplotData.push({
                     x: label,
-                    y: clampBoxplotStats(original),
+                    y: clampBoxplotStats(original), // 元の値は _original* プロパティに保持
                 });
-                originalStatsArray.push(original);
             }
         }
-        const labels = boxplotData.map((d) => d.x);
+        const chartLabels = boxplotData.map((d) => d.x);
 
         new Chart(diffSecBoxplotCtx, {
             type: "boxplot",
             data: {
-                labels: labels,
+                labels: chartLabels,
                 datasets: [
                     {
                         label: "タイミング差分布（秒）",
@@ -311,20 +332,18 @@ function generateDiffSecCharts() {
                         callbacks: {
                             title: function (context) {
                                 const idx = context[0].dataIndex;
-                                return "時刻: " + labels[idx];
+                                return "時刻: " + chartLabels[idx];
                             },
                             label: function (context) {
-                                // dataIndexから直接元の値を取得
-                                const stats = originalStatsArray[context.dataIndex];
-                                if (!stats) {
-                                    return [];
-                                }
+                                // context.raw から元の値（_original* プロパティ）を取得
+                                const raw = context.raw;
+                                if (!raw) return [];
                                 return [
-                                    "最小値: " + stats.min.toFixed(1) + "秒",
-                                    "第1四分位: " + stats.q1.toFixed(1) + "秒",
-                                    "中央値: " + stats.median.toFixed(1) + "秒",
-                                    "第3四分位: " + stats.q3.toFixed(1) + "秒",
-                                    "最大値: " + stats.max.toFixed(1) + "秒",
+                                    "最小値: " + raw._originalMin.toFixed(1) + "秒",
+                                    "第1四分位: " + raw._originalQ1.toFixed(1) + "秒",
+                                    "中央値: " + raw._originalMedian.toFixed(1) + "秒",
+                                    "第3四分位: " + raw._originalQ3.toFixed(1) + "秒",
+                                    "最大値: " + raw._originalMax.toFixed(1) + "秒",
                                 ];
                             },
                         },
@@ -343,8 +362,8 @@ function generateDiffSecCharts() {
 }
 
 function generateBoxplotCharts() {
-    // 共通のツールチップコールバック生成関数（配列とラベルを受け取る）
-    function createBoxplotTooltipConfig(originalStatsArray, labels) {
+    // 共通のツールチップコールバック生成関数（context.raw の _original* プロパティを使用）
+    function createBoxplotTooltipConfig(labels) {
         return {
             backgroundColor: "rgba(0, 0, 0, 0.8)",
             titleColor: "white",
@@ -355,17 +374,15 @@ function generateBoxplotCharts() {
                     return "時刻: " + labels[idx];
                 },
                 label: function (context) {
-                    // dataIndexから直接元の値を取得
-                    const stats = originalStatsArray[context.dataIndex];
-                    if (!stats) {
-                        return [];
-                    }
+                    // context.raw から元の値（_original* プロパティ）を取得
+                    const raw = context.raw;
+                    if (!raw) return [];
                     return [
-                        "最小値: " + stats.min.toFixed(2) + "秒",
-                        "第1四分位: " + stats.q1.toFixed(2) + "秒",
-                        "中央値: " + stats.median.toFixed(2) + "秒",
-                        "第3四分位: " + stats.q3.toFixed(2) + "秒",
-                        "最大値: " + stats.max.toFixed(2) + "秒",
+                        "最小値: " + raw._originalMin.toFixed(2) + "秒",
+                        "第1四分位: " + raw._originalQ1.toFixed(2) + "秒",
+                        "中央値: " + raw._originalMedian.toFixed(2) + "秒",
+                        "第3四分位: " + raw._originalQ3.toFixed(2) + "秒",
+                        "最大値: " + raw._originalMax.toFixed(2) + "秒",
                     ];
                 },
             },
@@ -376,16 +393,14 @@ function generateBoxplotCharts() {
     const drawPanelBoxplotCtx = document.getElementById("drawPanelBoxplotChart");
     if (drawPanelBoxplotCtx && window.hourlyData?.draw_panel_boxplot) {
         const boxplotData = [];
-        const originalStatsArray = []; // インデックスと対応する配列
         for (let hour = 0; hour < 24; hour++) {
             if (window.hourlyData.draw_panel_boxplot[hour]) {
                 const original = window.hourlyData.draw_panel_boxplot[hour];
                 const label = hour + "時";
                 boxplotData.push({
                     x: label,
-                    y: clampBoxplotStats(original),
+                    y: clampBoxplotStats(original), // 元の値は _original* プロパティに保持
                 });
-                originalStatsArray.push(original);
             }
         }
         const labels = boxplotData.map((d) => d.x);
@@ -411,7 +426,7 @@ function generateBoxplotCharts() {
                 maintainAspectRatio: false,
                 plugins: {
                     legend: { position: "top" },
-                    tooltip: createBoxplotTooltipConfig(originalStatsArray, labels),
+                    tooltip: createBoxplotTooltipConfig(labels),
                 },
                 scales: {
                     x: {
@@ -428,16 +443,14 @@ function generateBoxplotCharts() {
     const displayImageBoxplotCtx = document.getElementById("displayImageBoxplotChart");
     if (displayImageBoxplotCtx && window.hourlyData?.display_image_boxplot) {
         const boxplotData = [];
-        const originalStatsArray = []; // インデックスと対応する配列
         for (let hour = 0; hour < 24; hour++) {
             if (window.hourlyData.display_image_boxplot[hour]) {
                 const original = window.hourlyData.display_image_boxplot[hour];
                 const label = hour + "時";
                 boxplotData.push({
                     x: label,
-                    y: clampBoxplotStats(original),
+                    y: clampBoxplotStats(original), // 元の値は _original* プロパティに保持
                 });
-                originalStatsArray.push(original);
             }
         }
         const labels = boxplotData.map((d) => d.x);
@@ -463,7 +476,7 @@ function generateBoxplotCharts() {
                 maintainAspectRatio: false,
                 plugins: {
                     legend: { position: "top" },
-                    tooltip: createBoxplotTooltipConfig(originalStatsArray, labels),
+                    tooltip: createBoxplotTooltipConfig(labels),
                 },
                 scales: {
                     x: {
@@ -478,8 +491,8 @@ function generateBoxplotCharts() {
 }
 
 function generateTrendsCharts() {
-    // 箱ひげ図用の日本語ツールチップコールバックを生成
-    function createBoxplotTooltipCallback(originalDataArray, unit = "秒") {
+    // 箱ひげ図用の日本語ツールチップコールバックを生成（context.raw の _original* プロパティを使用）
+    function createBoxplotTooltipCallback(unit = "秒") {
         return {
             backgroundColor: "rgba(0, 0, 0, 0.8)",
             titleColor: "white",
@@ -489,13 +502,15 @@ function generateTrendsCharts() {
                     return "日付: " + context[0].label;
                 },
                 label: function (context) {
-                    const stats = originalDataArray[context.dataIndex];
+                    // context.raw から元の値（_original* プロパティ）を取得
+                    const raw = context.raw;
+                    if (!raw) return [];
                     return [
-                        "最小値: " + stats.min.toFixed(2) + unit,
-                        "第1四分位: " + stats.q1.toFixed(2) + unit,
-                        "中央値: " + stats.median.toFixed(2) + unit,
-                        "第3四分位: " + stats.q3.toFixed(2) + unit,
-                        "最大値: " + stats.max.toFixed(2) + unit,
+                        "最小値: " + raw._originalMin.toFixed(2) + unit,
+                        "第1四分位: " + raw._originalQ1.toFixed(2) + unit,
+                        "中央値: " + raw._originalMedian.toFixed(2) + unit,
+                        "第3四分位: " + raw._originalQ3.toFixed(2) + unit,
+                        "最大値: " + raw._originalMax.toFixed(2) + unit,
                     ];
                 },
             },
@@ -505,10 +520,9 @@ function generateTrendsCharts() {
     // 画像生成処理 - 日別推移（新しい統計量形式に対応）
     const drawPanelTrendsCtx = document.getElementById("drawPanelTrendsChart");
     if (drawPanelTrendsCtx && window.trendsData?.draw_panel_boxplot) {
-        const originalStats = window.trendsData.draw_panel_boxplot.map((d) => d.stats);
         const boxplotData = window.trendsData.draw_panel_boxplot.map((d) => ({
             x: d.date,
-            y: clampBoxplotStats(d.stats), // 統計量をクランプ
+            y: clampBoxplotStats(d.stats), // 元の値は _original* プロパティに保持
         }));
 
         const drawPanelResetBtnId = "drawPanelTrendsChart-reset";
@@ -534,7 +548,7 @@ function generateTrendsCharts() {
                 plugins: {
                     legend: { display: false },
                     zoom: getZoomPluginConfig(drawPanelResetBtnId),
-                    tooltip: createBoxplotTooltipCallback(originalStats),
+                    tooltip: createBoxplotTooltipCallback(),
                 },
                 scales: {
                     x: {
@@ -553,10 +567,9 @@ function generateTrendsCharts() {
     // 表示実行処理 - 日別推移（新しい統計量形式に対応）
     const displayImageTrendsCtx = document.getElementById("displayImageTrendsChart");
     if (displayImageTrendsCtx && window.trendsData?.display_image_boxplot) {
-        const originalStats = window.trendsData.display_image_boxplot.map((d) => d.stats);
         const boxplotData = window.trendsData.display_image_boxplot.map((d) => ({
             x: d.date,
-            y: clampBoxplotStats(d.stats), // 統計量をクランプ
+            y: clampBoxplotStats(d.stats), // 元の値は _original* プロパティに保持
         }));
 
         const displayImageResetBtnId = "displayImageTrendsChart-reset";
@@ -582,7 +595,7 @@ function generateTrendsCharts() {
                 plugins: {
                     legend: { display: false },
                     zoom: getZoomPluginConfig(displayImageResetBtnId),
-                    tooltip: createBoxplotTooltipCallback(originalStats),
+                    tooltip: createBoxplotTooltipCallback(),
                 },
                 scales: {
                     x: {
@@ -601,10 +614,9 @@ function generateTrendsCharts() {
     // 表示タイミング - 日別推移（新しい統計量形式に対応）
     const diffSecTrendsCtx = document.getElementById("diffSecTrendsChart");
     if (diffSecTrendsCtx && window.trendsData?.diff_sec_boxplot) {
-        const originalStats = window.trendsData.diff_sec_boxplot.map((d) => d.stats);
         const boxplotData = window.trendsData.diff_sec_boxplot.map((d) => ({
             x: d.date,
-            y: d.stats, // タイミング差は30秒制限なし
+            y: addOriginalStats(d.stats), // タイミング差は30秒制限なし、_original* プロパティを追加
         }));
 
         const diffSecResetBtnId = "diffSecTrendsChart-reset";
@@ -630,7 +642,7 @@ function generateTrendsCharts() {
                 plugins: {
                     legend: { display: false },
                     zoom: getZoomPluginConfig(diffSecResetBtnId),
-                    tooltip: createBoxplotTooltipCallback(originalStats),
+                    tooltip: createBoxplotTooltipCallback(),
                 },
                 scales: {
                     x: {
@@ -681,9 +693,8 @@ function generatePanelTrendsCharts() {
         return;
     }
 
-    // パネル名と統計量をリストに変換（元の値も保持）
+    // パネル名と統計量をリストに変換（元の値は _original* プロパティに保持）
     const panelNames = Object.keys(window.panelTrendsData);
-    const originalStats = panelNames.map((name) => window.panelTrendsData[name]); // 元の値を保持
     const panelStats = panelNames.map((name) => clampPanelBoxplotStats(window.panelTrendsData[name]));
     console.log("generatePanelTrendsCharts: panelNames=", panelNames, "panelStats count=", panelStats.length);
 
@@ -714,7 +725,7 @@ function generatePanelTrendsCharts() {
                 datasets: [
                     {
                         label: "処理時間分布（秒）",
-                        data: panelStats, // 統計量オブジェクト {min, q1, median, q3, max, outliers}
+                        data: panelStats, // 統計量オブジェクト（_original* プロパティ含む）
                         backgroundColor: panelNames.map((_, i) => getBoxplotColor(i)),
                         borderColor: panelNames.map((_, i) => getBorderColor(i)),
                         borderWidth: 2,
@@ -738,15 +749,16 @@ function generatePanelTrendsCharts() {
                                 return context[0].label + " パネル";
                             },
                             label: function (context) {
-                                // 元の値を表示
-                                const stats = originalStats[context.dataIndex];
-                                const count = stats?.count || 0;
+                                // context.raw から元の値（_original* プロパティ）を取得
+                                const raw = context.raw;
+                                if (!raw) return [];
+                                const count = raw.count || 0;
                                 return [
-                                    "最小値: " + stats.min.toFixed(2) + "秒",
-                                    "第1四分位: " + stats.q1.toFixed(2) + "秒",
-                                    "中央値: " + stats.median.toFixed(2) + "秒",
-                                    "第3四分位: " + stats.q3.toFixed(2) + "秒",
-                                    "最大値: " + stats.max.toFixed(2) + "秒",
+                                    "最小値: " + raw._originalMin.toFixed(2) + "秒",
+                                    "第1四分位: " + raw._originalQ1.toFixed(2) + "秒",
+                                    "中央値: " + raw._originalMedian.toFixed(2) + "秒",
+                                    "第3四分位: " + raw._originalQ3.toFixed(2) + "秒",
+                                    "最大値: " + raw._originalMax.toFixed(2) + "秒",
                                     "データ数: " + count + "件",
                                 ];
                             },
@@ -776,83 +788,152 @@ function generatePanelTrendsCharts() {
     }
 }
 
-function generatePanelTimeSeriesChart() {
-    // 統計量形式では時系列データがないため、棒グラフで中央値を比較表示
-    const panelTimeSeriesCtx = document.getElementById("panelTimeSeriesChart");
-    console.log("generatePanelTimeSeriesChart: ctx=", panelTimeSeriesCtx);
+// パネル別日別推移グラフを生成
+function generatePanelDailyTrendsCharts() {
+    const container = document.getElementById("panelDailyTrendsContainer");
+    console.log(
+        "generatePanelDailyTrendsCharts: container=",
+        container,
+        "data=",
+        window.panelDailyTrendsData
+    );
 
-    if (!panelTimeSeriesCtx) {
-        console.warn("generatePanelTimeSeriesChart: canvas not found");
+    if (!container) {
+        console.warn("generatePanelDailyTrendsCharts: container not found");
         return;
     }
-    if (!window.panelTrendsData || Object.keys(window.panelTrendsData).length === 0) {
-        console.warn("generatePanelTimeSeriesChart: panelTrendsData is empty");
+
+    if (!window.panelDailyTrendsData || Object.keys(window.panelDailyTrendsData).length === 0) {
+        console.warn("generatePanelDailyTrendsCharts: panelDailyTrendsData is empty or undefined");
+        container.innerHTML = `
+            <div class="column is-full">
+                <div class="notification is-warning is-light">
+                    <span class="icon"><i class="fas fa-info-circle"></i></span>
+                    パネル別日別推移データがありません。
+                </div>
+            </div>
+        `;
         return;
     }
 
-    const panelNames = Object.keys(window.panelTrendsData);
-    const medians = panelNames.map((name) => window.panelTrendsData[name]?.median || 0);
-    const counts = panelNames.map((name) => window.panelTrendsData[name]?.count || 0);
+    // コンテナをクリア
+    container.innerHTML = "";
 
-    try {
-        new Chart(panelTimeSeriesCtx, {
-            type: "bar",
-            data: {
-                labels: panelNames,
-                datasets: [
-                    {
-                        label: "中央値（秒）",
-                        data: medians,
-                        backgroundColor: panelNames.map((_, i) => getBoxplotColor(i)),
-                        borderColor: panelNames.map((_, i) => getBorderColor(i)),
-                        borderWidth: 2,
-                    },
-                ],
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: { display: false },
-                    tooltip: {
-                        backgroundColor: "rgba(0, 0, 0, 0.8)",
-                        titleColor: "white",
-                        bodyColor: "white",
-                        callbacks: {
-                            title: function (context) {
-                                return context[0].label + " パネル";
-                            },
-                            label: function (context) {
-                                const stats = window.panelTrendsData[context.label];
-                                return [
-                                    "中央値: " + (stats?.median || 0).toFixed(2) + "秒",
-                                    "データ数: " + (stats?.count || 0) + "件",
-                                ];
+    const panelNames = Object.keys(window.panelDailyTrendsData);
+    console.log("generatePanelDailyTrendsCharts: panelNames=", panelNames);
+
+    // 各パネルのグラフを生成
+    panelNames.forEach((panelName, index) => {
+        const panelData = window.panelDailyTrendsData[panelName];
+        if (!panelData || panelData.length === 0) return;
+
+        // カラム作成（2列レイアウト）
+        const columnDiv = document.createElement("div");
+        columnDiv.className = "column is-6";
+        columnDiv.innerHTML = `
+            <div class="card metrics-card" id="panel-daily-${index}">
+                <i class="fas fa-link card-permalink" onclick="copyPermalink('panel-daily-${index}')"></i>
+                <div class="card-header">
+                    <p class="card-header-title">${panelName} - 日別推移</p>
+                </div>
+                <div class="card-content">
+                    <div class="chart-container" style="height: 300px; position: relative;">
+                        <canvas id="panelDailyChart-${index}"></canvas>
+                    </div>
+                </div>
+            </div>
+        `;
+        container.appendChild(columnDiv);
+
+        // boxplotデータを準備（クランプ付き）
+        const boxplotData = panelData.map((d) => ({
+            x: d.date,
+            y: clampPanelBoxplotStats(d.stats),
+        }));
+
+        // グラフ作成
+        const canvas = document.getElementById(`panelDailyChart-${index}`);
+        const resetBtnId = `panelDailyChart-${index}-reset`;
+
+        try {
+            const chart = new Chart(canvas, {
+                type: "boxplot",
+                data: {
+                    labels: boxplotData.map((d) => d.x),
+                    datasets: [
+                        {
+                            label: "処理時間分布（秒）",
+                            data: boxplotData.map((d) => d.y),
+                            backgroundColor: getBoxplotColor(index),
+                            borderColor: getBorderColor(index),
+                            borderWidth: 2,
+                            outlierColor: "rgb(239, 68, 68)",
+                            medianColor: "rgb(255, 193, 7)",
+                        },
+                    ],
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        zoom: getZoomPluginConfig(resetBtnId),
+                        tooltip: {
+                            backgroundColor: "rgba(0, 0, 0, 0.8)",
+                            titleColor: "white",
+                            bodyColor: "white",
+                            callbacks: {
+                                title: function (context) {
+                                    return panelName + " - " + context[0].label;
+                                },
+                                label: function (context) {
+                                    // context.raw から元の値（_original* プロパティ）を取得
+                                    const raw = context.raw;
+                                    if (!raw) return [];
+                                    return [
+                                        "最小値: " + raw._originalMin.toFixed(2) + "秒",
+                                        "第1四分位: " + raw._originalQ1.toFixed(2) + "秒",
+                                        "中央値: " + raw._originalMedian.toFixed(2) + "秒",
+                                        "第3四分位: " + raw._originalQ3.toFixed(2) + "秒",
+                                        "最大値: " + raw._originalMax.toFixed(2) + "秒",
+                                    ];
+                                },
                             },
                         },
                     },
-                },
-                scales: {
-                    x: {
-                        display: true,
-                        title: { display: true, text: "パネル", font: { size: 14, weight: "bold" } },
-                    },
-                    y: {
-                        display: true,
-                        title: {
+                    scales: {
+                        x: {
                             display: true,
-                            text: "処理時間 中央値（秒）",
-                            font: { size: 14, weight: "bold" },
+                            title: { display: true, text: "日付", font: { size: 12, weight: "bold" } },
+                            ticks: { maxRotation: 45, minRotation: 45 },
                         },
-                        beginAtZero: true,
+                        y: getPanelElapsedTimeYAxisConfig(),
                     },
                 },
+            });
+
+            // リセットボタンを追加
+            createZoomResetButton(canvas.parentElement, chart, resetBtnId);
+            console.log(`generatePanelDailyTrendsCharts: ${panelName} chart created successfully`);
+        } catch (error) {
+            console.error(`generatePanelDailyTrendsCharts: ${panelName} chart creation failed:`, error);
+        }
+    });
+}
+
+// パネル別処理時間用Y軸設定を取得
+function getPanelElapsedTimeYAxisConfig(titleText = "処理時間（秒）") {
+    return {
+        display: true,
+        max: MAX_PANEL_ELAPSED_TIME,
+        title: { display: true, text: titleText, font: { size: 12, weight: "bold" } },
+        ticks: {
+            callback: function (value) {
+                if (value === MAX_PANEL_ELAPSED_TIME) return MAX_PANEL_ELAPSED_TIME + "以上";
+                return value;
             },
-        });
-        console.log("generatePanelTimeSeriesChart: Chart created successfully");
-    } catch (error) {
-        console.error("generatePanelTimeSeriesChart: Chart creation failed:", error);
-    }
+        },
+    };
 }
 
 function getBoxplotColor(index) {
