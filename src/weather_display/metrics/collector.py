@@ -9,8 +9,6 @@ This module provides functionality to:
 - Analyze relationships with time patterns
 """
 
-# ruff: noqa: S608  # date_filterはdays_limit（整数）から生成されるため安全
-
 import concurrent.futures
 import datetime
 import logging
@@ -28,6 +26,20 @@ from sklearn.preprocessing import StandardScaler
 _TIMEZONE = zoneinfo.ZoneInfo("Asia/Tokyo")
 _DEFAULT_DB_PATH = pathlib.Path("data/metrics.db")
 _DEFAULT_DAYS_LIMIT = 30  # デフォルトは過去30日間
+
+
+def _get_cutoff_date(days_limit: int) -> str:
+    """期間制限の基準日時を取得する。
+
+    Args:
+        days_limit: 過去何日分のデータを取得するか
+
+    Returns:
+        SQLite の datetime 比較に使える形式の日時文字列
+
+    """
+    cutoff = datetime.datetime.now(_TIMEZONE) - datetime.timedelta(days=days_limit)
+    return cutoff.strftime("%Y-%m-%d %H:%M:%S")
 
 
 def _calculate_boxplot_stats(arr: np.ndarray) -> dict[str, Any] | None:
@@ -417,15 +429,14 @@ class MetricsAnalyzer:
         if days_limit is None:
             days_limit = _DEFAULT_DAYS_LIMIT
 
+        cutoff_date = _get_cutoff_date(days_limit)
+
         with self._get_connection() as conn:
             cursor = conn.cursor()
 
-            # 期間制限のWHERE句を生成（days_limitは整数のためSQLインジェクションの危険なし）
-            date_filter = f"WHERE timestamp >= datetime('now', '-{days_limit} days')"
-
             # Draw panel statistics
             cursor.execute(
-                f"""
+                """
                 SELECT
                     COUNT(*) as total_operations,
                     AVG(total_elapsed_time) as avg_elapsed_time,
@@ -433,14 +444,15 @@ class MetricsAnalyzer:
                     MAX(total_elapsed_time) as max_elapsed_time,
                     SUM(CASE WHEN error_code > 0 THEN 1 ELSE 0 END) as error_count
                 FROM draw_panel_metrics
-                {date_filter}
-            """
+                WHERE timestamp >= ?
+            """,
+                (cutoff_date,),
             )
             draw_panel_stats = dict(cursor.fetchone())
 
             # Display image statistics
             cursor.execute(
-                f"""
+                """
                 SELECT
                     COUNT(*) as total_operations,
                     AVG(elapsed_time) as avg_elapsed_time,
@@ -448,8 +460,9 @@ class MetricsAnalyzer:
                     MAX(elapsed_time) as max_elapsed_time,
                     SUM(CASE WHEN success = 0 THEN 1 ELSE 0 END) as error_count
                 FROM display_image_metrics
-                {date_filter}
-            """
+                WHERE timestamp >= ?
+            """,
+                (cutoff_date,),
             )
             display_image_stats = dict(cursor.fetchone())
 
@@ -471,24 +484,27 @@ class MetricsAnalyzer:
         if days_limit is None:
             days_limit = _DEFAULT_DAYS_LIMIT
 
-        date_filter = f"WHERE timestamp >= datetime('now', '-{days_limit} days')"
+        cutoff_date = _get_cutoff_date(days_limit)
 
         def fetch_draw_panel() -> tuple[list, list]:
             with self._get_connection() as conn:
                 cursor = conn.cursor()
                 cursor.execute(
-                    f"""
+                    """
                     SELECT hour, COUNT(*) as count,
                            AVG(total_elapsed_time) as avg_elapsed_time,
                            MIN(total_elapsed_time) as min_elapsed_time,
                            MAX(total_elapsed_time) as max_elapsed_time,
                            SUM(CASE WHEN error_code > 0 THEN 1 ELSE 0 END) * 100.0 / COUNT(*) as error_rate
-                    FROM draw_panel_metrics {date_filter} GROUP BY hour ORDER BY hour
-                """
+                    FROM draw_panel_metrics WHERE timestamp >= ? GROUP BY hour ORDER BY hour
+                """,
+                    (cutoff_date,),
                 )
                 hourly = [dict(row) for row in cursor.fetchall()]
                 cursor.execute(
-                    f"SELECT hour, total_elapsed_time FROM draw_panel_metrics {date_filter} ORDER BY hour"
+                    """SELECT hour, total_elapsed_time FROM draw_panel_metrics
+                    WHERE timestamp >= ? ORDER BY hour""",
+                    (cutoff_date,),
                 )
                 raw = cursor.fetchall()
                 return hourly, raw
@@ -497,16 +513,18 @@ class MetricsAnalyzer:
             with self._get_connection() as conn:
                 cursor = conn.cursor()
                 cursor.execute(
-                    f"""
+                    """
                     SELECT hour, COUNT(*) as count, AVG(elapsed_time) as avg_elapsed_time,
                            MIN(elapsed_time) as min_elapsed_time, MAX(elapsed_time) as max_elapsed_time,
                            SUM(CASE WHEN success = 0 THEN 1 ELSE 0 END) * 100.0 / COUNT(*) as error_rate
-                    FROM display_image_metrics {date_filter} GROUP BY hour ORDER BY hour
-                """
+                    FROM display_image_metrics WHERE timestamp >= ? GROUP BY hour ORDER BY hour
+                """,
+                    (cutoff_date,),
                 )
                 hourly = [dict(row) for row in cursor.fetchall()]
                 cursor.execute(
-                    f"SELECT hour, elapsed_time FROM display_image_metrics {date_filter} ORDER BY hour"
+                    "SELECT hour, elapsed_time FROM display_image_metrics WHERE timestamp >= ? ORDER BY hour",
+                    (cutoff_date,),
                 )
                 raw = cursor.fetchall()
                 return hourly, raw
@@ -515,19 +533,22 @@ class MetricsAnalyzer:
             with self._get_connection() as conn:
                 cursor = conn.cursor()
                 cursor.execute(
-                    f"""
+                    """
                     SELECT hour, COUNT(*) as count,
                            AVG(CAST(diff_sec AS REAL)) as avg_diff_sec,
                            MIN(CAST(diff_sec AS REAL)) as min_diff_sec,
                            MAX(CAST(diff_sec AS REAL)) as max_diff_sec
-                    FROM display_image_metrics {date_filter} AND diff_sec IS NOT NULL AND is_one_time = 0
+                    FROM display_image_metrics
+                    WHERE timestamp >= ? AND diff_sec IS NOT NULL AND is_one_time = 0
                     GROUP BY hour ORDER BY hour
-                """
+                """,
+                    (cutoff_date,),
                 )
                 hourly = [dict(row) for row in cursor.fetchall()]
                 cursor.execute(
-                    f"""SELECT hour, CAST(diff_sec AS REAL) FROM display_image_metrics
-                    {date_filter} AND diff_sec IS NOT NULL AND is_one_time = 0 ORDER BY hour"""
+                    """SELECT hour, CAST(diff_sec AS REAL) FROM display_image_metrics
+                    WHERE timestamp >= ? AND diff_sec IS NOT NULL AND is_one_time = 0 ORDER BY hour""",
+                    (cutoff_date,),
                 )
                 raw = cursor.fetchall()
                 return hourly, raw
@@ -590,15 +611,16 @@ class MetricsAnalyzer:
         if days_limit is None:
             days_limit = _DEFAULT_DAYS_LIMIT
 
-        date_filter = f"WHERE timestamp >= datetime('now', '-{days_limit} days')"
+        cutoff_date = _get_cutoff_date(days_limit)
 
         def fetch_and_analyze_draw_panel() -> dict | None:
             with self._get_connection() as conn:
                 cursor = conn.cursor()
                 # 特徴量用データ（高速）
                 cursor.execute(
-                    f"""SELECT hour, day_of_week, total_elapsed_time, error_code
-                    FROM draw_panel_metrics {date_filter}"""
+                    """SELECT hour, day_of_week, total_elapsed_time, error_code
+                    FROM draw_panel_metrics WHERE timestamp >= ?""",
+                    (cutoff_date,),
                 )
                 feature_data = cursor.fetchall()
                 if len(feature_data) <= 10:
@@ -624,8 +646,9 @@ class MetricsAnalyzer:
 
                 # 異常データのid, timestampを取得
                 cursor.execute(
-                    f"""SELECT id, timestamp, hour, total_elapsed_time, error_code
-                    FROM draw_panel_metrics {date_filter} ORDER BY timestamp"""
+                    """SELECT id, timestamp, hour, total_elapsed_time, error_code
+                    FROM draw_panel_metrics WHERE timestamp >= ? ORDER BY timestamp""",
+                    (cutoff_date,),
                 )
                 all_rows = cursor.fetchall()
                 anomalies = [
@@ -651,8 +674,9 @@ class MetricsAnalyzer:
                 cursor = conn.cursor()
                 # 特徴量用データ（高速）
                 cursor.execute(
-                    f"""SELECT hour, day_of_week, elapsed_time, CASE WHEN success THEN 0 ELSE 1 END
-                    FROM display_image_metrics {date_filter}"""
+                    """SELECT hour, day_of_week, elapsed_time, CASE WHEN success THEN 0 ELSE 1 END
+                    FROM display_image_metrics WHERE timestamp >= ?""",
+                    (cutoff_date,),
                 )
                 feature_data = cursor.fetchall()
                 if len(feature_data) <= 10:
@@ -678,8 +702,9 @@ class MetricsAnalyzer:
 
                 # 異常データのid, timestampを取得
                 cursor.execute(
-                    f"""SELECT id, timestamp, hour, elapsed_time, success
-                    FROM display_image_metrics {date_filter} ORDER BY timestamp"""
+                    """SELECT id, timestamp, hour, elapsed_time, success
+                    FROM display_image_metrics WHERE timestamp >= ? ORDER BY timestamp""",
+                    (cutoff_date,),
                 )
                 all_rows = cursor.fetchall()
                 anomalies = [
@@ -728,73 +753,77 @@ class MetricsAnalyzer:
         if days_limit is None:
             days_limit = _DEFAULT_DAYS_LIMIT
 
+        cutoff_date = _get_cutoff_date(days_limit)
+
         with self._get_connection() as conn:
             cursor = conn.cursor()
 
-            # 期間制限のWHERE句を生成
-            date_filter = f"WHERE timestamp >= datetime('now', '-{days_limit} days')"
-
             # Daily trends for draw panel
             cursor.execute(
-                f"""
+                """
                 SELECT
                     DATE(timestamp) as date,
                     COUNT(*) as operations,
                     AVG(total_elapsed_time) as avg_elapsed_time,
                     SUM(CASE WHEN error_code > 0 THEN 1 ELSE 0 END) * 100.0 / COUNT(*) as error_rate
                 FROM draw_panel_metrics
-                {date_filter}
+                WHERE timestamp >= ?
                 GROUP BY DATE(timestamp)
                 ORDER BY date
-            """
+            """,
+                (cutoff_date,),
             )
             draw_panel_trends = [dict(row) for row in cursor.fetchall()]
 
             # Daily trends for display image
             cursor.execute(
-                f"""
+                """
                 SELECT
                     DATE(timestamp) as date,
                     COUNT(*) as operations,
                     AVG(elapsed_time) as avg_elapsed_time,
                     SUM(CASE WHEN success = 0 THEN 1 ELSE 0 END) * 100.0 / COUNT(*) as error_rate
                 FROM display_image_metrics
-                {date_filter}
+                WHERE timestamp >= ?
                 GROUP BY DATE(timestamp)
                 ORDER BY date
-            """
+            """,
+                (cutoff_date,),
             )
             display_image_trends = [dict(row) for row in cursor.fetchall()]
 
             # Get raw elapsed times for boxplot by day
             cursor.execute(
-                f"""
+                """
                 SELECT DATE(timestamp) as date, total_elapsed_time
                 FROM draw_panel_metrics
-                {date_filter}
+                WHERE timestamp >= ?
                 ORDER BY date
-            """
+            """,
+                (cutoff_date,),
             )
             draw_panel_raw = cursor.fetchall()
 
             cursor.execute(
-                f"""
+                """
                 SELECT DATE(timestamp) as date, elapsed_time
                 FROM display_image_metrics
-                {date_filter}
+                WHERE timestamp >= ?
                 ORDER BY date
-            """
+            """,
+                (cutoff_date,),
             )
             display_image_raw = cursor.fetchall()
 
             # Get raw diff_sec data for boxplot by day
             cursor.execute(
-                f"""
+                """
                 SELECT DATE(timestamp) as date, CAST(diff_sec AS REAL)
                 FROM display_image_metrics
-                {date_filter} AND diff_sec IS NOT NULL AND is_one_time = 0
+                WHERE timestamp >= ? AND diff_sec IS NOT NULL AND is_one_time = 0
                 ORDER BY date
-            """
+            """,
+                (cutoff_date,),
             )
             diff_sec_raw = cursor.fetchall()
 
@@ -957,23 +986,23 @@ class MetricsAnalyzer:
         if days_limit is None:
             days_limit = _DEFAULT_DAYS_LIMIT
 
+        cutoff_date = _get_cutoff_date(days_limit)
+
         with self._get_connection() as conn:
             cursor = conn.cursor()
 
-            # 期間制限のWHERE句を生成
-            date_filter = f"WHERE dpm.timestamp >= datetime('now', '-{days_limit} days')"
-
             # パネル別の処理時間データを取得
             cursor.execute(
-                f"""
+                """
                 SELECT
                     pm.panel_name,
                     pm.elapsed_time
                 FROM panel_metrics pm
                 JOIN draw_panel_metrics dpm ON pm.draw_panel_id = dpm.id
-                {date_filter}
+                WHERE dpm.timestamp >= ?
                 ORDER BY pm.panel_name
-            """
+            """,
+                (cutoff_date,),
             )
             panel_data = cursor.fetchall()
 
@@ -1010,33 +1039,34 @@ class MetricsAnalyzer:
         if days_limit is None:
             days_limit = _DEFAULT_DAYS_LIMIT
 
+        cutoff_date = _get_cutoff_date(days_limit)
+
         with self._get_connection() as conn:
             cursor = conn.cursor()
 
-            # 期間制限のWHERE句を生成
-            date_filter = f"WHERE timestamp >= datetime('now', '-{days_limit} days')"
-
             # 画像生成処理の統計
             cursor.execute(
-                f"""
+                """
                 SELECT
                     AVG(total_elapsed_time) as avg_time,
                     COUNT(*) as count,
                     MIN(total_elapsed_time) as min_time,
                     MAX(total_elapsed_time) as max_time
                 FROM draw_panel_metrics
-                {date_filter}
-            """
+                WHERE timestamp >= ?
+            """,
+                (cutoff_date,),
             )
             draw_panel_stats = dict(cursor.fetchone())
 
             # 標準偏差を計算（SQLiteにはSTDDEV関数がないため、numpy使用）
             cursor.execute(
-                f"""
+                """
                 SELECT total_elapsed_time
                 FROM draw_panel_metrics
-                {date_filter}
-            """
+                WHERE timestamp >= ?
+            """,
+                (cutoff_date,),
             )
             draw_panel_times = np.array([row[0] for row in cursor.fetchall()])
 
@@ -1047,24 +1077,26 @@ class MetricsAnalyzer:
 
             # 表示実行処理の統計
             cursor.execute(
-                f"""
+                """
                 SELECT
                     AVG(elapsed_time) as avg_time,
                     COUNT(*) as count,
                     MIN(elapsed_time) as min_time,
                     MAX(elapsed_time) as max_time
                 FROM display_image_metrics
-                {date_filter}
-            """
+                WHERE timestamp >= ?
+            """,
+                (cutoff_date,),
             )
             display_image_stats = dict(cursor.fetchone())
 
             cursor.execute(
-                f"""
+                """
                 SELECT elapsed_time
                 FROM display_image_metrics
-                {date_filter}
-            """
+                WHERE timestamp >= ?
+            """,
+                (cutoff_date,),
             )
             display_image_times = np.array([row[0] for row in cursor.fetchall()])
 
