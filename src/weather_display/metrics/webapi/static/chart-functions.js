@@ -4,8 +4,8 @@
 // 定数とユーティリティ関数
 // ============================================
 
-// Heroicons SVG definitions
-const ICONS = {
+// Heroicons SVG definitions (chart-functions.js 専用)
+const CHART_ICONS = {
     "arrow-uturn-left":
         '<svg class="hero-icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" d="M9 15 3 9m0 0 6-6M3 9h12a6 6 0 0 1 0 12h-3" /></svg>',
     "information-circle":
@@ -158,7 +158,7 @@ function createZoomResetButton(container, chartInstance, buttonId) {
     btn.id = buttonId;
     btn.className = "button is-small is-light zoom-reset-btn";
     btn.innerHTML =
-        '<span class="icon is-small">' + ICONS["arrow-uturn-left"] + "</span><span>リセット</span>";
+        '<span class="icon is-small">' + CHART_ICONS["arrow-uturn-left"] + "</span><span>リセット</span>";
     btn.style.cssText = "display:none; position:absolute; top:25px; right:10px; z-index:10;";
     btn.onclick = function () {
         chartInstance.resetZoom();
@@ -697,7 +697,7 @@ function generatePanelTrendsCharts() {
         container.innerHTML = `
             <div class="column is-full">
                 <div class="notification is-warning is-light">
-                    <span class="icon">${ICONS["information-circle"]}</span>
+                    <span class="icon">${CHART_ICONS["information-circle"]}</span>
                     パネル別処理時間データがありません。
                 </div>
             </div>
@@ -792,7 +792,7 @@ function generatePanelTrendsCharts() {
         container.innerHTML = `
             <div class="column is-full">
                 <div class="notification is-danger is-light">
-                    <span class="icon">${ICONS["exclamation-triangle"]}</span>
+                    <span class="icon">${CHART_ICONS["exclamation-triangle"]}</span>
                     パネル別グラフの生成に失敗しました: ${error.message}
                 </div>
             </div>
@@ -820,7 +820,7 @@ function generatePanelDailyTrendsCharts() {
         container.innerHTML = `
             <div class="column is-full">
                 <div class="notification is-warning is-light">
-                    <span class="icon">${ICONS["information-circle"]}</span>
+                    <span class="icon">${CHART_ICONS["information-circle"]}</span>
                     パネル別日別推移データがありません。
                 </div>
             </div>
@@ -844,7 +844,7 @@ function generatePanelDailyTrendsCharts() {
         columnDiv.className = "column is-6";
         columnDiv.innerHTML = `
             <div class="card metrics-card" id="panel-daily-${index}">
-                <span class="card-permalink" onclick="copyPermalink('panel-daily-${index}')">${ICONS["link"]}</span>
+                <span class="card-permalink" onclick="copyPermalink('panel-daily-${index}')">${CHART_ICONS["link"]}</span>
                 <div class="card-header">
                     <p class="card-header-title">${panelName} - 日別推移</p>
                 </div>
@@ -984,18 +984,25 @@ function getBorderColor(index) {
     console.log("  - Chart.js:", typeof Chart !== "undefined" ? "loaded" : "NOT LOADED");
 
     if (typeof Chart !== "undefined" && Chart.registry?.plugins) {
-        // Chart.registry.plugins.items は Map オブジェクト
-        const pluginIds = [];
-        Chart.registry.plugins.items.forEach((plugin, id) => {
-            pluginIds.push(id);
-        });
-        console.log("  - Registered plugins:", pluginIds.join(", "));
+        try {
+            // Chart.js バージョンによって構造が異なる場合があるため安全に取得
+            const pluginIds = [];
+            const items = Chart.registry.plugins.items;
+            if (items instanceof Map) {
+                items.forEach((plugin, id) => pluginIds.push(id));
+            } else if (typeof items === "object") {
+                Object.keys(items).forEach((id) => pluginIds.push(id));
+            }
+            console.log("  - Registered plugins:", pluginIds.join(", ") || "(none)");
 
-        // zoom プラグインが登録されているか確認
-        const zoomRegistered = pluginIds.includes("zoom");
-        console.log("  - Zoom plugin registered:", zoomRegistered);
-        if (!zoomRegistered) {
-            console.warn("  - WARNING: Drag zoom will not work without zoom plugin!");
+            // zoom プラグインが登録されているか確認
+            const zoomRegistered = pluginIds.includes("zoom");
+            console.log("  - Zoom plugin registered:", zoomRegistered);
+            if (!zoomRegistered) {
+                console.warn("  - WARNING: Drag zoom will not work without zoom plugin!");
+            }
+        } catch (e) {
+            console.log("  - Could not enumerate plugins:", e.message);
         }
     }
 })();
