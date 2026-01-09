@@ -4,6 +4,17 @@
 // 定数とユーティリティ関数
 // ============================================
 
+// Heroicons SVG definitions
+const ICONS = {
+    "arrow-uturn-left":
+        '<svg class="hero-icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" d="M9 15 3 9m0 0 6-6M3 9h12a6 6 0 0 1 0 12h-3" /></svg>',
+    "information-circle":
+        '<svg class="hero-icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" d="m11.25 11.25.041-.02a.75.75 0 0 1 1.063.852l-.708 2.836a.75.75 0 0 0 1.063.853l.041-.021M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9-3.75h.008v.008H12V8.25Z" /></svg>',
+    "exclamation-triangle":
+        '<svg class="hero-icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" /></svg>',
+    link: '<svg class="hero-icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" d="M13.19 8.688a4.5 4.5 0 0 1 1.242 7.244l-4.5 4.5a4.5 4.5 0 0 1-6.364-6.364l1.757-1.757m13.35-.622 1.757-1.757a4.5 4.5 0 0 0-6.364-6.364l-4.5 4.5a4.5 4.5 0 0 0 1.242 7.244" /></svg>',
+};
+
 // 処理時間のY軸最大値（秒）
 const MAX_ELAPSED_TIME = 30;
 
@@ -146,7 +157,8 @@ function createZoomResetButton(container, chartInstance, buttonId) {
     const btn = document.createElement("button");
     btn.id = buttonId;
     btn.className = "button is-small is-light zoom-reset-btn";
-    btn.innerHTML = '<span class="icon is-small"><i class="fas fa-undo"></i></span><span>リセット</span>';
+    btn.innerHTML =
+        '<span class="icon is-small">' + ICONS["arrow-uturn-left"] + "</span><span>リセット</span>";
     btn.style.cssText = "display:none; position:absolute; top:25px; right:10px; z-index:10;";
     btn.onclick = function () {
         chartInstance.resetZoom();
@@ -685,7 +697,7 @@ function generatePanelTrendsCharts() {
         container.innerHTML = `
             <div class="column is-full">
                 <div class="notification is-warning is-light">
-                    <span class="icon"><i class="fas fa-info-circle"></i></span>
+                    <span class="icon">${ICONS["information-circle"]}</span>
                     パネル別処理時間データがありません。
                 </div>
             </div>
@@ -780,7 +792,7 @@ function generatePanelTrendsCharts() {
         container.innerHTML = `
             <div class="column is-full">
                 <div class="notification is-danger is-light">
-                    <span class="icon"><i class="fas fa-exclamation-triangle"></i></span>
+                    <span class="icon">${ICONS["exclamation-triangle"]}</span>
                     パネル別グラフの生成に失敗しました: ${error.message}
                 </div>
             </div>
@@ -808,7 +820,7 @@ function generatePanelDailyTrendsCharts() {
         container.innerHTML = `
             <div class="column is-full">
                 <div class="notification is-warning is-light">
-                    <span class="icon"><i class="fas fa-info-circle"></i></span>
+                    <span class="icon">${ICONS["information-circle"]}</span>
                     パネル別日別推移データがありません。
                 </div>
             </div>
@@ -832,7 +844,7 @@ function generatePanelDailyTrendsCharts() {
         columnDiv.className = "column is-6";
         columnDiv.innerHTML = `
             <div class="card metrics-card" id="panel-daily-${index}">
-                <i class="fas fa-link card-permalink" onclick="copyPermalink('panel-daily-${index}')"></i>
+                <span class="card-permalink" onclick="copyPermalink('panel-daily-${index}')">${ICONS["link"]}</span>
                 <div class="card-header">
                     <p class="card-header-title">${panelName} - 日別推移</p>
                 </div>

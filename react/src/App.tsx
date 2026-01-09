@@ -1,16 +1,13 @@
-import "./App.css";
-import "bootstrap/dist/css/bootstrap.min.css";
-import { Github } from "react-bootstrap-icons";
+import "./index.css";
+import { Github } from "lucide-react";
 
 import { TransformWrapper, TransformComponent } from "react-zoom-pan-pinch";
 import { useState, useEffect } from "react";
 import Select, { SingleValue } from "react-select";
 import * as Scroll from "react-scroll";
 
-namespace ApiResponse {
-    export interface Generate {
-        token: string;
-    }
+interface ApiResponseGenerate {
+    token: string;
 }
 
 function App() {
@@ -33,7 +30,7 @@ function App() {
     const [log, setLog] = useState<string[]>([]);
 
     const scroller = Scroll.scroller;
-    var Element = Scroll.Element;
+    const Element = Scroll.Element;
 
     const reqGenerate = () => {
         return new Promise((resolve) => {
@@ -69,7 +66,7 @@ function App() {
     };
 
     const generate = async () => {
-        let res = (await reqGenerate()) as ApiResponse.Generate;
+        const res = (await reqGenerate()) as ApiResponseGenerate;
         setFinish(false);
         setError(false);
         setLog([]);
@@ -99,7 +96,7 @@ function App() {
                         setFinish(true);
                         return;
                     }
-                    let lines = decoder.decode(value).trimEnd().split(/\n/);
+                    const lines = decoder.decode(value).trimEnd().split(/\n/);
                     setLog((old) => old.concat(lines));
 
                     reader.read().then(processChunk);
@@ -112,7 +109,7 @@ function App() {
         if (finish) {
             return (
                 <button
-                    className="btn btn-primary w-auto"
+                    className="w-auto px-4 py-2 bg-blue-600 text-white font-medium rounded hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors"
                     type="button"
                     data-testid="button"
                     onClick={generate}
@@ -122,12 +119,13 @@ function App() {
             );
         } else {
             return (
-                <button className="btn btn-primary w-auto" type="button" data-testid="button" disabled>
-                    <span
-                        className="spinner-border spinner-border-sm me-3"
-                        role="status"
-                        aria-hidden="true"
-                    />
+                <button
+                    className="w-auto px-4 py-2 bg-blue-600 text-white font-medium rounded opacity-75 cursor-not-allowed flex items-center"
+                    type="button"
+                    data-testid="button"
+                    disabled
+                >
+                    <span className="spinner mr-3" role="status" aria-hidden="true" />
                     生成中...
                 </button>
             );
@@ -138,8 +136,8 @@ function App() {
         if (error) {
             return <span>{errorMessage}</span>;
         }
-        return log.map((line) => (
-            <span>
+        return log.map((line, index) => (
+            <span key={index}>
                 {line}
                 <br />
             </span>
@@ -153,15 +151,15 @@ function App() {
     };
 
     return (
-        <div className="App text-start">
-            <div className="d-flex flex-column flex-md-row align-items-center p-3 px-md-4 mb-3 bg-white border-bottom shadow-sm">
-                <h1 className="display-6 my-0 mr-md-auto font-weight-normal">気象パネル画像</h1>
+        <div className="text-left">
+            <div className="flex flex-col md:flex-row items-center p-3 md:px-4 mb-3 bg-white border-b shadow-sm">
+                <h1 className="text-2xl font-light my-0 md:mr-auto">気象パネル画像</h1>
             </div>
 
-            <div className="container">
-                <div className="row">
-                    <div className="col-12">
-                        <label htmlFor="mode" className="me-2">
+            <div className="max-w-7xl mx-auto px-4">
+                <div>
+                    <div className="w-full">
+                        <label htmlFor="mode" className="mr-2">
                             モード:
                         </label>
                         <Select
@@ -175,12 +173,12 @@ function App() {
                     </div>
                 </div>
 
-                <div className="row mt-4">
+                <div className="mt-4">
                     <h2>ログ</h2>
-                    <div className="container">
+                    <div className="w-full">
                         <div
-                            className="col-12 overflow-scroll ms-2 shadow p-3 bg-body rounded"
-                            style={{ height: 10 + "em" }}
+                            className="w-full overflow-y-scroll ml-2 shadow p-3 bg-white rounded"
+                            style={{ height: "10em" }}
                             data-testid="log"
                             id="log"
                         >
@@ -192,10 +190,10 @@ function App() {
                     </div>
                 </div>
 
-                <div className="row mt-5">
+                <div className="mt-5">
                     <h2>生成画像</h2>
-                    <div className="container">
-                        <div className="col-12 ms-2 shadow bg-body rounded">
+                    <div className="w-full">
+                        <div className="w-full ml-2 shadow bg-white rounded">
                             <TransformWrapper>
                                 <TransformComponent>
                                     <img
@@ -203,7 +201,7 @@ function App() {
                                         width="3200"
                                         alt="生成された画像"
                                         data-testid="image"
-                                        className="ratio ratio-16x9 img-fluid img-rounded"
+                                        className="aspect-video max-w-full h-auto rounded"
                                     />
                                 </TransformComponent>
                             </TransformWrapper>
@@ -211,12 +209,12 @@ function App() {
                     </div>
                 </div>
 
-                <div className="row mt-2">
-                    <div className="p-1 float-end text-end">
-                        <p className="display-6">
+                <div className="mt-2">
+                    <div className="p-1 float-right text-right">
+                        <p className="text-2xl">
                             <a
                                 href="https://github.com/kimata/e-ink_weather_panel/"
-                                className="text-secondary"
+                                className="text-gray-500 hover:text-gray-700 transition-colors"
                             >
                                 <Github />
                             </a>
