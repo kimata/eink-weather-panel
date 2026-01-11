@@ -630,14 +630,15 @@ def generate_metrics_html_skeleton():
                 <p class="subtitle has-text-centered" id="subtitle">パフォーマンス監視と異常検知</p>
 
                 <!-- 期間選択 -->
-                <div class="box" id="period-selector" style="margin-bottom: 1.5rem;">
-                    <div class="field">
-                        <label class="label">
-                            <span class="icon" style="margin-right: 0.5em;">
-                                {_icon("calendar")}
-                            </span>
+                <div class="section" id="period-selector" style="padding-top: 0;">
+                    <h2 class="title is-4 section-header">
+                        <div class="permalink-container">
+                            <span class="icon">{_icon("calendar")}</span>
                             表示期間
-                        </label>
+                            <span class="permalink-icon" onclick="copyPermalink('period-selector')">{_icon("link")}</span>
+                        </div>
+                    </h2>
+                    <div class="field">
                         <div class="field is-grouped is-grouped-multiline">
                             <div class="control">
                                 <button class="button is-small" data-days="7" onclick="selectPeriod(7)">
