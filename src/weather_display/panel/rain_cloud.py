@@ -20,7 +20,7 @@ import pathlib
 import time
 from collections.abc import Callable
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, NotRequired, TypedDict
+from typing import TYPE_CHECKING
 
 import cv2
 import my_lib.chrome_util
@@ -49,9 +49,10 @@ import weather_display.config
 
 
 # 降水強度レベルの型定義
-class RainfallLevel(TypedDict):
+@dataclass(frozen=True)
+class RainfallLevel:
     func: Callable[[numpy.ndarray, numpy.ndarray], numpy.ndarray]
-    value: NotRequired[int]
+    value: int = -1  # -1 は値なし（凡例で mm/h を表示）
 
 
 @dataclass
@@ -75,21 +76,21 @@ _CLOUD_IMAGE_XPATH = '//div[contains(@id, "jmatile_map_")]'
 
 _RAINFALL_INTENSITY_LEVEL: list[RainfallLevel] = [
     # NOTE: 白
-    {"func": lambda h, s: (160 < h) & (h < 180) & (s < 20), "value": 1},
+    RainfallLevel(func=lambda h, s: (160 < h) & (h < 180) & (s < 20), value=1),
     # NOTE: 薄水色
-    {"func": lambda h, s: (140 < h) & (h < 150) & (90 < s) & (s < 100), "value": 5},
+    RainfallLevel(func=lambda h, s: (140 < h) & (h < 150) & (90 < s) & (s < 100), value=5),
     # NOTE: 水色
-    {"func": lambda h, s: (145 < h) & (h < 155) & (210 < s) & (s < 230), "value": 10},
+    RainfallLevel(func=lambda h, s: (145 < h) & (h < 155) & (210 < s) & (s < 230), value=10),
     # NOTE: 青色
-    {"func": lambda h, s: (155 < h) & (h < 165) & (230 < s), "value": 20},
+    RainfallLevel(func=lambda h, s: (155 < h) & (h < 165) & (230 < s), value=20),
     # NOTE: 黄色
-    {"func": lambda h, s: (35 < h) & (h < 45), "value": 30},
+    RainfallLevel(func=lambda h, s: (35 < h) & (h < 45), value=30),
     # NOTE: 橙色
-    {"func": lambda h, s: (20 < h) & (h < 30), "value": 50},
+    RainfallLevel(func=lambda h, s: (20 < h) & (h < 30), value=50),
     # NOTE: 赤色
-    {"func": lambda h, s: (0 < h) & (h < 8), "value": 80},
+    RainfallLevel(func=lambda h, s: (0 < h) & (h < 8), value=80),
     # NOTE: 紫色
-    {"func": lambda h, s: (225 < h) & (h < 235) & (240 < s)},
+    RainfallLevel(func=lambda h, s: (225 < h) & (h < 235) & (240 < s)),
 ]
 
 
@@ -339,7 +340,7 @@ def _retouch_cloud_image(
         color = (0, 80, int(255 * intensity))
 
         # マスクを事前計算して適用
-        mask = level["func"](h, s)
+        mask = level.func(h, s)
         img_hsv[mask] = color
         bar[0, i] = color
 
@@ -548,8 +549,8 @@ def _draw_legend(
 
     legend.paste(bar, (PADDING, PADDING + text_height))
     for i in range(len(_RAINFALL_INTENSITY_LEVEL)):
-        level_value = _RAINFALL_INTENSITY_LEVEL[i].get("value")
-        if level_value is not None:
+        level_value = _RAINFALL_INTENSITY_LEVEL[i].value
+        if level_value >= 0:
             text = str(level_value)
             pos_x = PADDING + bar_size * (i + 1)
             pos_y = PADDING - 5

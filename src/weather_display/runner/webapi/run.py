@@ -11,7 +11,8 @@ import threading
 import time
 import traceback
 import uuid
-from typing import Any, NotRequired, TypedDict
+from dataclasses import dataclass
+from typing import Any
 
 import flask
 import my_lib.flask_util
@@ -20,12 +21,13 @@ import my_lib.webapp.config
 blueprint = flask.Blueprint("webapi-run", __name__, url_prefix=my_lib.webapp.config.URL_PREFIX)
 
 
-class PanelData(TypedDict):
+@dataclass
+class PanelData:
     lock: threading.Lock
     log: queue.Queue[bytes | None]
-    image: bytes | None
     time: float
-    future: NotRequired[concurrent.futures.Future[None] | None]
+    image: bytes = b""
+    future: concurrent.futures.Future[None] | None = None
 
 
 _thread_pool: concurrent.futures.ThreadPoolExecutor | None = None
@@ -76,7 +78,7 @@ def _image_reader(proc: subprocess.Popen[bytes], token: str) -> None:
             except OSError:
                 # パイプが閉じられた場合
                 break
-        panel_data["image"] = img_stream.getvalue()
+        panel_data.image = img_stream.getvalue()
     except Exception:
         logging.exception("Failed to generate image")
 
@@ -94,7 +96,7 @@ def _log_reader(proc: subprocess.Popen[bytes], token: str) -> None:
             line = stderr.readline()
             if not line:
                 break
-            panel_data["log"].put(line)
+            panel_data.log.put(line)
     except Exception:
         logging.exception("Failed to read log")
 
@@ -107,7 +109,7 @@ def _generate_image_impl(
     panel_data = _panel_data_map[token]
     if _create_image_path is None:
         logging.error("create_image_path is not initialized")
-        panel_data["log"].put(None)
+        panel_data.log.put(None)
         return
 
     cmd: list[str | pathlib.Path] = ["python3", _create_image_path, "-c", config_file]
@@ -148,10 +150,10 @@ def _generate_image_impl(
         stderr_thread.join(timeout=30)
 
         # NOTE: None を積むことで、実行完了を通知
-        panel_data["log"].put(None)
+        panel_data.log.put(None)
     except Exception:
         logging.exception("Failed to execute subprocess")
-        panel_data["log"].put(None)
+        panel_data.log.put(None)
 
 
 def _clean_map() -> None:
@@ -159,7 +161,7 @@ def _clean_map() -> None:
 
     remove_token: list[str] = []
     for token, panel_data in _panel_data_map.items():
-        if (time.time() - panel_data["time"]) > 60:
+        if (time.time() - panel_data.time) > 60:
             remove_token.append(token)
 
     for token in remove_token:
@@ -179,20 +181,18 @@ def generate_image(config_file: str, is_small_mode: bool, is_dummy_mode: bool, i
     token = str(uuid.uuid4())
     log_queue: queue.Queue[bytes | None] = queue.Queue()
 
-    panel_data: PanelData = {
-        "lock": threading.Lock(),
-        "log": log_queue,
-        "image": None,
-        "time": time.time(),
-        "future": None,
-    }
+    panel_data = PanelData(
+        lock=threading.Lock(),
+        log=log_queue,
+        time=time.time(),
+    )
     _panel_data_map[token] = panel_data
 
     # ThreadPoolExecutorのsubmitを使用して非同期実行
     future = _thread_pool.submit(
         _generate_image_impl, config_file, is_small_mode, is_dummy_mode, is_test_mode, token
     )
-    _panel_data_map[token]["future"] = future
+    _panel_data_map[token].future = future
 
     return token
 
@@ -211,7 +211,7 @@ def api_image() -> flask.Response | str:
     if token not in _panel_data_map:
         return f"Invalid token: {token}"
 
-    image_data = _panel_data_map[token]["image"]
+    image_data = _panel_data_map[token].image
 
     return flask.Response(image_data, mimetype="image/png")
 
@@ -225,7 +225,7 @@ def api_log() -> flask.Response | str:
     if token not in _panel_data_map:
         return f"Invalid token: {token}"
 
-    log_queue = _panel_data_map[token]["log"]
+    log_queue = _panel_data_map[token].log
 
     def generate() -> Any:
         try:
