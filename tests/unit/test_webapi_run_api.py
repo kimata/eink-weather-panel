@@ -11,6 +11,8 @@ import time
 import flask
 import pytest
 
+from weather_display.runner.webapi.run import PanelData
+
 
 @pytest.fixture
 def run_app(mocker):
@@ -104,12 +106,12 @@ class TestApiImage:
         from weather_display.runner.webapi import run
 
         token = "test-token-12345678-1234-1234-1234"
-        run._panel_data_map[token] = {
-            "lock": threading.Lock(),
-            "log": queue.Queue(),
-            "image": b"\x89PNG\r\n\x1a\n",  # PNG header
-            "time": time.time(),
-        }
+        run._panel_data_map[token] = PanelData(
+            lock=threading.Lock(),
+            log=queue.Queue(),
+            time=time.time(),
+            image=b"\x89PNG\r\n\x1a\n",  # PNG header
+        )
 
         response = run_client.post("/panel/api/image", data={"token": token})
 
@@ -147,12 +149,11 @@ class TestApiLog:
         log_queue.put(b"log line 2\n")
         log_queue.put(None)  # 完了通知
 
-        run._panel_data_map[token] = {
-            "lock": threading.Lock(),
-            "log": log_queue,
-            "image": None,
-            "time": time.time(),
-        }
+        run._panel_data_map[token] = PanelData(
+            lock=threading.Lock(),
+            log=log_queue,
+            time=time.time(),
+        )
 
         mocker.patch("time.sleep")
 
@@ -174,12 +175,11 @@ class TestApiLog:
         # 最初は空、後でNoneを追加（完了通知）
         log_queue.put(None)
 
-        run._panel_data_map[token] = {
-            "lock": threading.Lock(),
-            "log": log_queue,
-            "image": None,
-            "time": time.time(),
-        }
+        run._panel_data_map[token] = PanelData(
+            lock=threading.Lock(),
+            log=log_queue,
+            time=time.time(),
+        )
 
         mocker.patch("time.sleep")
 
@@ -197,12 +197,11 @@ class TestApiLog:
         token = "test-empty-queue-1234-1234-1234"
         log_queue = queue.Queue()
 
-        run._panel_data_map[token] = {
-            "lock": threading.Lock(),
-            "log": log_queue,
-            "image": None,
-            "time": time.time(),
-        }
+        run._panel_data_map[token] = PanelData(
+            lock=threading.Lock(),
+            log=log_queue,
+            time=time.time(),
+        )
 
         # 別スレッドで少し待ってから None を追加（完了通知）
         def delayed_put():
@@ -230,12 +229,11 @@ class TestApiLog:
         log_queue.empty.return_value = False
         log_queue.get.side_effect = RuntimeError("Queue error")
 
-        run._panel_data_map[token] = {
-            "lock": threading.Lock(),
-            "log": log_queue,
-            "image": None,
-            "time": time.time(),
-        }
+        run._panel_data_map[token] = PanelData(
+            lock=threading.Lock(),
+            log=log_queue,
+            time=time.time(),
+        )
 
         response = run_client.post("/panel/api/log", data={"token": token})
 
