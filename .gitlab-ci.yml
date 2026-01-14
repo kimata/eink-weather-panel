@@ -5,6 +5,9 @@ variables:
     UV_CACHE_DIR: .uv-cache
     PYRIGHT_PYTHON_FORCE_VERSION: latest
 
+    UV_EXTRA_INDEX_URL: "http://proxy:3141/simple/"
+    UV_INSECURE_HOST: "proxy"
+
 default:
     before_script:
         - echo $CI_REGISTRY_PASSWORD | docker login -u $CI_REGISTRY_USER --password-stdin $CI_REGISTRY
