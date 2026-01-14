@@ -19,6 +19,7 @@ from __future__ import annotations
 import faulthandler
 import logging
 import multiprocessing
+import multiprocessing.pool
 import os
 import pathlib
 import sys
@@ -26,6 +27,8 @@ import textwrap
 import threading
 import time
 import traceback
+from collections.abc import Callable
+from typing import Any
 
 import my_lib.panel_config
 import my_lib.panel_util
@@ -43,6 +46,9 @@ import weather_display.panel.sensor_graph
 import weather_display.panel.time
 import weather_display.panel.wbgt
 import weather_display.panel.weather
+
+# パネル関数の型エイリアス
+PanelFunc = Callable[..., tuple[PIL.Image.Image, float] | tuple[PIL.Image.Image, float, str]]
 
 SCHEMA_CONFIG = "schema/config.schema"
 SCHEMA_CONFIG_SMALL = "schema/config-small.schema"
@@ -69,43 +75,44 @@ def draw_panel(
     is_test_mode: bool = False,
     is_dummy_mode: bool = False,
 ) -> int:
+    # パネル定義: (name, func, extra_args)
+    panel_defs: list[tuple[str, PanelFunc, tuple[Any, ...]]] = []
     if is_small_mode:
-        panel_list = [
-            {"name": "rain_cloud", "func": weather_display.panel.rain_cloud.create, "arg": (True,)},
-            {"name": "weather", "func": weather_display.panel.weather.create, "arg": (False,)},
-            {"name": "wbgt", "func": weather_display.panel.wbgt.create},
-            {"name": "time", "func": weather_display.panel.time.create},
+        panel_defs = [
+            ("rain_cloud", weather_display.panel.rain_cloud.create, (True,)),
+            ("weather", weather_display.panel.weather.create, (False,)),
+            ("wbgt", weather_display.panel.wbgt.create, ()),
+            ("time", weather_display.panel.time.create, ()),
         ]
     else:
-        panel_list = [
-            {"name": "rain_cloud", "func": weather_display.panel.rain_cloud.create},
-            {"name": "sensor", "func": weather_display.panel.sensor_graph.create},
-            {"name": "power", "func": weather_display.panel.power_graph.create},
-            {"name": "weather", "func": weather_display.panel.weather.create},
-            {"name": "wbgt", "func": weather_display.panel.wbgt.create},
-            {"name": "rain_fall", "func": weather_display.panel.rain_fall.create},
-            {"name": "time", "func": weather_display.panel.time.create},
+        panel_defs = [
+            ("rain_cloud", weather_display.panel.rain_cloud.create, ()),
+            ("sensor", weather_display.panel.sensor_graph.create, ()),
+            ("power", weather_display.panel.power_graph.create, ()),
+            ("weather", weather_display.panel.weather.create, ()),
+            ("wbgt", weather_display.panel.wbgt.create, ()),
+            ("rain_fall", weather_display.panel.rain_fall.create, ()),
+            ("time", weather_display.panel.time.create, ()),
         ]
 
     panel_map: dict[str, PIL.Image.Image] = {}
     panel_metrics: list[dict[str, object]] = []
+    tasks: dict[str, multiprocessing.pool.AsyncResult[Any]] = {}
 
     # NOTE: 並列処理 (matplotlib はマルチスレッド対応していないので、マルチプロセス処理する)
     # with ステートメントで確実にPoolをクリーンアップする
     start = time.perf_counter()
-    with multiprocessing.Pool(processes=len(panel_list)) as pool:
-        for panel in panel_list:
-            arg = (config,)
-            if "arg" in panel:
-                arg += panel["arg"]
-            panel["task"] = pool.apply_async(panel["func"], arg)
+    with multiprocessing.Pool(processes=len(panel_defs)) as pool:
+        for name, func, extra_args in panel_defs:
+            arg: tuple[Any, ...] = (config, *extra_args)
+            tasks[name] = pool.apply_async(func, arg)
 
         pool.close()
         pool.join()
 
     ret = 0
-    for panel in panel_list:
-        result = panel["task"].get()
+    for name, _func, _extra_args in panel_defs:
+        result = tasks[name].get()
         panel_img = result[0]
         elapsed = result[1]
         has_error = len(result) > 2
@@ -120,17 +127,17 @@ def draw_panel(
             )
             ret = ERROR_CODE_MINOR
 
-        panel_map[panel["name"]] = panel_img
+        panel_map[name] = panel_img
         panel_metrics.append(
             {
-                "name": panel["name"],
+                "name": name,
                 "elapsed_time": elapsed,
                 "has_error": has_error,
                 "error_message": error_message,
             }
         )
 
-        logging.info("elapsed time: %s panel = %.3f sec", panel["name"], elapsed)
+        logging.info("elapsed time: %s panel = %.3f sec", name, elapsed)
 
     total_elapsed_time = time.perf_counter() - start
     logging.info("total elapsed time: %.3f sec", total_elapsed_time)

@@ -179,13 +179,14 @@ def generate_image(config_file: str, is_small_mode: bool, is_dummy_mode: bool, i
     token = str(uuid.uuid4())
     log_queue: queue.Queue[bytes | None] = queue.Queue()
 
-    _panel_data_map[token] = {
+    panel_data: PanelData = {
         "lock": threading.Lock(),
         "log": log_queue,
         "image": None,
         "time": time.time(),
         "future": None,
     }
+    _panel_data_map[token] = panel_data
 
     # ThreadPoolExecutorのsubmitを使用して非同期実行
     future = _thread_pool.submit(

@@ -404,13 +404,16 @@ class MetricsAnalyzer:
             elif display_image_range["latest"]:
                 all_latest = display_image_range["latest"]
 
+            draw_count = draw_panel_range.get("total_count") or 0
+            display_count = display_image_range.get("total_count") or 0
+
             return {
                 "draw_panel": draw_panel_range,
                 "display_image": display_image_range,
                 "overall": {
                     "earliest": all_earliest,
                     "latest": all_latest,
-                    "total_count": draw_panel_range["total_count"] + display_image_range["total_count"],
+                    "total_count": draw_count + display_count,
                 },
             }
 

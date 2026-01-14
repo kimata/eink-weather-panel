@@ -18,8 +18,9 @@ import logging
 import os
 import pathlib
 import time
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, NotRequired, TypedDict
 
 import cv2
 import my_lib.chrome_util
@@ -47,6 +48,12 @@ if TYPE_CHECKING:
 import weather_display.config
 
 
+# 降水強度レベルの型定義
+class RainfallLevel(TypedDict):
+    func: Callable[[numpy.ndarray, numpy.ndarray], numpy.ndarray]
+    value: NotRequired[int]
+
+
 @dataclass
 class SubPanelConfig:
     """サブパネル設定"""
@@ -66,7 +73,7 @@ _WINDOW_SIZE_CACHE_FILE = _DATA_PATH / "window_size_cache.dat"
 
 _CLOUD_IMAGE_XPATH = '//div[contains(@id, "jmatile_map_")]'
 
-_RAINFALL_INTENSITY_LEVEL = [
+_RAINFALL_INTENSITY_LEVEL: list[RainfallLevel] = [
     # NOTE: 白
     {"func": lambda h, s: (160 < h) & (h < 180) & (s < 20), "value": 1},
     # NOTE: 薄水色
@@ -541,8 +548,9 @@ def _draw_legend(
 
     legend.paste(bar, (PADDING, PADDING + text_height))
     for i in range(len(_RAINFALL_INTENSITY_LEVEL)):
-        if "value" in _RAINFALL_INTENSITY_LEVEL[i]:
-            text = str(_RAINFALL_INTENSITY_LEVEL[i]["value"])
+        level_value = _RAINFALL_INTENSITY_LEVEL[i].get("value")
+        if level_value is not None:
+            text = str(level_value)
             pos_x = PADDING + bar_size * (i + 1)
             pos_y = PADDING - 5
             align = "center"

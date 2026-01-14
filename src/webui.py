@@ -44,8 +44,6 @@ def term():
 
 
 def sig_handler(num, frame):
-    global should_terminate
-
     logging.warning("receive signal %d", num)
 
     if num in (signal.SIGTERM, signal.SIGINT):

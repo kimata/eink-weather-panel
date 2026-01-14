@@ -115,7 +115,7 @@ def _plot_item(
         return
 
     ax.set_ylim((ylim[0], ylim[1]))
-    ax.set_xlim((x[0], x[-1] + datetime.timedelta(minutes=15)))  # type: ignore[arg-type]
+    ax.set_xlim((x[0], x[-1] + datetime.timedelta(minutes=15)))
 
     ax.plot(
         x,  # type: ignore[arg-type]
@@ -319,18 +319,18 @@ if __name__ == "__main__":
 
     my_lib.logger.init("test", level=logging.DEBUG if debug_mode else logging.INFO)
 
+    from typing import cast
+
     config = weather_display.config.load(config_file)
     result = create(config)
 
+    img = result[0]
+    elapsed_time = result[1]
     if len(result) > 2:
-        # エラーが発生した場合
-        img, elapsed_time, error_message = result
-        logging.error("Error occurred: %s", error_message)
-        logging.info("Elapsed time: %.2f seconds", elapsed_time)
-    else:
-        # 正常な場合
-        img, elapsed_time = result
-        logging.info("Elapsed time: %.2f seconds", elapsed_time)
+        # エラーが発生した場合（result は 3要素タプル）
+        result_tuple = cast(tuple[PIL.Image.Image, float, str], result)
+        logging.error("Error occurred: %s", result_tuple[2])
+    logging.info("Elapsed time: %.2f seconds", elapsed_time)
 
     logging.info("Save %s.", out_file)
     my_lib.pil_util.convert_to_gray(img).save(out_file, "PNG")

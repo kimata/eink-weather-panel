@@ -135,9 +135,12 @@ def _draw_rainfall(
     icon_config: weather_display.config.IconConfig,
     face_map: dict[str, PIL.ImageFont.FreeTypeFont],
 ) -> PIL.Image.Image:
-    raining = rainfall_status["raining"]
-    if not isinstance(raining, dict):
+    from typing import Any, cast
+
+    raining_raw = rainfall_status["raining"]
+    if not isinstance(raining_raw, dict):
         return img
+    raining: dict[str, Any] = cast(dict[str, Any], raining_raw)
 
     if not raining["status"]:
         return img

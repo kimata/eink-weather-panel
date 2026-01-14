@@ -406,10 +406,11 @@ def _draw_wind(
         brightness = 1
 
     icon_orig_height = icon["arrow"].size[1]
-    if _ROTATION_MAP[wind.dir] is not None:
+    rotation = _ROTATION_MAP[wind.dir]
+    if rotation is not None:
         arrow_icon = PIL.ImageEnhance.Brightness(icon["arrow"]).enhance(brightness)
         arrow_icon = arrow_icon.rotate(
-            _ROTATION_MAP[wind.dir],
+            rotation,
             resample=PIL.Image.Resampling.BICUBIC,
         )
 

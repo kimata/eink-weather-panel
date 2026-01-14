@@ -144,8 +144,10 @@ def _plot_item(
                 logging.warning("datetime型の時間データをその場で数値化して使用します")
                 ax.set_xlim((xbegin_numeric, float(matplotlib.dates.date2num(x[-1])) + 3 / 24))
             else:
+                # x[-1] が数値と仮定して使用
                 logging.warning("時間データを数値として直接使用します")
-                ax.set_xlim((xbegin_numeric, float(x[-1]) + 3 / 24))
+                last_x = x[-1]
+                ax.set_xlim((xbegin_numeric, float(matplotlib.dates.date2num(last_x)) + 3 / 24))
         else:
             # さらなるフォールバック
             logging.warning("時間データが無効なため、固定の時間範囲を設定します")
@@ -153,7 +155,7 @@ def _plot_item(
 
     ax.plot(
         x,  # type: ignore[arg-type]  # matplotlib accepts list types
-        y,  # type: ignore[arg-type]
+        y,
         color="#CCCCCC",
         marker="o",
         markevery=[len(y) - 1],
@@ -167,7 +169,7 @@ def _plot_item(
 
     ax.fill_between(
         x,  # type: ignore[arg-type]  # matplotlib accepts list types
-        y,  # type: ignore[arg-type]
+        y,
         0,
         facecolor="#DDDDDD",
         alpha=0.5,
@@ -487,18 +489,18 @@ if __name__ == "__main__":
 
     my_lib.logger.init("test", level=logging.DEBUG if debug_mode else logging.INFO)
 
+    from typing import cast
+
     config = weather_display.config.load(config_file)
     result = create(config)
 
+    img = result[0]
+    elapsed_time = result[1]
     if len(result) > 2:
-        # エラーが発生した場合
-        img, elapsed_time, error_message = result
-        logging.error("Error occurred: %s", error_message)
-        logging.info("Elapsed time: %.2f seconds", elapsed_time)
-    else:
-        # 正常な場合
-        img, elapsed_time = result
-        logging.info("Elapsed time: %.2f seconds", elapsed_time)
+        # エラーが発生した場合（result は 3要素タプル）
+        result_tuple = cast(tuple[PIL.Image.Image, float, str], result)
+        logging.error("Error occurred: %s", result_tuple[2])
+    logging.info("Elapsed time: %.2f seconds", elapsed_time)
 
     logging.info("Save %s.", out_file)
     # グレースケール変換は既に実施済み（最適化）
