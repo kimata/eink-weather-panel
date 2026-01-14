@@ -14,12 +14,10 @@ Options:
 from __future__ import annotations
 
 import concurrent.futures
-import io
 import logging
 import os
 import pathlib
 import time
-import traceback
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
@@ -443,37 +441,39 @@ def _create_rain_cloud_img(
     driver = None
     img = None
 
+    def on_error(exc: Exception, screenshot: PIL.Image.Image | None, page_source: str | None) -> None:
+        """エラーをSlackに通知（ページソース付き）"""
+        my_lib.notify.slack.notify_error_with_page(
+            slack_config,
+            "雨雲レーダー画像取得エラー",
+            exc,
+            screenshot,
+            page_source,
+        )
+
     try:
         driver = my_lib.selenium_util.create_driver(
             _get_driver_profile_name(sub_panel_config.is_future), _DATA_PATH, use_undetected=False
         )
 
-        wait = selenium.webdriver.support.wait.WebDriverWait(driver, 5)
-        my_lib.selenium_util.clear_cache(driver)
-
-        img = _fetch_cloud_image(
+        with my_lib.selenium_util.error_handler(
             driver,
-            wait,
-            rain_cloud_config.data.jma.url,
-            sub_panel_config.width,
-            sub_panel_config.height,
-            sub_panel_config.is_future,
-        )
-    except Exception:
-        if driver and (trial >= _PATIENT_COUNT):
-            try:
-                my_lib.notify.slack.error_with_image(
-                    slack_config,
-                    "雨雲レーダー画像取得エラー",
-                    traceback.format_exc(),
-                    {
-                        "data": PIL.Image.open(io.BytesIO(driver.get_screenshot_as_png())),
-                        "text": "エラー時のスクリーンショット",
-                    },
-                )
-            except Exception as screenshot_error:
-                logging.warning("Failed to capture screenshot: %s", screenshot_error)
+            message=f"Failed to fetch rain cloud image ({sub_panel_config.title})",
+            on_error=on_error if trial >= _PATIENT_COUNT else None,
+            reraise=True,
+        ):
+            wait = selenium.webdriver.support.wait.WebDriverWait(driver, 5)
+            my_lib.selenium_util.clear_cache(driver)
 
+            img = _fetch_cloud_image(
+                driver,
+                wait,
+                rain_cloud_config.data.jma.url,
+                sub_panel_config.width,
+                sub_panel_config.height,
+                sub_panel_config.is_future,
+            )
+    except Exception:
         # NOTE: リトライまでに時間を空けるようにする
         time.sleep(10)
         raise
