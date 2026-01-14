@@ -85,26 +85,10 @@ build-image:
     # after_script:
     #     - docker buildx rm ${BUILDER} || true
 
-test-prepare:
-    stage: build
-
-    needs: []
-
-    script:
-        - uv sync --locked --no-editable
-
-    cache:
-        - key:
-              files:
-                  - uv.lock
-          paths:
-              - $UV_CACHE_DIR
-
 test-typecheck:
     stage: test
 
-    needs:
-        - test-prepare
+    needs: []
 
     script:
         - uv run python -m pyright
@@ -121,7 +105,6 @@ test-walk-through:
     stage: test
     needs:
         - build-react
-        - test-prepare
     script:
         - uv run pytest
 
@@ -322,7 +305,6 @@ test-webui:
     needs:
         - generate-tag
         - build-image
-        - test-prepare
         - job: test-demo
           artifacts: false
     script:
