@@ -90,6 +90,9 @@ test-typecheck:
 
     needs: []
 
+    before_script:
+        - uv sync --locked --no-editable
+
     script:
         - uv run python -m pyright
         - uv run mypy src/
@@ -106,6 +109,10 @@ test-walk-through:
     stage: test
     needs:
         - build-react
+
+    before_script:
+        - uv sync --locked --no-editable
+
     script:
         - uv run pytest
 
