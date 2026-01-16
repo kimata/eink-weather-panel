@@ -30,7 +30,7 @@ generate-tag:
 build-react:
     stage: build
     needs: []
-    image: node:24.2@sha256:d1db2ecd11f417ab2ff4fef891b4d27194c367d101f9b9cd546a26e424e93d31
+    image: node:24.13@sha256:b2b2184ba9b78c022e1d6a7924ec6fba577adf28f15c9d9c457730cc4ad3807a
 
     before_script: []
 
