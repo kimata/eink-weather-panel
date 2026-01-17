@@ -342,11 +342,11 @@ def metrics_anomalies():
 
 @blueprint.route("/favicon.png", methods=["GET"])
 def favicon():
-    """react/public/favicon.pngを返す"""
+    """frontend/public/favicon.pngを返す"""
     try:
         # プロジェクトルートからの相対パスでfavicon.pngを取得
         favicon_path = (
-            pathlib.Path(__file__).parent.parent.parent.parent.parent / "react" / "public" / "favicon.png"
+            pathlib.Path(__file__).parent.parent.parent.parent.parent / "frontend" / "public" / "favicon.png"
         )
 
         if favicon_path.exists():

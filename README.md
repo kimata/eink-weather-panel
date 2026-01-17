@@ -353,7 +353,7 @@ src/
 ├── webui.py               # Flask Web API
 └── display_image.py       # メイン実行スクリプト
 
-react/                     # React フロントエンド
+frontend/                  # React フロントエンド
 tests/                     # テストスイート（37ファイル）
 kubernetes/                # K8s マニフェスト
 ```

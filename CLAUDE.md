@@ -240,7 +240,7 @@ env RASP_HOSTNAME="hostname" uv run src/display_image.py
 
 ## React フロントエンド
 
-### 構造 (`react/`)
+### 構造 (`frontend/`)
 
 | ファイル                       | 説明                                 |
 | ------------------------------ | ------------------------------------ |

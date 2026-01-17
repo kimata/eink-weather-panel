@@ -27,7 +27,7 @@ generate-tag:
         reports:
             dotenv: tag.env
         expire_in: 1 hour
-build-react:
+build-frontend:
     stage: build
     needs: []
     image: node:24.2@sha256:d1db2ecd11f417ab2ff4fef891b4d27194c367d101f9b9cd546a26e424e93d31
@@ -35,17 +35,17 @@ build-react:
     before_script: []
 
     script:
-        - cd react
+        - cd frontend
         - npm ci --cache .npm --prefer-offline
         - npm run build
     artifacts:
         paths:
-            - react/dist
+            - frontend/dist
 
     cache:
         - key:
               files:
-                  - react/package-lock.json
+                  - frontend/package-lock.json
           fallback_keys:
               - npm-cache-${CI_PROJECT_ID}
           paths:
@@ -54,7 +54,7 @@ build-image:
     stage: build
     needs:
         - generate-tag
-        - build-react
+        - build-frontend
 
     variables:
         BUILDER: builder-${CI_PROJECT_NAME}
@@ -114,7 +114,7 @@ test-typecheck:
 test-walk-through:
     stage: test
     needs:
-        - build-react
+        - build-frontend
 
     before_script:
         - uv sync --locked --no-editable
