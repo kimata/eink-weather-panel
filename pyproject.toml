@@ -10,7 +10,7 @@ requires-python = ">=3.11"
 
 dependencies = [
     "influxdb-client[ciso]>=1.44.0",
-    "my-lib @ git+https://github.com/kimata/my-py-lib@f67a064d6eed3de8e7294fdd9590c28c41b0379f",
+    "my-lib @ git+https://github.com/kimata/my-py-lib@1d54e8ebb3542df37dfb50055d9b5bf684e80f65",
     "opencv-contrib-python-headless>=4.10.0.84",
     "matplotlib>=3.9.2",
     "pandas>=2.2.2",
@@ -53,6 +53,10 @@ line-length = 110
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "B", "UP"]
+
+[tool.ty]
+[tool.ty.rules]
+
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
