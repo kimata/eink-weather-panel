@@ -292,7 +292,7 @@ webapp:
         offset: "+9"
         name: JST
         zone: Asia/Tokyo
-    static_dir_path: react/dist
+    static_dir_path: frontend/dist
 slack:
     from: E-Ink Weather Panel
     bot_token: xoxb-XXXXXXXXXXXX-XXXXXXXXXXXXX-XXXXXXXXXXXXXXXXXXXXXXXX
