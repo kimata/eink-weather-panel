@@ -58,11 +58,10 @@ class TestConfigParse:
         """InfluxDB 設定に必要なフィールドがあること"""
         influxdb = config.influxdb
 
-        # influxdb は dict 型
-        assert "url" in influxdb
-        assert "org" in influxdb
-        assert "token" in influxdb
-        assert "bucket" in influxdb
+        assert hasattr(influxdb, "url")
+        assert hasattr(influxdb, "org")
+        assert hasattr(influxdb, "token")
+        assert hasattr(influxdb, "bucket")
 
     def test_parse_font_config_has_required_fields(self, config):
         """フォント設定に必要なフィールドがあること"""

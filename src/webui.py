@@ -59,7 +59,7 @@ def create_app(config_file_normal, config_file_small, dummy_mode=False):
 
     config_data = config_module.load(config_file_normal, pathlib.Path(SCHEMA_CONFIG))
     my_lib.webapp.config.URL_PREFIX = "/panel"
-    webapp_config = my_lib.webapp.config.WebappConfig.from_dict(config_data.get("webapp", {}))
+    webapp_config = my_lib.webapp.config.WebappConfig.parse(config_data.get("webapp", {}))
     my_lib.webapp.config.init(webapp_config)
 
     import my_lib.webapp.base

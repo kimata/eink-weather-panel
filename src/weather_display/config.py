@@ -582,7 +582,7 @@ def _parse_webapp(data: dict[str, Any] | None) -> my_lib.webapp.config.WebappCon
     if data is None:
         return None
 
-    return my_lib.webapp.config.WebappConfig.from_dict(data)
+    return my_lib.webapp.config.WebappConfig.parse(data)
 
 
 def parse_config(data: dict[str, Any]) -> AppConfig:
@@ -613,7 +613,7 @@ def parse_config(data: dict[str, Any]) -> AppConfig:
         wall=wall,
         slack=cast(
             SlackErrorOnlyConfig | SlackEmptyConfig,
-            my_lib.notify.slack.parse_config(data.get("slack", {})),
+            my_lib.notify.slack.SlackConfig.parse(data.get("slack", {})),
         ),
         metrics=_parse_metrics(data.get("metrics")),
         webapp=_parse_webapp(data.get("webapp")),
