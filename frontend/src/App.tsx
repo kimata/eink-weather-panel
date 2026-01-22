@@ -109,7 +109,7 @@ function App() {
         if (finish) {
             return (
                 <button
-                    className="w-auto px-4 py-2 bg-blue-600 text-white font-medium rounded hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors"
+                    className="w-auto px-4 py-2 bg-blue-600 text-white font-medium rounded-sm hover:bg-blue-700 focus:outline-hidden focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors"
                     type="button"
                     data-testid="button"
                     onClick={generate}
@@ -120,7 +120,7 @@ function App() {
         } else {
             return (
                 <button
-                    className="w-auto px-4 py-2 bg-blue-600 text-white font-medium rounded opacity-75 cursor-not-allowed flex items-center"
+                    className="w-auto px-4 py-2 bg-blue-600 text-white font-medium rounded-sm opacity-75 cursor-not-allowed flex items-center"
                     type="button"
                     data-testid="button"
                     disabled
@@ -152,7 +152,7 @@ function App() {
 
     return (
         <div className="text-left">
-            <div className="flex flex-col md:flex-row items-center p-3 md:px-4 mb-3 bg-white border-b shadow-sm">
+            <div className="flex flex-col md:flex-row items-center p-3 md:px-4 mb-3 bg-white border-b shadow-xs">
                 <h1 className="text-2xl font-light my-0 md:mr-auto">気象パネル画像</h1>
             </div>
 
@@ -177,7 +177,7 @@ function App() {
                     <h2>ログ</h2>
                     <div className="w-full">
                         <div
-                            className="w-full overflow-y-scroll ml-2 shadow p-3 bg-white rounded"
+                            className="w-full overflow-y-scroll ml-2 shadow-sm p-3 bg-white rounded-sm"
                             style={{ height: "10em" }}
                             data-testid="log"
                             id="log"
@@ -193,7 +193,7 @@ function App() {
                 <div className="mt-5">
                     <h2>生成画像</h2>
                     <div className="w-full">
-                        <div className="w-full ml-2 shadow bg-white rounded">
+                        <div className="w-full ml-2 shadow-sm bg-white rounded-sm">
                             <TransformWrapper>
                                 <TransformComponent>
                                     <img
@@ -201,7 +201,7 @@ function App() {
                                         width="3200"
                                         alt="生成された画像"
                                         data-testid="image"
-                                        className="aspect-video max-w-full h-auto rounded"
+                                        className="aspect-video max-w-full h-auto rounded-sm"
                                     />
                                 </TransformComponent>
                             </TransformWrapper>
