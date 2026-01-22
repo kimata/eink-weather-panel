@@ -278,26 +278,10 @@ class TestGlobalFunctions:
             db_path = pathlib.Path(tmpdir) / "test_metrics.db"
             yield db_path
 
-    def test_get_metrics_collector_returns_collector(self, temp_db):
-        """get_metrics_collector が MetricsCollector を返すこと"""
-        # グローバル変数をリセット
-        import weather_display.metrics.collector
-        from weather_display.metrics.collector import MetricsCollector, get_metrics_collector
-
-        weather_display.metrics.collector._metrics_collector = None
-
-        result = get_metrics_collector(db_path=temp_db)
-
-        assert isinstance(result, MetricsCollector)
-
-    def test_collect_draw_panel_metrics_works(self, temp_db):
-        """collect_draw_panel_metrics が動作すること"""
-        # グローバル変数をリセット
-        import weather_display.metrics.collector
+    def test_collect_draw_panel_metrics_with_db_path(self, temp_db):
+        """db_path 指定で collect_draw_panel_metrics が動作すること"""
         from weather_display.metrics.collector import collect_draw_panel_metrics
 
-        weather_display.metrics.collector._metrics_collector = None
-
         result = collect_draw_panel_metrics(
             total_elapsed_time=5.0,
             panel_metrics=[{"name": "test", "elapsed_time": 1.0}],
@@ -306,14 +290,10 @@ class TestGlobalFunctions:
 
         assert result > 0
 
-    def test_collect_display_image_metrics_works(self, temp_db):
-        """collect_display_image_metrics が動作すること"""
-        # グローバル変数をリセット
-        import weather_display.metrics.collector
+    def test_collect_display_image_metrics_with_db_path(self, temp_db):
+        """db_path 指定で collect_display_image_metrics が動作すること"""
         from weather_display.metrics.collector import collect_display_image_metrics
 
-        weather_display.metrics.collector._metrics_collector = None
-
         result = collect_display_image_metrics(
             elapsed_time=10.0,
             db_path=temp_db,
@@ -321,40 +301,53 @@ class TestGlobalFunctions:
 
         assert result > 0
 
-    def test_collect_draw_panel_metrics_without_db_path(self, temp_db):
-        """db_path なしで collect_draw_panel_metrics が動作すること"""
-        # グローバル変数をリセット
-        import weather_display.metrics.collector
-        from weather_display.metrics.collector import collect_draw_panel_metrics, get_metrics_collector
+    def test_collect_draw_panel_metrics_without_db_path(self):
+        """db_path=None の場合 collect_draw_panel_metrics がスキップされること"""
+        from weather_display.metrics.collector import collect_draw_panel_metrics
 
-        weather_display.metrics.collector._metrics_collector = None
+        result = collect_draw_panel_metrics(
+            total_elapsed_time=5.0,
+            panel_metrics=[{"name": "test", "elapsed_time": 1.0}],
+            db_path=None,
+        )
 
-        # 先にグローバルコレクターを作成
-        get_metrics_collector(db_path=temp_db)
+        # db_path=None の場合は -1 を返してスキップ
+        assert result == -1
+
+    def test_collect_display_image_metrics_without_db_path(self):
+        """db_path=None の場合 collect_display_image_metrics がスキップされること"""
+        from weather_display.metrics.collector import collect_display_image_metrics
+
+        result = collect_display_image_metrics(
+            elapsed_time=10.0,
+            db_path=None,
+        )
+
+        # db_path=None の場合は -1 を返してスキップ
+        assert result == -1
+
+    def test_collect_draw_panel_metrics_default_db_path(self):
+        """db_path 省略時（デフォルト None）にスキップされること"""
+        from weather_display.metrics.collector import collect_draw_panel_metrics
 
         result = collect_draw_panel_metrics(
             total_elapsed_time=5.0,
             panel_metrics=[{"name": "test", "elapsed_time": 1.0}],
         )
 
-        assert result > 0
+        # デフォルト db_path=None なので -1 を返す
+        assert result == -1
 
-    def test_collect_display_image_metrics_without_db_path(self, temp_db):
-        """db_path なしで collect_display_image_metrics が動作すること"""
-        # グローバル変数をリセット
-        import weather_display.metrics.collector
-        from weather_display.metrics.collector import collect_display_image_metrics, get_metrics_collector
-
-        weather_display.metrics.collector._metrics_collector = None
-
-        # 先にグローバルコレクターを作成
-        get_metrics_collector(db_path=temp_db)
+    def test_collect_display_image_metrics_default_db_path(self):
+        """db_path 省略時（デフォルト None）にスキップされること"""
+        from weather_display.metrics.collector import collect_display_image_metrics
 
         result = collect_display_image_metrics(
             elapsed_time=10.0,
         )
 
-        assert result > 0
+        # デフォルト db_path=None なので -1 を返す
+        assert result == -1
 
 
 class TestMetricsCollectorExceptionHandling:

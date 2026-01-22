@@ -1144,29 +1144,35 @@ class MetricsAnalyzer:
             return {"draw_panel": draw_panel_stats, "display_image": display_image_stats}
 
 
-# Global instance for easy access
-_metrics_collector = None
-
-
-def get_metrics_collector(db_path: str | pathlib.Path = _DEFAULT_DB_PATH) -> MetricsCollector:
-    """Get or create global metrics collector instance."""
-    global _metrics_collector
-    if _metrics_collector is None or _metrics_collector.db_path != pathlib.Path(db_path):
-        _metrics_collector = MetricsCollector(db_path)
-    return _metrics_collector
-
-
 def collect_draw_panel_metrics(*args, db_path: str | pathlib.Path | None = None, **kwargs) -> int:
-    """Collect draw_panel metrics with convenience wrapper."""
-    if db_path is not None:
-        kwargs.pop("db_path", None)  # Remove db_path from kwargs to avoid duplicate
-        return get_metrics_collector(db_path).log_draw_panel_metrics(*args, **kwargs)
-    return get_metrics_collector().log_draw_panel_metrics(*args, **kwargs)
+    """Collect draw_panel metrics with convenience wrapper.
+
+    Args:
+        db_path: データベースパス。None の場合はメトリクス収集をスキップ。
+
+    Returns:
+        レコードID。db_path が None の場合は -1 を返す。
+
+    """
+    if db_path is None:
+        return -1  # メトリクス収集をスキップ
+
+    collector = MetricsCollector(db_path)
+    return collector.log_draw_panel_metrics(*args, **kwargs)
 
 
 def collect_display_image_metrics(*args, db_path: str | pathlib.Path | None = None, **kwargs) -> int:
-    """Collect display_image metrics with convenience wrapper."""
-    if db_path is not None:
-        kwargs.pop("db_path", None)  # Remove db_path from kwargs to avoid duplicate
-        return get_metrics_collector(db_path).log_display_image_metrics(*args, **kwargs)
-    return get_metrics_collector().log_display_image_metrics(*args, **kwargs)
+    """Collect display_image metrics with convenience wrapper.
+
+    Args:
+        db_path: データベースパス。None の場合はメトリクス収集をスキップ。
+
+    Returns:
+        レコードID。db_path が None の場合は -1 を返す。
+
+    """
+    if db_path is None:
+        return -1  # メトリクス収集をスキップ
+
+    collector = MetricsCollector(db_path)
+    return collector.log_display_image_metrics(*args, **kwargs)
