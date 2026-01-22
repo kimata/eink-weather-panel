@@ -10,7 +10,7 @@ requires-python = ">=3.11"
 
 dependencies = [
     "influxdb-client[ciso]>=1.44.0",
-    "my-lib @ git+https://github.com/kimata/my-py-lib@fa5db4c94da59f2434501e8f89326890d24fb80e",
+    "my-lib @ git+https://github.com/kimata/my-py-lib@4fd91641829a496ecf9469f9f08b575ade595b38",
     "opencv-contrib-python-headless>=4.10.0.84",
     "matplotlib>=3.9.2",
     "pandas>=2.2.2",
@@ -116,6 +116,7 @@ reportArgumentType = false
 reportOperatorIssue = false
 reportIndexIssue = false
 reportGeneralTypeIssues = false
+reportAttributeAccessIssue = false
 
 [tool.mypy]
 python_version = "3.12"
