@@ -111,7 +111,7 @@ test-typecheck:
           paths:
               - ${UV_CACHE_DIR}
 
-test-walk-through:
+test-pytest:
     stage: test
     needs:
         - build-frontend
@@ -398,7 +398,7 @@ tag-latest:
         - build-image
         - job: test-typecheck
           artifacts: false
-        - job: test-walk-through
+        - job: test-pytest
           artifacts: false
         - job: test-display
           artifacts: false
@@ -424,7 +424,7 @@ deploy:
         - build-image
         - job: test-typecheck
           artifacts: false
-        - job: test-walk-through
+        - job: test-pytest
           artifacts: false
         - job: test-display
           artifacts: false
