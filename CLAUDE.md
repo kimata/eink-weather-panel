@@ -399,5 +399,15 @@ config.font.path            # フォントディレクトリ
 
 - タグを打つ際は `CHANGELOG.md` を更新すること
 - `[Unreleased]` セクションの内容を新しいバージョンセクションに移動する
-- Keep a Changelog 形式（Added / Changed / Fixed / Performance など）に従う
+- 以下のカテゴリを絵文字付きで記載：
+    - `### ✨ Added`: 新機能
+    - `### 🔄 Changed`: 既存機能の変更
+    - `### 🐛 Fixed`: バグ修正
+    - `### 🗑️ Removed`: 削除された機能
+    - `### 🔒 Security`: セキュリティ関連の修正
+    - `### ⚡ Performance`: パフォーマンス改善
+    - `### 📝 Documentation`: ドキュメント更新
+    - `### 🧪 Tests`: テスト関連
+    - `### 🔧 CI`: CI/CD 関連
+    - `### 🏗️ Infrastructure`: インフラ関連
 - 日付は `YYYY-MM-DD` 形式で記載する

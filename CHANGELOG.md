@@ -9,7 +9,7 @@
 
 ## [0.1.0] - 2026-01-24
 
-### Added
+### ✨ Added
 
 - **気象パネル**
     - 天気予報（24-48時間の時間別）、気温、降水量、風速、体感温度
@@ -44,7 +44,7 @@
     - エラー時にスクリーンショットを Slack に投稿
 - **dataclass ベースの設定クラス（frozen）**
 
-### Changed
+### 🔄 Changed
 
 - フロントエンドのディレクトリ構成をベストプラクティスに準拠（`react/` → `frontend/`）
 - Bootstrap → Tailwind CSS, Font Awesome → Heroicons に移行
@@ -57,7 +57,7 @@
 - Visionect ディスプレイから Raspberry Pi ベースのシステムに移行
 - InfluxDB2 に移行
 
-### Fixed
+### 🐛 Fixed
 
 - my_lib API の変更に対応
 - chartjs-plugin-zoom の読み込みと初期化順序を修正
@@ -69,7 +69,7 @@
 - 並列実行時の Selenium セッション管理を改善
 - pyright / ty type checker のエラーを修正
 
-### Performance
+### ⚡ Performance
 
 - メトリクス分析のバックエンド最適化
 - power_graph.py にフォントキャッシュを実装
