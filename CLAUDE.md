@@ -394,3 +394,10 @@ config.font.path            # フォントディレクトリ
 - 関連するテストも修正すること
 - 関連するドキュメントも更新すること
 - mypy, pyright, ty がパスすることを確認すること
+
+### リリース時の CHANGELOG 更新
+
+- タグを打つ際は `CHANGELOG.md` を更新すること
+- `[Unreleased]` セクションの内容を新しいバージョンセクションに移動する
+- Keep a Changelog 形式（Added / Changed / Fixed / Performance など）に従う
+- 日付は `YYYY-MM-DD` 形式で記載する
