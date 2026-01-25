@@ -10,7 +10,7 @@ requires-python = ">=3.11"
 
 dependencies = [
     "influxdb-client[ciso]>=1.44.0",
-    "my-lib @ git+https://github.com/kimata/my-py-lib@103d48606b4f613bfdbe128440709aad0bc51523",
+    "my-lib @ git+https://github.com/kimata/my-py-lib@6844351c3a118b0d728acd0d7121fb5ec82f6e47",
     "opencv-contrib-python-headless>=4.13.0",
     "matplotlib>=3.10.8",
     "pandas>=2.3.3",
@@ -24,6 +24,10 @@ dependencies = [
     "scipy>=1.17.0",
     "scikit-learn>=1.8.0",
 ]
+
+[build-system]
+requires = ["hatchling", "uv-dynamic-versioning"]
+build-backend = "hatchling.build"
 
 [dependency-groups]
 dev = [
@@ -47,27 +51,6 @@ dev = [
     "types-requests>=2.32.4",
 ]
 
-[tool.uv]
-default-groups = ["dev"]
-
-[tool.ruff]
-line-length = 110
-
-[tool.ruff.lint]
-select = ["E", "F", "W", "I", "B", "UP"]
-
-[tool.ty]
-[tool.ty.rules]
-
-[tool.uv-dynamic-versioning]
-vcs = "git"
-style = "semver"
-format = "{base}"
-
-[build-system]
-requires = ["hatchling", "uv-dynamic-versioning"]
-build-backend = "hatchling.build"
-
 [tool.hatch.build.targets.wheel]
 packages = ["src/weather_display"]
 
@@ -76,6 +59,20 @@ allow-direct-references = true
 
 [tool.hatch.version]
 source = "uv-dynamic-versioning"
+
+[tool.uv]
+default-groups = ["dev"]
+
+[tool.uv-dynamic-versioning]
+vcs = "git"
+style = "semver"
+format = "{base}"
+
+[tool.ruff]
+line-length = 110
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP"]
 
 [tool.pytest.ini_options]
 minversion = "6.0"
@@ -116,18 +113,6 @@ exclude_lines = [
 [tool.coverage.html]
 directory = "reports/coverage"
 
-[tool.pyright]
-venvPath = "."
-venv = ".venv"
-pythonVersion = "3.13"
-include = ["src", "tests"]
-reportMissingImports = false
-reportArgumentType = false
-reportOperatorIssue = false
-reportIndexIssue = false
-reportGeneralTypeIssues = false
-reportAttributeAccessIssue = false
-
 [tool.mypy]
 python_version = "3.12"
 warn_return_any = false
@@ -150,3 +135,18 @@ exclude = [
     "^tests/",
     "^.venv/",
 ]
+
+[tool.pyright]
+venvPath = "."
+venv = ".venv"
+pythonVersion = "3.13"
+include = ["src", "tests"]
+reportMissingImports = false
+reportArgumentType = false
+reportOperatorIssue = false
+reportIndexIssue = false
+reportGeneralTypeIssues = false
+reportAttributeAccessIssue = false
+
+[tool.ty]
+[tool.ty.rules]
