@@ -127,6 +127,8 @@ def _get_image(weather_info: my_lib.weather.WeatherInfo) -> PIL.Image.Image:
         dtype=np.uint8,
     )
     img = cv2.imdecode(file_bytes, cv2.IMREAD_UNCHANGED)
+    if img is None:
+        raise ValueError("Failed to decode weather icon image")
 
     # NOTE: 透過部分を白で塗りつぶす
     img[img[..., -1] == 0] = [255, 255, 255, 0]

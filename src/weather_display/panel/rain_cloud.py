@@ -325,6 +325,8 @@ def _retouch_cloud_image(
     # より効率的なデコード
     img_array = numpy.frombuffer(png_data, dtype=numpy.uint8)
     img_rgb = cv2.imdecode(img_array, cv2.IMREAD_COLOR)
+    if img_rgb is None:
+        raise ValueError("Failed to decode image")
 
     img_hsv = cv2.cvtColor(img_rgb, cv2.COLOR_BGR2HSV_FULL).astype(numpy.float32)
     bar = numpy.zeros((1, len(_RAINFALL_INTENSITY_LEVEL), 3), dtype=numpy.uint8)
