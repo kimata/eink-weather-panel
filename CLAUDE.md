@@ -7,6 +7,17 @@
 E-Ink Weather Panel は、Raspberry Pi に接続された E-Ink ディスプレイ向けに気象情報表示画像を生成する Python アプリケーションです。Yahoo Weather API、気象庁雨雲レーダー、InfluxDB センサーデータを統合し、マルチパネルの気象ディスプレイを作成します。
 
 ## 重要な注意事項
+### 共通運用ルール
+
+- 変更前に意図と影響範囲を説明し、ユーザー確認を取る
+- `pyproject.toml` 等の共通設定は `../py-project` で管理し、各リポジトリで直接編集しない
+- `my_lib` の変更は `../my-py-lib` で実施し、各リポジトリのハッシュ更新後に `uv lock && uv sync` を実行
+- 依存関係管理は `uv` を標準とし、他の手段はフォールバック扱い
+- 構造化データは `@dataclass` を優先し、辞書からの生成は `parse()` 命名で統一
+- Union 型が 3 箇所以上で出現する場合は `TypeAlias` を定義
+- `except Exception` は避け、具体的な例外型を指定する
+- ミラー運用がある場合は primary リポジトリにのみ push する
+
 
 ### 外部ライブラリ (my_lib) の変更
 

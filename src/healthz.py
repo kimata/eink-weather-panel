@@ -23,11 +23,6 @@ import weather_display.config
 SCHEMA_CONFIG = "schema/config.schema"
 
 
-def check_liveness(target_list: list[my_lib.healthz.HealthzTarget]) -> bool:
-    failed = my_lib.healthz.check_liveness_all(target_list)
-    return len(failed) == 0
-
-
 if __name__ == "__main__":
     import docopt
     import my_lib.logger
@@ -50,7 +45,9 @@ if __name__ == "__main__":
         )
     ]
 
-    if check_liveness(target_list):
+    failed_targets = my_lib.healthz.check_liveness_all_with_ports(target_list)
+
+    if not failed_targets:
         logging.info("OK.")
         sys.exit(0)
     else:
