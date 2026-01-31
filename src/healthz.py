@@ -23,19 +23,6 @@ import weather_display.config
 SCHEMA_CONFIG = "schema/config.schema"
 
 
-def check_liveness(target_list: list[my_lib.healthz.HealthzTarget]) -> bool:
-    """Liveness チェックを実行する.
-
-    Args:
-        target_list: チェック対象のリスト
-
-    Returns:
-        すべてのターゲットが正常な場合は True、失敗がある場合は False
-    """
-    failed_targets = my_lib.healthz.check_liveness_all(target_list)
-    return not failed_targets
-
-
 if __name__ == "__main__":
     import docopt
     import my_lib.logger
