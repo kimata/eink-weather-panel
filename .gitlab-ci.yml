@@ -30,7 +30,7 @@ generate-tag:
 build-frontend:
     stage: build
     needs: []
-    image: node:24.2@sha256:d1db2ecd11f417ab2ff4fef891b4d27194c367d101f9b9cd546a26e424e93d31
+    image: node:24.13@sha256:00e9195ebd49985a6da8921f419978d85dfe354589755192dc090425ce4da2f7
 
     before_script: []
 
