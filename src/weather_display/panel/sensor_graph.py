@@ -353,11 +353,20 @@ def _create_sensor_graph_impl(
                 param_min = min(param_min, min_val)
                 param_max = max(param_max, max_val)
 
-            # NOTE: 見やすくなるように、ちょっと広げる
-            range_map[param.name] = (
-                max(0, param_min - (param_max - param_min) * 0.3),
-                param_max + (param_max - param_min) * 0.05,
-            )
+            if param_min == float("inf"):
+                # 全データ無効時のフォールバック（matplotlib が Inf を拒否するため）
+                logging.warning("全センサーデータが無効なためデフォルトレンジを使用: %s", param.name)
+                range_map[param.name] = (0.0, 1.0)
+            else:
+                # NOTE: 見やすくなるように、ちょっと広げる
+                span = param_max - param_min
+                if span == 0:
+                    # 全データ同値時に ylim の min==max を避ける
+                    span = max(abs(param_min), 1.0)
+                range_map[param.name] = (
+                    max(0, param_min - span * 0.3),
+                    param_max + span * 0.05,
+                )
 
         # 共通の軸設定を取得（日付変換最適化）
         axis_config = _get_shared_axis_config()

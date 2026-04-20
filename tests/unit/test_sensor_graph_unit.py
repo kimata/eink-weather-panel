@@ -300,3 +300,49 @@ class TestSensorDataEdgeCases:
         # エラーなく画像が生成されること
         assert len(result) >= 2
         assert result[0] is not None
+
+    def test_create_with_all_invalid_data(self, config, mocker):
+        """全センサーデータが valid=False の場合、フォールバックレンジで描画されること"""
+        from my_lib.sensor_data import SensorDataResult
+
+        from weather_display.panel.sensor_graph import create
+
+        async def mock_fetch_parallel(db_config, requests):
+            return [SensorDataResult(value=[], time=[], valid=False) for _ in requests]
+
+        mocker.patch(
+            "my_lib.sensor_data.fetch_data_parallel",
+            side_effect=mock_fetch_parallel,
+        )
+
+        result = create(config)
+
+        # Axis limits エラー (inf/-inf) にならず画像が生成されること
+        assert len(result) == 2, f"期待しないエラー発生: {result[2] if len(result) > 2 else ''}"
+        assert result[0] is not None
+
+    def test_create_with_uniform_values(self, config, mocker):
+        """全データが同一値の場合、span=0 で ylim min==max にならないこと"""
+        import datetime
+
+        from my_lib.sensor_data import SensorDataResult
+
+        from weather_display.panel.sensor_graph import create
+
+        now = datetime.datetime.now(datetime.UTC)
+        time_list = [now - datetime.timedelta(hours=i) for i in range(10, 0, -1)]
+
+        async def mock_fetch_parallel(db_config, requests):
+            return [
+                SensorDataResult(value=[25.0] * len(time_list), time=time_list, valid=True) for _ in requests
+            ]
+
+        mocker.patch(
+            "my_lib.sensor_data.fetch_data_parallel",
+            side_effect=mock_fetch_parallel,
+        )
+
+        result = create(config)
+
+        assert len(result) == 2, f"期待しないエラー発生: {result[2] if len(result) > 2 else ''}"
+        assert result[0] is not None
