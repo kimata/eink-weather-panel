@@ -3,10 +3,11 @@
 Liveness のチェックを行います
 
 Usage:
-  healthz.py [-c CONFIG] [-D]
+  healthz.py [-c CONFIG] [-S] [-D]
 
 Options:
   -c CONFIG         : CONFIG を設定ファイルとして読み込んで実行します。[default: config.yaml]
+  -S                : 小型ディスプレイモードで実行します。
   -D                : デバッグモードで動作します。
 """
 
@@ -21,6 +22,7 @@ import my_lib.healthz
 import weather_display.config
 
 SCHEMA_CONFIG = "schema/config.schema"
+SCHEMA_CONFIG_SMALL = "schema/config-small.schema"
 
 
 if __name__ == "__main__":
@@ -31,11 +33,14 @@ if __name__ == "__main__":
     args = docopt.docopt(__doc__)
 
     config_file = args["-c"]
+    small_mode = args["-S"]
     debug_mode = args["-D"]
 
     my_lib.logger.init("panel.e-ink.weather", level=logging.DEBUG if debug_mode else logging.INFO)
 
-    config = weather_display.config.load(config_file, pathlib.Path(SCHEMA_CONFIG))
+    config = weather_display.config.load(
+        config_file, pathlib.Path(SCHEMA_CONFIG_SMALL if small_mode else SCHEMA_CONFIG)
+    )
 
     target_list = [
         my_lib.healthz.HealthzTarget(

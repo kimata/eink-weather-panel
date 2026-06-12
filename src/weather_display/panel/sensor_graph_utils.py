@@ -114,9 +114,10 @@ def draw_light_icon(
     if (now.hour > 7) and (now.hour < 17):
         return
 
-    if lux == EMPTY_VALUE:
+    # NOTE: データが全く無い場合 (None) も欠損値同様にアイコンを描画しない
+    if lux is None or lux == EMPTY_VALUE:
         return
-    elif lux is not None and lux < 10:
+    elif lux < 10:
         icon_file = icon_config.light.off.path
     else:
         icon_file = icon_config.light.on.path

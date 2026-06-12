@@ -17,6 +17,7 @@ Options:
 
 from __future__ import annotations
 
+import contextlib
 import datetime
 import faulthandler
 import logging
@@ -88,6 +89,7 @@ def execute(
     error_message: str | None = None
     sleep_time = 60.0
     diff_sec = 0.0
+    ssh: paramiko.SSHClient | None = None
 
     try:
         weather_display.display.ssh_kill_and_close(prev_ssh, "fbi")
@@ -124,7 +126,12 @@ def execute(
         success = False
         error_message = str(e)
         logging.exception("execute failed")
-        ssh = prev_ssh  # Return previous ssh connection on error
+        # NOTE: prev_ssh は冒頭で close 済みのため、エラー時は新規確立した接続も close して
+        # リークを防ぎ、呼び出し元で失敗を扱えるように再 raise する
+        if ssh is not None:
+            with contextlib.suppress(Exception):
+                ssh.close()
+        raise
 
     finally:
         # Log metrics to database

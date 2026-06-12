@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-from __future__ import annotations
-
+# NOTE: `from __future__ import annotations` を付けると注釈が文字列になり、
+# flask_pydantic の validate() がモデルを解決できなくなるため付けないこと
 import concurrent.futures
 import io
 import logging
@@ -16,9 +16,12 @@ from typing import Any
 
 import flask
 import my_lib.flask_util
-import my_lib.webapp.config
+from flask_pydantic import validate
 
-blueprint = flask.Blueprint("webapi-run", __name__, url_prefix=my_lib.webapp.config.URL_PREFIX)
+import weather_display.runner.webapi.schemas as schemas
+
+# NOTE: URL prefix はアプリ側の register_blueprint(url_prefix=...) で指定する
+blueprint = flask.Blueprint("webapi-run", __name__)
 
 
 @dataclass
@@ -130,10 +133,6 @@ def _generate_image_impl(
         stdout_thread.start()
         stderr_thread.start()
 
-        # プロセス終了を非ブロッキングで監視
-        while proc.poll() is None:
-            time.sleep(0.1)
-
         # プロセス終了を待機（タイムアウト付き）
         try:
             proc.wait(timeout=120)
@@ -144,6 +143,7 @@ def _generate_image_impl(
                 proc.wait(timeout=10)
             except subprocess.TimeoutExpired:
                 proc.kill()
+                proc.wait()
 
         # スレッドの終了を待機（タイムアウト付き）
         stdout_thread.join(timeout=30)
@@ -156,13 +156,20 @@ def _generate_image_impl(
         panel_data.log.put(None)
 
 
+_TOKEN_EXPIRE_SEC = 300
+
+
 def _clean_map() -> None:
     global _panel_data_map
 
-    remove_token: list[str] = []
-    for token, panel_data in _panel_data_map.items():
-        if (time.time() - panel_data.time) > 60:
-            remove_token.append(token)
+    # NOTE: 生成中 (future 未完了) のトークンを削除すると、クライアントがログ・画像を
+    # 取得できなくなるため、生成完了かつ期限切れのものだけを削除する
+    remove_token: list[str] = [
+        token
+        for token, panel_data in _panel_data_map.items()
+        if (panel_data.future is None or panel_data.future.done())
+        and (time.time() - panel_data.time) > _TOKEN_EXPIRE_SEC
+    ]
 
     for token in remove_token:
         del _panel_data_map[token]
@@ -199,33 +206,31 @@ def generate_image(config_file: str, is_small_mode: bool, is_dummy_mode: bool, i
 
 @blueprint.route("/api/image", methods=["POST"])
 @my_lib.flask_util.gzipped
-def api_image() -> flask.Response | str:
+@validate()
+def api_image(form: schemas.TokenRequest) -> flask.Response | str:
     global _panel_data_map
 
     # NOTE: @gzipped をつけた場合、キャッシュ用のヘッダを付与しているので、
     # 無効化する。
     flask.g.disable_cache = True
 
-    token = flask.request.form.get("token", "")
+    if form.token not in _panel_data_map:
+        return f"Invalid token: {form.token}"
 
-    if token not in _panel_data_map:
-        return f"Invalid token: {token}"
-
-    image_data = _panel_data_map[token].image
+    image_data = _panel_data_map[form.token].image
 
     return flask.Response(image_data, mimetype="image/png")
 
 
 @blueprint.route("/api/log", methods=["POST"])
-def api_log() -> flask.Response | str:
+@validate()
+def api_log(form: schemas.TokenRequest) -> flask.Response | str:
     global _panel_data_map
 
-    token = flask.request.form.get("token", "")
+    if form.token not in _panel_data_map:
+        return f"Invalid token: {form.token}"
 
-    if token not in _panel_data_map:
-        return f"Invalid token: {token}"
-
-    log_queue = _panel_data_map[token].log
+    log_queue = _panel_data_map[form.token].log
 
     def generate() -> Any:
         try:
@@ -251,10 +256,10 @@ def api_log() -> flask.Response | str:
 
 @blueprint.route("/api/run", methods=["GET"])
 @my_lib.flask_util.support_jsonp
-def api_run() -> flask.Response:
-    mode = flask.request.args.get("mode", "")
-    is_small_mode = mode == "small"
-    is_test_mode = flask.request.args.get("test", False, type=bool)
+@validate()
+def api_run(query: schemas.RunRequest) -> flask.Response | tuple[flask.Response, int]:
+    is_small_mode = query.mode == "small"
+    is_test_mode = query.test
 
     config_file = (
         flask.current_app.config["CONFIG_FILE_SMALL"]
@@ -268,4 +273,5 @@ def api_run() -> flask.Response:
 
         return flask.jsonify({"token": token})
     except Exception:
-        return flask.jsonify({"token": "", "error": traceback.format_exc()})
+        logging.exception("Failed to start image generation")
+        return flask.jsonify({"token": "", "error": traceback.format_exc()}), 500

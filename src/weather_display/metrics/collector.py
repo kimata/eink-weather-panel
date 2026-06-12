@@ -26,18 +26,32 @@ _DEFAULT_DB_PATH = pathlib.Path("data/metrics.db")
 _DEFAULT_DAYS_LIMIT = 30  # デフォルトは過去30日間
 
 
-def _get_cutoff_date(days_limit: int) -> str:
-    """期間制限の基準日時を取得する。
+def _to_jst_str(dt: datetime.datetime) -> str:
+    """datetime を SQLite の文字列比較に使える JST 形式に変換する。"""
+    if dt.tzinfo is None:
+        # NOTE: naive な日時は JST とみなす
+        dt = dt.replace(tzinfo=_TIMEZONE)
+    return dt.astimezone(_TIMEZONE).strftime("%Y-%m-%d %H:%M:%S")
+
+
+def _get_period_range(
+    days_limit: int,
+    start_date: datetime.datetime | None = None,
+    end_date: datetime.datetime | None = None,
+) -> tuple[str, str]:
+    """期間の (開始, 終了) を SQLite の datetime 比較に使える形式で返す。
 
     Args:
-        days_limit: 過去何日分のデータを取得するか
-
-    Returns:
-        SQLite の datetime 比較に使える形式の日時文字列
+        days_limit: 過去何日分のデータを取得するか (start_date/end_date 未指定時に使用)
+        start_date: カスタム期間の開始日時
+        end_date: カスタム期間の終了日時
 
     """
-    cutoff = datetime.datetime.now(_TIMEZONE) - datetime.timedelta(days=days_limit)
-    return cutoff.strftime("%Y-%m-%d %H:%M:%S")
+    if start_date is not None and end_date is not None:
+        return _to_jst_str(start_date), _to_jst_str(end_date)
+
+    now = datetime.datetime.now(_TIMEZONE)
+    return _to_jst_str(now - datetime.timedelta(days=days_limit)), _to_jst_str(now)
 
 
 def _calculate_boxplot_stats(arr: np.ndarray) -> dict[str, Any] | None:
@@ -417,11 +431,18 @@ class MetricsAnalyzer:
                 },
             }
 
-    def get_basic_statistics(self, days_limit: int | None = None) -> dict:
+    def get_basic_statistics(
+        self,
+        days_limit: int | None = None,
+        start_date: datetime.datetime | None = None,
+        end_date: datetime.datetime | None = None,
+    ) -> dict:
         """Get basic statistics for the specified period.
 
         Args:
             days_limit: 取得するデータの日数制限（Noneの場合はデフォルト値を使用）
+            start_date: カスタム期間の開始日時
+            end_date: カスタム期間の終了日時
 
         Returns:
             基本統計情報の辞書
@@ -430,7 +451,7 @@ class MetricsAnalyzer:
         if days_limit is None:
             days_limit = _DEFAULT_DAYS_LIMIT
 
-        cutoff_date = _get_cutoff_date(days_limit)
+        period = _get_period_range(days_limit, start_date, end_date)
 
         with self._get_connection() as conn:
             cursor = conn.cursor()
@@ -445,9 +466,9 @@ class MetricsAnalyzer:
                     MAX(total_elapsed_time) as max_elapsed_time,
                     SUM(CASE WHEN error_code > 0 THEN 1 ELSE 0 END) as error_count
                 FROM draw_panel_metrics
-                WHERE timestamp >= ?
+                WHERE timestamp >= ? AND timestamp <= ?
             """,
-                (cutoff_date,),
+                period,
             )
             draw_panel_stats = dict(cursor.fetchone())
 
@@ -461,9 +482,9 @@ class MetricsAnalyzer:
                     MAX(elapsed_time) as max_elapsed_time,
                     SUM(CASE WHEN success = 0 THEN 1 ELSE 0 END) as error_count
                 FROM display_image_metrics
-                WHERE timestamp >= ?
+                WHERE timestamp >= ? AND timestamp <= ?
             """,
-                (cutoff_date,),
+                period,
             )
             display_image_stats = dict(cursor.fetchone())
 
@@ -472,11 +493,18 @@ class MetricsAnalyzer:
                 "display_image": display_image_stats,
             }
 
-    def get_hourly_patterns(self, days_limit: int | None = None) -> dict:
+    def get_hourly_patterns(
+        self,
+        days_limit: int | None = None,
+        start_date: datetime.datetime | None = None,
+        end_date: datetime.datetime | None = None,
+    ) -> dict:
         """Analyze performance patterns by hour of day.
 
         Args:
             days_limit: 取得するデータの日数制限（Noneの場合はデフォルト値を使用）
+            start_date: カスタム期間の開始日時
+            end_date: カスタム期間の終了日時
 
         Returns:
             時間別のパフォーマンスパターンデータ
@@ -485,7 +513,7 @@ class MetricsAnalyzer:
         if days_limit is None:
             days_limit = _DEFAULT_DAYS_LIMIT
 
-        cutoff_date = _get_cutoff_date(days_limit)
+        period = _get_period_range(days_limit, start_date, end_date)
 
         def fetch_draw_panel() -> tuple[list, list]:
             with self._get_connection() as conn:
@@ -497,15 +525,16 @@ class MetricsAnalyzer:
                            MIN(total_elapsed_time) as min_elapsed_time,
                            MAX(total_elapsed_time) as max_elapsed_time,
                            SUM(CASE WHEN error_code > 0 THEN 1 ELSE 0 END) * 100.0 / COUNT(*) as error_rate
-                    FROM draw_panel_metrics WHERE timestamp >= ? GROUP BY hour ORDER BY hour
+                    FROM draw_panel_metrics WHERE timestamp >= ? AND timestamp <= ?
+                    GROUP BY hour ORDER BY hour
                 """,
-                    (cutoff_date,),
+                    period,
                 )
                 hourly = [dict(row) for row in cursor.fetchall()]
                 cursor.execute(
                     """SELECT hour, total_elapsed_time FROM draw_panel_metrics
-                    WHERE timestamp >= ? ORDER BY hour""",
-                    (cutoff_date,),
+                    WHERE timestamp >= ? AND timestamp <= ? ORDER BY hour""",
+                    period,
                 )
                 raw = cursor.fetchall()
                 return hourly, raw
@@ -518,14 +547,16 @@ class MetricsAnalyzer:
                     SELECT hour, COUNT(*) as count, AVG(elapsed_time) as avg_elapsed_time,
                            MIN(elapsed_time) as min_elapsed_time, MAX(elapsed_time) as max_elapsed_time,
                            SUM(CASE WHEN success = 0 THEN 1 ELSE 0 END) * 100.0 / COUNT(*) as error_rate
-                    FROM display_image_metrics WHERE timestamp >= ? GROUP BY hour ORDER BY hour
+                    FROM display_image_metrics WHERE timestamp >= ? AND timestamp <= ?
+                    GROUP BY hour ORDER BY hour
                 """,
-                    (cutoff_date,),
+                    period,
                 )
                 hourly = [dict(row) for row in cursor.fetchall()]
                 cursor.execute(
-                    "SELECT hour, elapsed_time FROM display_image_metrics WHERE timestamp >= ? ORDER BY hour",
-                    (cutoff_date,),
+                    """SELECT hour, elapsed_time FROM display_image_metrics
+                    WHERE timestamp >= ? AND timestamp <= ? ORDER BY hour""",
+                    period,
                 )
                 raw = cursor.fetchall()
                 return hourly, raw
@@ -540,16 +571,17 @@ class MetricsAnalyzer:
                            MIN(CAST(diff_sec AS REAL)) as min_diff_sec,
                            MAX(CAST(diff_sec AS REAL)) as max_diff_sec
                     FROM display_image_metrics
-                    WHERE timestamp >= ? AND diff_sec IS NOT NULL AND is_one_time = 0
+                    WHERE timestamp >= ? AND timestamp <= ? AND diff_sec IS NOT NULL AND is_one_time = 0
                     GROUP BY hour ORDER BY hour
                 """,
-                    (cutoff_date,),
+                    period,
                 )
                 hourly = [dict(row) for row in cursor.fetchall()]
                 cursor.execute(
                     """SELECT hour, CAST(diff_sec AS REAL) FROM display_image_metrics
-                    WHERE timestamp >= ? AND diff_sec IS NOT NULL AND is_one_time = 0 ORDER BY hour""",
-                    (cutoff_date,),
+                    WHERE timestamp >= ? AND timestamp <= ? AND diff_sec IS NOT NULL AND is_one_time = 0
+                    ORDER BY hour""",
+                    period,
                 )
                 raw = cursor.fetchall()
                 return hourly, raw
@@ -597,7 +629,13 @@ class MetricsAnalyzer:
 
         return boxplot_stats
 
-    def detect_anomalies(self, iqr_multiplier: float = 3.0, days_limit: int | None = None) -> dict:
+    def detect_anomalies(
+        self,
+        iqr_multiplier: float = 3.0,
+        days_limit: int | None = None,
+        start_date: datetime.datetime | None = None,
+        end_date: datetime.datetime | None = None,
+    ) -> dict:
         """
         Detect anomalies in performance metrics using IQR (Interquartile Range) method.
 
@@ -608,6 +646,8 @@ class MetricsAnalyzer:
             iqr_multiplier: IQR に掛ける係数（デフォルト 3.0）。
                            1.5 で標準的な外れ値、3.0 でより厳格な異常検出。
             days_limit: 取得するデータの日数制限（Noneの場合はデフォルト値を使用）
+            start_date: カスタム期間の開始日時
+            end_date: カスタム期間の終了日時
 
         Returns:
             Dictionary with anomaly detection results including threshold info
@@ -616,15 +656,16 @@ class MetricsAnalyzer:
         if days_limit is None:
             days_limit = _DEFAULT_DAYS_LIMIT
 
-        cutoff_date = _get_cutoff_date(days_limit)
+        period = _get_period_range(days_limit, start_date, end_date)
 
         def fetch_and_analyze_draw_panel() -> dict | None:
             with self._get_connection() as conn:
                 cursor = conn.cursor()
                 cursor.execute(
                     """SELECT id, timestamp, hour, total_elapsed_time, error_code
-                    FROM draw_panel_metrics WHERE timestamp >= ? ORDER BY timestamp""",
-                    (cutoff_date,),
+                    FROM draw_panel_metrics WHERE timestamp >= ? AND timestamp <= ?
+                    ORDER BY timestamp""",
+                    period,
                 )
                 rows = cursor.fetchall()
                 if len(rows) <= 10:
@@ -664,8 +705,9 @@ class MetricsAnalyzer:
                 cursor = conn.cursor()
                 cursor.execute(
                     """SELECT id, timestamp, hour, elapsed_time, success
-                    FROM display_image_metrics WHERE timestamp >= ? ORDER BY timestamp""",
-                    (cutoff_date,),
+                    FROM display_image_metrics WHERE timestamp >= ? AND timestamp <= ?
+                    ORDER BY timestamp""",
+                    period,
                 )
                 rows = cursor.fetchall()
                 if len(rows) <= 10:
@@ -715,11 +757,18 @@ class MetricsAnalyzer:
 
         return results
 
-    def get_performance_trends(self, days_limit: int | None = None) -> dict:
+    def get_performance_trends(
+        self,
+        days_limit: int | None = None,
+        start_date: datetime.datetime | None = None,
+        end_date: datetime.datetime | None = None,
+    ) -> dict:
         """Analyze performance trends over time.
 
         Args:
             days_limit: 取得するデータの日数制限（Noneの場合はデフォルト値を使用）
+            start_date: カスタム期間の開始日時
+            end_date: カスタム期間の終了日時
 
         Returns:
             日別のパフォーマンス推移データ
@@ -728,8 +777,10 @@ class MetricsAnalyzer:
         if days_limit is None:
             days_limit = _DEFAULT_DAYS_LIMIT
 
-        cutoff_date = _get_cutoff_date(days_limit)
+        period = _get_period_range(days_limit, start_date, end_date)
 
+        # NOTE: timestamp はタイムゾーン付き (+09:00) で保存されており、SQLite の DATE() は
+        # UTC に正規化してから日付を切り出すため、'+9 hours' 修飾子で JST の日付に補正する
         with self._get_connection() as conn:
             cursor = conn.cursor()
 
@@ -737,16 +788,16 @@ class MetricsAnalyzer:
             cursor.execute(
                 """
                 SELECT
-                    DATE(timestamp) as date,
+                    DATE(timestamp, '+9 hours') as date,
                     COUNT(*) as operations,
                     AVG(total_elapsed_time) as avg_elapsed_time,
                     SUM(CASE WHEN error_code > 0 THEN 1 ELSE 0 END) * 100.0 / COUNT(*) as error_rate
                 FROM draw_panel_metrics
-                WHERE timestamp >= ?
-                GROUP BY DATE(timestamp)
+                WHERE timestamp >= ? AND timestamp <= ?
+                GROUP BY DATE(timestamp, '+9 hours')
                 ORDER BY date
             """,
-                (cutoff_date,),
+                period,
             )
             draw_panel_trends = [dict(row) for row in cursor.fetchall()]
 
@@ -754,58 +805,58 @@ class MetricsAnalyzer:
             cursor.execute(
                 """
                 SELECT
-                    DATE(timestamp) as date,
+                    DATE(timestamp, '+9 hours') as date,
                     COUNT(*) as operations,
                     AVG(elapsed_time) as avg_elapsed_time,
                     SUM(CASE WHEN success = 0 THEN 1 ELSE 0 END) * 100.0 / COUNT(*) as error_rate
                 FROM display_image_metrics
-                WHERE timestamp >= ?
-                GROUP BY DATE(timestamp)
+                WHERE timestamp >= ? AND timestamp <= ?
+                GROUP BY DATE(timestamp, '+9 hours')
                 ORDER BY date
             """,
-                (cutoff_date,),
+                period,
             )
             display_image_trends = [dict(row) for row in cursor.fetchall()]
 
             # Get raw elapsed times for boxplot by day
             cursor.execute(
                 """
-                SELECT DATE(timestamp) as date, total_elapsed_time
+                SELECT DATE(timestamp, '+9 hours') as date, total_elapsed_time
                 FROM draw_panel_metrics
-                WHERE timestamp >= ?
+                WHERE timestamp >= ? AND timestamp <= ?
                 ORDER BY date
             """,
-                (cutoff_date,),
+                period,
             )
             draw_panel_raw = cursor.fetchall()
 
             cursor.execute(
                 """
-                SELECT DATE(timestamp) as date, elapsed_time
+                SELECT DATE(timestamp, '+9 hours') as date, elapsed_time
                 FROM display_image_metrics
-                WHERE timestamp >= ?
+                WHERE timestamp >= ? AND timestamp <= ?
                 ORDER BY date
             """,
-                (cutoff_date,),
+                period,
             )
             display_image_raw = cursor.fetchall()
 
             # Get raw diff_sec data for boxplot by day
             cursor.execute(
                 """
-                SELECT DATE(timestamp) as date, CAST(diff_sec AS REAL)
+                SELECT DATE(timestamp, '+9 hours') as date, CAST(diff_sec AS REAL)
                 FROM display_image_metrics
-                WHERE timestamp >= ? AND diff_sec IS NOT NULL AND is_one_time = 0
+                WHERE timestamp >= ? AND timestamp <= ? AND diff_sec IS NOT NULL AND is_one_time = 0
                 ORDER BY date
             """,
-                (cutoff_date,),
+                period,
             )
             diff_sec_raw = cursor.fetchall()
 
             # numpy配列を使って日別のboxplot統計量を計算
-            draw_panel_boxplot_list = self._compute_daily_boxplot_stats(draw_panel_raw, "elapsed_times")
-            display_image_boxplot_list = self._compute_daily_boxplot_stats(display_image_raw, "elapsed_times")
-            diff_sec_boxplot_list = self._compute_daily_boxplot_stats(diff_sec_raw, "diff_secs")
+            draw_panel_boxplot_list = self._compute_daily_boxplot_stats(draw_panel_raw)
+            display_image_boxplot_list = self._compute_daily_boxplot_stats(display_image_raw)
+            diff_sec_boxplot_list = self._compute_daily_boxplot_stats(diff_sec_raw)
 
             return {
                 "draw_panel": draw_panel_trends,
@@ -815,7 +866,7 @@ class MetricsAnalyzer:
                 "diff_sec_boxplot": diff_sec_boxplot_list,
             }
 
-    def _compute_daily_boxplot_stats(self, raw_data: list, value_key: str) -> list:
+    def _compute_daily_boxplot_stats(self, raw_data: list) -> list:
         """生データから日別のboxplot統計量を計算する。"""
         if not raw_data:
             return []
@@ -948,11 +999,18 @@ class MetricsAnalyzer:
 
         return alerts
 
-    def get_panel_performance_trends(self, days_limit: int | None = None) -> dict:
+    def get_panel_performance_trends(
+        self,
+        days_limit: int | None = None,
+        start_date: datetime.datetime | None = None,
+        end_date: datetime.datetime | None = None,
+    ) -> dict:
         """パネル別の処理時間統計量を取得する。
 
         Args:
             days_limit: 取得するデータの日数制限（Noneの場合はデフォルト値を使用）
+            start_date: カスタム期間の開始日時
+            end_date: カスタム期間の終了日時
 
         Returns:
             パネル名をキーとした統計量の辞書
@@ -961,7 +1019,7 @@ class MetricsAnalyzer:
         if days_limit is None:
             days_limit = _DEFAULT_DAYS_LIMIT
 
-        cutoff_date = _get_cutoff_date(days_limit)
+        period = _get_period_range(days_limit, start_date, end_date)
 
         with self._get_connection() as conn:
             cursor = conn.cursor()
@@ -974,10 +1032,10 @@ class MetricsAnalyzer:
                     pm.elapsed_time
                 FROM panel_metrics pm
                 JOIN draw_panel_metrics dpm ON pm.draw_panel_id = dpm.id
-                WHERE dpm.timestamp >= ?
+                WHERE dpm.timestamp >= ? AND dpm.timestamp <= ?
                 ORDER BY pm.panel_name
             """,
-                (cutoff_date,),
+                period,
             )
             panel_data = cursor.fetchall()
 
@@ -1001,11 +1059,18 @@ class MetricsAnalyzer:
 
             return panel_stats
 
-    def get_panel_daily_trends(self, days_limit: int | None = None) -> dict:
+    def get_panel_daily_trends(
+        self,
+        days_limit: int | None = None,
+        start_date: datetime.datetime | None = None,
+        end_date: datetime.datetime | None = None,
+    ) -> dict:
         """パネル別の日別処理時間推移を取得する。
 
         Args:
             days_limit: 取得するデータの日数制限（Noneの場合はデフォルト値を使用）
+            start_date: カスタム期間の開始日時
+            end_date: カスタム期間の終了日時
 
         Returns:
             パネル名をキーとした日別boxplot統計量のリストの辞書
@@ -1014,24 +1079,25 @@ class MetricsAnalyzer:
         if days_limit is None:
             days_limit = _DEFAULT_DAYS_LIMIT
 
-        cutoff_date = _get_cutoff_date(days_limit)
+        period = _get_period_range(days_limit, start_date, end_date)
 
         with self._get_connection() as conn:
             cursor = conn.cursor()
 
             # パネル別の処理時間データを日付とともに取得
+            # NOTE: DATE() の '+9 hours' は JST 日付への補正 (get_performance_trends 参照)
             cursor.execute(
                 """
                 SELECT
                     pm.panel_name,
-                    DATE(dpm.timestamp) as date,
+                    DATE(dpm.timestamp, '+9 hours') as date,
                     pm.elapsed_time
                 FROM panel_metrics pm
                 JOIN draw_panel_metrics dpm ON pm.draw_panel_id = dpm.id
-                WHERE dpm.timestamp >= ?
+                WHERE dpm.timestamp >= ? AND dpm.timestamp <= ?
                 ORDER BY pm.panel_name, date
             """,
-                (cutoff_date,),
+                period,
             )
             panel_data = cursor.fetchall()
 
@@ -1062,11 +1128,18 @@ class MetricsAnalyzer:
 
             return panel_daily_trends
 
-    def get_performance_statistics(self, days_limit: int | None = None) -> dict:
+    def get_performance_statistics(
+        self,
+        days_limit: int | None = None,
+        start_date: datetime.datetime | None = None,
+        end_date: datetime.datetime | None = None,
+    ) -> dict:
         """パフォーマンス統計情報を取得する（異常検知詳細用）。
 
         Args:
             days_limit: 取得するデータの日数制限（Noneの場合はデフォルト値を使用）
+            start_date: カスタム期間の開始日時
+            end_date: カスタム期間の終了日時
 
         Returns:
             統計情報の辞書
@@ -1075,7 +1148,7 @@ class MetricsAnalyzer:
         if days_limit is None:
             days_limit = _DEFAULT_DAYS_LIMIT
 
-        cutoff_date = _get_cutoff_date(days_limit)
+        period = _get_period_range(days_limit, start_date, end_date)
 
         with self._get_connection() as conn:
             cursor = conn.cursor()
@@ -1089,9 +1162,9 @@ class MetricsAnalyzer:
                     MIN(total_elapsed_time) as min_time,
                     MAX(total_elapsed_time) as max_time
                 FROM draw_panel_metrics
-                WHERE timestamp >= ?
+                WHERE timestamp >= ? AND timestamp <= ?
             """,
-                (cutoff_date,),
+                period,
             )
             draw_panel_stats = dict(cursor.fetchone())
 
@@ -1100,9 +1173,9 @@ class MetricsAnalyzer:
                 """
                 SELECT total_elapsed_time
                 FROM draw_panel_metrics
-                WHERE timestamp >= ?
+                WHERE timestamp >= ? AND timestamp <= ?
             """,
-                (cutoff_date,),
+                period,
             )
             draw_panel_times = np.array([row[0] for row in cursor.fetchall()])
 
@@ -1120,9 +1193,9 @@ class MetricsAnalyzer:
                     MIN(elapsed_time) as min_time,
                     MAX(elapsed_time) as max_time
                 FROM display_image_metrics
-                WHERE timestamp >= ?
+                WHERE timestamp >= ? AND timestamp <= ?
             """,
-                (cutoff_date,),
+                period,
             )
             display_image_stats = dict(cursor.fetchone())
 
@@ -1130,9 +1203,9 @@ class MetricsAnalyzer:
                 """
                 SELECT elapsed_time
                 FROM display_image_metrics
-                WHERE timestamp >= ?
+                WHERE timestamp >= ? AND timestamp <= ?
             """,
-                (cutoff_date,),
+                period,
             )
             display_image_times = np.array([row[0] for row in cursor.fetchall()])
 

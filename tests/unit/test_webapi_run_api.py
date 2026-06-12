@@ -17,12 +17,7 @@ from weather_display.runner.webapi.run import PanelData
 @pytest.fixture
 def run_app(mocker):
     """テスト用の Flask アプリケーションを作成"""
-    import my_lib.webapp.config
-
     from weather_display.runner.webapi import run
-
-    # URL_PREFIX を設定
-    my_lib.webapp.config.URL_PREFIX = "/panel"
 
     run.init("/path/to/create_image.py")
 
@@ -85,14 +80,14 @@ class TestApiRun:
         assert "token" in data
 
     def test_api_run_exception(self, run_client, mocker):
-        """例外発生時にエラーを返すこと"""
+        """例外発生時に HTTP 500 でエラーを返すこと"""
         from weather_display.runner.webapi import run
 
         mocker.patch.object(run, "generate_image", side_effect=RuntimeError("Test error"))
 
         response = run_client.get("/panel/api/run")
 
-        assert response.status_code == 200
+        assert response.status_code == 500
         data = response.get_json()
         assert data["token"] == ""
         assert "error" in data

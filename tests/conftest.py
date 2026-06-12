@@ -71,15 +71,10 @@ def slack_mock():
 @pytest.fixture(scope="session")
 def app():
     """Flask アプリケーションを作成"""
-    import my_lib.webapp.config
-
-    my_lib.webapp.config.URL_PREFIX = "/panel"
-
     import webui
 
-    with unittest.mock.patch.dict("os.environ", {"WERKZEUG_RUN_MAIN": "true"}):
-        app = webui.create_app(CONFIG_FILE, CONFIG_SMALL_FILE, dummy_mode=True)
-        yield app
+    app = webui.create_app(CONFIG_FILE, CONFIG_SMALL_FILE, dummy_mode=True)
+    yield app
 
 
 @pytest.fixture

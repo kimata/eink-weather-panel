@@ -81,27 +81,35 @@ class TestExecute:
         assert timing_controller is not None
 
     def test_execute_with_exception(self, config, mocker, mock_sensor_fetch_data):
-        """例外発生時にエラーハンドリングされること"""
+        """例外発生時にメトリクスへ失敗が記録され、例外が再送出されること"""
+        import pytest
+
         import display_image
 
         mock_sensor_fetch_data()
 
         mocker.patch("weather_display.display.ssh_kill_and_close")
         mocker.patch("weather_display.display.ssh_connect", side_effect=Exception("Test exception"))
-
-        ssh, sleep_time, timing_controller = display_image.execute(
-            config,
-            rasp_hostname="test-host",
-            key_file_path="key/test.id_rsa",
-            config_file="config.example.yaml",
-            small_mode=False,
-            test_mode=True,
-            is_one_time=True,
-            prev_ssh=None,
-            timing_controller=None,
+        mock_metrics = mocker.patch(
+            "weather_display.metrics.collector.collect_display_image_metrics", return_value=1
         )
 
-        # 例外発生時も処理が継続すること
+        # NOTE: 呼び出し元 (start) で fail_count の増加や Slack 通知を行えるよう、例外は再送出される
+        with pytest.raises(Exception, match="Test exception"):
+            display_image.execute(
+                config,
+                rasp_hostname="test-host",
+                key_file_path="key/test.id_rsa",
+                config_file="config.example.yaml",
+                small_mode=False,
+                test_mode=True,
+                is_one_time=True,
+                prev_ssh=None,
+                timing_controller=None,
+            )
+
+        # 失敗がメトリクスに記録されること
+        assert mock_metrics.call_args.kwargs["success"] is False
 
 
 class TestSigHandler:

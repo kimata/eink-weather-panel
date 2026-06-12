@@ -2,22 +2,21 @@
 # ruff: noqa: E501
 
 import datetime
-import json
 import logging
 import pathlib
 
 import flask
 import my_lib.config
 import my_lib.flask_util
-import my_lib.webapp.config
+from flask_pydantic import validate
 
 import weather_display.metrics.collector
-import weather_display.metrics.webapi.page_js
+import weather_display.metrics.webapi.schemas as schemas
 
+# NOTE: URL prefix はアプリ側の register_blueprint(url_prefix=...) で指定する
 blueprint = flask.Blueprint(
     "metrics",
     __name__,
-    url_prefix=my_lib.webapp.config.URL_PREFIX,
     static_folder="static",
     static_url_path="/static",
 )
@@ -28,16 +27,6 @@ _HEROICONS = {
     "link": '<svg class="hero-icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" d="M13.19 8.688a4.5 4.5 0 0 1 1.242 7.244l-4.5 4.5a4.5 4.5 0 0 1-6.364-6.364l1.757-1.757m13.35-.622 1.757-1.757a4.5 4.5 0 0 0-6.364-6.364l-4.5 4.5a4.5 4.5 0 0 0 1.242 7.244" /></svg>',
     "calendar": '<svg class="hero-icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75m-18 0v-7.5A2.25 2.25 0 0 1 5.25 9h13.5A2.25 2.25 0 0 1 21 11.25v7.5" /></svg>',
     "check": '<svg class="hero-icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" /></svg>',
-    "check-circle": '<svg class="hero-icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" /></svg>',
-    "exclamation-triangle": '<svg class="hero-icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" /></svg>',
-    "chart-bar": '<svg class="hero-icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 0 1 3 19.875v-6.75ZM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V8.625ZM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V4.125Z" /></svg>',
-    "clock": '<svg class="hero-icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" /></svg>',
-    "magnifying-glass": '<svg class="hero-icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" /></svg>',
-    "puzzle-piece": '<svg class="hero-icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" d="M14.25 6.087c0-.355.186-.676.401-.959.221-.29.349-.634.349-1.003 0-1.036-1.007-1.875-2.25-1.875s-2.25.84-2.25 1.875c0 .369.128.713.349 1.003.215.283.401.604.401.959v0a.64.64 0 0 1-.657.643 48.39 48.39 0 0 1-4.163-.3c.186 1.613.293 3.25.315 4.907a.656.656 0 0 1-.658.663v0c-.355 0-.676-.186-.959-.401a1.647 1.647 0 0 0-1.003-.349c-1.036 0-1.875 1.007-1.875 2.25s.84 2.25 1.875 2.25c.369 0 .713-.128 1.003-.349.283-.215.604-.401.959-.401v0c.31 0 .555.26.532.57a48.039 48.039 0 0 1-.642 5.056c1.518.19 3.058.309 4.616.354a.64.64 0 0 0 .657-.643v0c0-.355-.186-.676-.401-.959a1.647 1.647 0 0 1-.349-1.003c0-1.035 1.008-1.875 2.25-1.875 1.243 0 2.25.84 2.25 1.875 0 .369-.128.713-.349 1.003-.215.283-.4.604-.4.959v0c0 .333.277.599.61.58a48.1 48.1 0 0 0 5.427-.63 48.05 48.05 0 0 0 .582-4.717.532.532 0 0 0-.533-.57v0c-.355 0-.676.186-.959.401-.29.221-.634.349-1.003.349-1.035 0-1.875-1.007-1.875-2.25s.84-2.25 1.875-2.25c.37 0 .713.128 1.003.349.283.215.604.401.96.401v0a.656.656 0 0 0 .658-.663 48.422 48.422 0 0 0-.37-5.36c-1.886.342-3.81.574-5.766.689a.578.578 0 0 1-.61-.58v0Z" /></svg>',
-    "arrow-path": '<svg class="hero-icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" /></svg>',
-    "arrow-uturn-left": '<svg class="hero-icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" d="M9 15 3 9m0 0 6-6M3 9h12a6 6 0 0 1 0 12h-3" /></svg>',
-    "bars-arrow-down": '<svg class="hero-icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" d="M3 4.5h14.25M3 9h9.75M3 13.5h9.75m4.5-4.5v12m0 0-3.75-3.75M17.25 21l3.75-3.75" /></svg>',
-    "information-circle": '<svg class="hero-icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" d="m11.25 11.25.041-.02a.75.75 0 0 1 1.063.852l-.708 2.836a.75.75 0 0 0 1.063.853l.041-.021M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9-3.75h.008v.008H12V8.25Z" /></svg>',
 }
 
 
@@ -50,8 +39,13 @@ def _icon(name: str) -> str:
 _DEFAULT_DAYS = 30
 
 
-def _get_period_params() -> tuple[int | None, datetime.datetime | None, datetime.datetime | None]:
-    """リクエストから期間パラメータを取得する。
+def _get_period_params_from_query(
+    query: schemas.PeriodRequest,
+) -> tuple[int | None, datetime.datetime | None, datetime.datetime | None]:
+    """スキーマから期間パラメータを取得する。
+
+    Args:
+        query: PeriodRequest schema
 
     Returns:
         tuple: (days_limit, start_date, end_date)
@@ -60,28 +54,23 @@ def _get_period_params() -> tuple[int | None, datetime.datetime | None, datetime
     """
     try:
         # まずカスタム期間（start/end）をチェック
-        start_str = flask.request.args.get("start")
-        end_str = flask.request.args.get("end")
-
-        if start_str and end_str:
+        if query.start and query.end:
             try:
-                start_date = datetime.datetime.fromisoformat(start_str.replace("Z", "+00:00"))
-                end_date = datetime.datetime.fromisoformat(end_str.replace("Z", "+00:00"))
+                start_date = datetime.datetime.fromisoformat(query.start.replace("Z", "+00:00"))
+                end_date = datetime.datetime.fromisoformat(query.end.replace("Z", "+00:00"))
                 return None, start_date, end_date
             except ValueError:
                 pass  # 無効な日付形式の場合はフォールバック
 
-        # 日数パラメータを取得
-        days = flask.request.args.get("days", _DEFAULT_DAYS, type=int)
         # 有効な範囲にクランプ（1日〜365日）
-        return max(1, min(365, days)), None, None
+        return max(1, min(365, query.days)), None, None
     except (ValueError, TypeError):
         return _DEFAULT_DAYS, None, None
 
 
-def _get_days_limit() -> int:
-    """リクエストから期間パラメータを取得する（後方互換性のため維持）。"""
-    days_limit, start_date, end_date = _get_period_params()
+def _get_days_limit_from_query(query: schemas.PeriodRequest) -> int:
+    """スキーマから期間パラメータを取得する。"""
+    days_limit, start_date, end_date = _get_period_params_from_query(query)
     if days_limit is not None:
         return days_limit
     # カスタム期間の場合は日数を計算
@@ -91,57 +80,70 @@ def _get_days_limit() -> int:
     return _DEFAULT_DAYS
 
 
+def _get_period_kwargs(query: schemas.PeriodRequest) -> dict:
+    """analyzer メソッドに渡す期間パラメータを構築する。"""
+    days_limit, start_date, end_date = _get_period_params_from_query(query)
+    return {"days_limit": days_limit, "start_date": start_date, "end_date": end_date}
+
+
+def _get_url_prefix() -> str:
+    """Blueprint の登録先 URL prefix を返す。"""
+    return flask.url_for("metrics.metrics_view").removesuffix("/api/metrics")
+
+
+def _get_metrics_db_path() -> str | None:
+    """メトリクス DB のパスを取得する。
+
+    メトリクスサーバー経由では起動時にロード済みの設定 (CONFIG) を参照し、
+    webui 経由では設定ファイル (CONFIG_FILE_NORMAL) を読み込む。
+    """
+    app_config = flask.current_app.config.get("CONFIG")
+    if app_config is not None:
+        return str(app_config.metrics.data) if app_config.metrics is not None else None
+
+    config_file = flask.current_app.config.get("CONFIG_FILE_NORMAL", "config.yaml")
+    config = my_lib.config.load(config_file, pathlib.Path("schema/config.schema"))
+    return config.get("metrics", {}).get("data", "data/metrics.db")
+
+
 @blueprint.route("/api/metrics", methods=["GET"])
 @my_lib.flask_util.gzipped
 def metrics_view():
     """メトリクスダッシュボードのHTMLページを返す（データなし）"""
     # HTMLを生成（データは含まない）
-    html_content = generate_metrics_html_skeleton()
+    html_content = generate_metrics_html_skeleton(_get_url_prefix())
     return flask.Response(html_content, mimetype="text/html")
 
 
 @blueprint.route("/api/metrics/data", methods=["GET"])
 @my_lib.flask_util.gzipped
-def metrics_data():
+@validate()
+def metrics_data(query: schemas.PeriodRequest) -> flask.Response | tuple[flask.Response, int]:
     """メトリクスデータをJSONで返す（非推奨：個別エンドポイントを使用）"""
     # NOTE: メトリクスデータは3分間キャッシュする（パフォーマンス改善）
     flask.g.cache_max_age = 180
 
     try:
-        # 設定ファイルからデータベースパスを取得
-        config_file = flask.current_app.config.get("CONFIG_FILE_NORMAL", "config.yaml")
-        config = my_lib.config.load(config_file, pathlib.Path("schema/config.schema"))
-
-        # 設定からデータベースパスを取得
-        db_path = config.get("metrics", {}).get("data", "data/metrics.db")
-
-        # データベースファイルの存在確認
-        if not pathlib.Path(db_path).exists():
-            return flask.jsonify(
-                {
-                    "error": "database_not_found",
-                    "message": f"メトリクスデータベースが見つかりません: {db_path}",
-                    "details": "システムが十分に動作してからメトリクスが生成されます。",
-                }
-            ), 503
+        analyzer, error_response, error_code = _get_analyzer()
+        if analyzer is None:
+            assert error_response is not None and error_code is not None  # noqa: S101
+            return error_response, error_code
 
         # 期間パラメータを取得
-        days_limit = _get_days_limit()
-
-        # メトリクス分析器を初期化
-        analyzer = weather_display.metrics.collector.MetricsAnalyzer(db_path)
+        days_limit = _get_days_limit_from_query(query)
+        period = _get_period_kwargs(query)
 
         # データ範囲を取得
         data_range = analyzer.get_data_range()
 
         # すべてのメトリクスデータを収集（期間制限付き）
-        basic_stats = analyzer.get_basic_statistics(days_limit=days_limit)
-        hourly_patterns = analyzer.get_hourly_patterns(days_limit=days_limit)
-        anomalies = analyzer.detect_anomalies(days_limit=days_limit)
-        trends = analyzer.get_performance_trends(days_limit=days_limit)
+        basic_stats = analyzer.get_basic_statistics(**period)
+        hourly_patterns = analyzer.get_hourly_patterns(**period)
+        anomalies = analyzer.detect_anomalies(**period)
+        trends = analyzer.get_performance_trends(**period)
         alerts = analyzer.check_performance_alerts()
-        panel_trends = analyzer.get_panel_performance_trends(days_limit=days_limit)
-        performance_stats = analyzer.get_performance_statistics(days_limit=days_limit)
+        panel_trends = analyzer.get_panel_performance_trends(**period)
+        performance_stats = analyzer.get_performance_statistics(**period)
 
         # JSONレスポンスを返す
         return flask.jsonify(
@@ -165,11 +167,9 @@ def metrics_data():
 
 def _get_analyzer():
     """メトリクス分析器を初期化する共通関数"""
-    config_file = flask.current_app.config.get("CONFIG_FILE_NORMAL", "config.yaml")
-    config = my_lib.config.load(config_file, pathlib.Path("schema/config.schema"))
-    db_path = config.get("metrics", {}).get("data", "data/metrics.db")
+    db_path = _get_metrics_db_path()
 
-    if not pathlib.Path(db_path).exists():
+    if db_path is None or not pathlib.Path(db_path).exists():
         return (
             None,
             flask.jsonify(
@@ -187,7 +187,8 @@ def _get_analyzer():
 
 @blueprint.route("/api/metrics/basic-stats", methods=["GET"])
 @my_lib.flask_util.gzipped
-def metrics_basic_stats():
+@validate()
+def metrics_basic_stats(query: schemas.PeriodRequest) -> flask.Response | tuple[flask.Response, int]:
     """基本統計データをJSONで返す"""
     flask.g.cache_max_age = 180
 
@@ -197,8 +198,8 @@ def metrics_basic_stats():
             assert error_response is not None and error_code is not None  # noqa: S101
             return error_response, error_code
 
-        days_limit = _get_days_limit()
-        basic_stats = analyzer.get_basic_statistics(days_limit=days_limit)
+        days_limit = _get_days_limit_from_query(query)
+        basic_stats = analyzer.get_basic_statistics(**_get_period_kwargs(query))
         return flask.jsonify({"basic_stats": basic_stats, "days_limit": days_limit})
 
     except Exception as e:
@@ -208,7 +209,8 @@ def metrics_basic_stats():
 
 @blueprint.route("/api/metrics/hourly-patterns", methods=["GET"])
 @my_lib.flask_util.gzipped
-def metrics_hourly_patterns():
+@validate()
+def metrics_hourly_patterns(query: schemas.PeriodRequest) -> flask.Response | tuple[flask.Response, int]:
     """時間別パターンデータをJSONで返す"""
     flask.g.cache_max_age = 180
 
@@ -218,8 +220,8 @@ def metrics_hourly_patterns():
             assert error_response is not None and error_code is not None  # noqa: S101
             return error_response, error_code
 
-        days_limit = _get_days_limit()
-        hourly_patterns = analyzer.get_hourly_patterns(days_limit=days_limit)
+        days_limit = _get_days_limit_from_query(query)
+        hourly_patterns = analyzer.get_hourly_patterns(**_get_period_kwargs(query))
         return flask.jsonify({"hourly_patterns": hourly_patterns, "days_limit": days_limit})
 
     except Exception as e:
@@ -229,7 +231,8 @@ def metrics_hourly_patterns():
 
 @blueprint.route("/api/metrics/trends", methods=["GET"])
 @my_lib.flask_util.gzipped
-def metrics_trends():
+@validate()
+def metrics_trends(query: schemas.PeriodRequest) -> flask.Response | tuple[flask.Response, int]:
     """パフォーマンス推移データをJSONで返す"""
     flask.g.cache_max_age = 180
 
@@ -239,8 +242,8 @@ def metrics_trends():
             assert error_response is not None and error_code is not None  # noqa: S101
             return error_response, error_code
 
-        days_limit = _get_days_limit()
-        trends = analyzer.get_performance_trends(days_limit=days_limit)
+        days_limit = _get_days_limit_from_query(query)
+        trends = analyzer.get_performance_trends(**_get_period_kwargs(query))
         return flask.jsonify({"trends": trends, "days_limit": days_limit})
 
     except Exception as e:
@@ -250,7 +253,8 @@ def metrics_trends():
 
 @blueprint.route("/api/metrics/panel-trends", methods=["GET"])
 @my_lib.flask_util.gzipped
-def metrics_panel_trends():
+@validate()
+def metrics_panel_trends(query: schemas.PeriodRequest) -> flask.Response | tuple[flask.Response, int]:
     """パネル別処理時間推移データをJSONで返す"""
     flask.g.cache_max_age = 180
 
@@ -260,8 +264,8 @@ def metrics_panel_trends():
             assert error_response is not None and error_code is not None  # noqa: S101
             return error_response, error_code
 
-        days_limit = _get_days_limit()
-        panel_trends = analyzer.get_panel_performance_trends(days_limit=days_limit)
+        days_limit = _get_days_limit_from_query(query)
+        panel_trends = analyzer.get_panel_performance_trends(**_get_period_kwargs(query))
         return flask.jsonify({"panel_trends": panel_trends, "days_limit": days_limit})
 
     except Exception as e:
@@ -271,7 +275,8 @@ def metrics_panel_trends():
 
 @blueprint.route("/api/metrics/panel-daily-trends", methods=["GET"])
 @my_lib.flask_util.gzipped
-def metrics_panel_daily_trends():
+@validate()
+def metrics_panel_daily_trends(query: schemas.PeriodRequest) -> flask.Response | tuple[flask.Response, int]:
     """パネル別日別処理時間推移データをJSONで返す"""
     flask.g.cache_max_age = 180
 
@@ -281,8 +286,8 @@ def metrics_panel_daily_trends():
             assert error_response is not None and error_code is not None  # noqa: S101
             return error_response, error_code
 
-        days_limit = _get_days_limit()
-        panel_daily_trends = analyzer.get_panel_daily_trends(days_limit=days_limit)
+        days_limit = _get_days_limit_from_query(query)
+        panel_daily_trends = analyzer.get_panel_daily_trends(**_get_period_kwargs(query))
         return flask.jsonify({"panel_daily_trends": panel_daily_trends, "days_limit": days_limit})
 
     except Exception as e:
@@ -292,7 +297,8 @@ def metrics_panel_daily_trends():
 
 @blueprint.route("/api/metrics/alerts", methods=["GET"])
 @my_lib.flask_util.gzipped
-def metrics_alerts():
+@validate()
+def metrics_alerts(query: schemas.PeriodRequest) -> flask.Response | tuple[flask.Response, int]:
     """アラートデータをJSONで返す"""
     flask.g.cache_max_age = 180
 
@@ -312,7 +318,8 @@ def metrics_alerts():
 
 @blueprint.route("/api/metrics/anomalies", methods=["GET"])
 @my_lib.flask_util.gzipped
-def metrics_anomalies():
+@validate()
+def metrics_anomalies(query: schemas.PeriodRequest) -> flask.Response | tuple[flask.Response, int]:
     """異常検知データをJSONで返す"""
     flask.g.cache_max_age = 180
 
@@ -322,9 +329,10 @@ def metrics_anomalies():
             assert error_response is not None and error_code is not None  # noqa: S101
             return error_response, error_code
 
-        days_limit = _get_days_limit()
-        anomalies = analyzer.detect_anomalies(days_limit=days_limit)
-        performance_stats = analyzer.get_performance_statistics(days_limit=days_limit)
+        days_limit = _get_days_limit_from_query(query)
+        period = _get_period_kwargs(query)
+        anomalies = analyzer.detect_anomalies(**period)
+        performance_stats = analyzer.get_performance_statistics(**period)
         data_range = analyzer.get_data_range()
         return flask.jsonify(
             {
@@ -364,10 +372,9 @@ def favicon():
         return flask.Response("", status=500)
 
 
-def generate_metrics_html_skeleton():
+def generate_metrics_html_skeleton(url_prefix: str = ""):
     """データを含まない軽量なHTMLスケルトンを生成。"""
-    # URL_PREFIXを取得してfaviconパスを構築
-    favicon_path = f"{my_lib.webapp.config.URL_PREFIX}/favicon.png"
+    favicon_path = f"{url_prefix}/favicon.png"
 
     return f"""
 <!DOCTYPE html>
@@ -383,9 +390,9 @@ def generate_metrics_html_skeleton():
     <script src="https://cdn.jsdelivr.net/npm/@sgratzl/chartjs-chart-boxplot@4/build/index.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8/hammer.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2/dist/chartjs-plugin-zoom.min.js"></script>
-    <script defer src="{my_lib.webapp.config.URL_PREFIX}/static/metrics.js"></script>
-    <script defer src="{my_lib.webapp.config.URL_PREFIX}/static/chart-functions.js"></script>
-    <script defer src="{my_lib.webapp.config.URL_PREFIX}/static/metrics-loader.js"></script>
+    <script defer src="{url_prefix}/static/metrics.js"></script>
+    <script defer src="{url_prefix}/static/chart-functions.js"></script>
+    <script defer src="{url_prefix}/static/metrics-loader.js"></script>
     <style>
         /* Heroicons inline SVG styles */
         .hero-icon {{
@@ -759,895 +766,8 @@ def generate_metrics_html_skeleton():
 
     <script>
         // API URLの設定
-        window.metricsApiUrl = '{my_lib.webapp.config.URL_PREFIX}/api/metrics/data';
-        window.metricsApiBaseUrl = '{my_lib.webapp.config.URL_PREFIX}';
+        window.metricsApiUrl = '{url_prefix}/api/metrics/data';
+        window.metricsApiBaseUrl = '{url_prefix}';
     </script>
 </html>
-    """
-
-
-def generate_metrics_html(
-    basic_stats, hourly_patterns, anomalies, trends, alerts, panel_trends, performance_stats, data_range
-):
-    """Bulma CSSを使用した包括的なメトリクスHTMLを生成。"""
-    # データ範囲から動的なタイトルを生成
-    import datetime
-
-    subtitle_text = "パフォーマンス監視と異常検知"
-    if data_range and data_range["overall"]["earliest"]:
-        try:
-            earliest_str = data_range["overall"]["earliest"]
-            # ISO形式の日時をパース
-            earliest_dt = datetime.datetime.fromisoformat(earliest_str.replace("+09:00", "+09:00"))
-            latest_str = data_range["overall"]["latest"]
-            latest_dt = datetime.datetime.fromisoformat(latest_str.replace("+09:00", "+09:00"))
-
-            # 日数を計算
-            days_diff = (latest_dt - earliest_dt).days + 1  # +1 to include both start and end days
-
-            # 開始日をフォーマット
-            start_date_formatted = earliest_dt.strftime("%Y年%m月%d日")
-
-            subtitle_text = f"過去{days_diff}日間（{start_date_formatted}〜）のパフォーマンス監視と異常検知"
-        except Exception:
-            # フォーマットエラーの場合はデフォルトのまま
-            subtitle_text = "パフォーマンス監視と異常検知"
-
-    # JavaScript チャート用にデータをJSONに変換
-    hourly_data_json = json.dumps(hourly_patterns)
-    trends_data_json = json.dumps(trends)
-    anomalies_data_json = json.dumps(anomalies)
-    panel_trends_data_json = json.dumps(panel_trends)
-
-    # URL_PREFIXを取得してfaviconパスを構築
-    favicon_path = f"{my_lib.webapp.config.URL_PREFIX}/favicon.png"
-
-    html = (
-        f"""
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>天気パネル メトリクス ダッシュボード</title>
-    <link rel="icon" type="image/png" href="{favicon_path}">
-    <link rel="apple-touch-icon" href="{favicon_path}">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bulma@0.9.4/css/bulma.min.css">
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@sgratzl/chartjs-chart-boxplot@4/build/index.umd.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8/hammer.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2/dist/chartjs-plugin-zoom.min.js"></script>
-    <script defer src="{my_lib.webapp.config.URL_PREFIX}/static/metrics.js"></script>
-    <script defer src="{my_lib.webapp.config.URL_PREFIX}/static/chart-functions.js"></script>
-    <style>
-        /* Heroicons inline SVG styles */
-        .hero-icon {{
-            display: inline-block;
-            width: 1em;
-            height: 1em;
-            vertical-align: -0.125em;
-            fill: none;
-            stroke: currentColor;
-            stroke-width: 1.5;
-        }}
-        .hero-icon-solid {{
-            display: inline-block;
-            width: 1em;
-            height: 1em;
-            vertical-align: -0.125em;
-            fill: currentColor;
-            stroke: none;
-        }}
-        .metrics-card {{ margin-bottom: 1rem; }}
-        .section {{ padding-top: 1.5rem; padding-bottom: 1.5rem; }}
-        @media (max-width: 768px) {{
-            .metrics-card {{ margin-bottom: 0.75rem; }}
-        }}
-        .stat-number {{ font-size: 2rem; font-weight: bold; }}
-        .chart-container {{ position: relative; height: 350px; margin: 0.5rem 0; }}
-        @media (max-width: 768px) {{
-            .chart-container {{ height: 300px; margin: 0.25rem 0; }}
-            .container.is-fluid {{ padding: 0.25rem !important; }}
-            .section {{ padding: 0.5rem 0.25rem !important; }}
-            .card {{ margin-bottom: 1rem !important; }}
-            .columns {{ margin: 0 !important; }}
-            .column {{ padding: 0.25rem !important; }}
-        }}
-        .chart-legend {{ margin-bottom: 1rem; }}
-        .legend-item {{ display: inline-block; margin-right: 1rem; margin-bottom: 0.5rem; }}
-        .legend-color {{
-            display: inline-block; width: 20px; height: 3px;
-            margin-right: 0.5rem; vertical-align: middle;
-        }}
-        .legend-dashed {{ border-top: 3px dashed; height: 0; }}
-        .legend-dotted {{ border-top: 3px dotted; height: 0; }}
-        .anomaly-item {{
-            margin-bottom: 1rem;
-            padding: 0.75rem;
-            background-color: #fafafa;
-            border-radius: 6px;
-            border-left: 4px solid #ffdd57;
-        }}
-        .alert-item {{ margin-bottom: 1rem; }}
-        .hourly-grid {{
-            display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 1rem;
-        }}
-        .japanese-font {{
-            font-family: "Hiragino Sans", "Hiragino Kaku Gothic ProN",
-                         "Noto Sans CJK JP", "Yu Gothic", sans-serif;
-        }}
-
-        /* パーマリンク機能のスタイル */
-        .permalink-container {{
-            position: relative;
-            display: inline-block;
-        }}
-        .permalink-icon {{
-            position: absolute;
-            right: -25px;
-            top: 50%;
-            transform: translateY(-50%);
-            opacity: 0;
-            transition: opacity 0.2s ease;
-            cursor: pointer;
-            color: #3273dc;
-            font-size: 0.8em;
-        }}
-        .permalink-container:hover .permalink-icon {{
-            opacity: 1;
-        }}
-        .permalink-icon:hover {{
-            color: #2366d1;
-        }}
-
-        /* カード用パーマリンク */
-        .card-permalink {{
-            position: absolute;
-            top: 10px;
-            right: 10px;
-            opacity: 0;
-            transition: opacity 0.2s ease;
-            cursor: pointer;
-            color: #3273dc;
-            font-size: 0.9em;
-            z-index: 10;
-        }}
-        .card:hover .card-permalink {{
-            opacity: 1;
-        }}
-        .card-permalink:hover {{
-            color: #2366d1;
-        }}
-
-        /* セクション用パーマリンク調整 */
-        .section-header {{
-            position: relative;
-            padding-right: 30px;
-        }}
-
-        /* コピー成功通知 */
-        .copy-notification {{
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            background: #48c774;
-            color: white;
-            padding: 0.75rem 1rem;
-            border-radius: 4px;
-            opacity: 0;
-            transform: translateY(-20px);
-            transition: all 0.3s ease;
-            z-index: 1000;
-        }}
-        .copy-notification.show {{
-            opacity: 1;
-            transform: translateY(0);
-        }}
-    </style>
-</head>
-<body class="japanese-font">
-    <div class="container is-fluid" style="padding: 0.5rem;">
-        <section class="section" style="padding: 1rem 0.5rem;">
-            <div class="container" style="max-width: 100%; padding: 0;">
-                <h1 class="title is-2 has-text-centered" id="dashboard">
-                    <div class="permalink-container">
-                        <span class="icon is-large">{_icon("chart-line")}</span>
-                        天気パネル メトリクス ダッシュボード
-                        <span class="permalink-icon" onclick="copyPermalink('dashboard')">{_icon("link")}</span>
-                    </div>
-                </h1>
-                <p class="subtitle has-text-centered">{subtitle_text}</p>
-
-                <!-- アラート -->
-                {generate_alerts_section(alerts)}
-
-                <!-- 基本統計 -->
-                {generate_basic_stats_section(basic_stats)}
-
-                <!-- 時間別パターン -->
-                {generate_hourly_patterns_section(hourly_patterns)}
-
-                <!-- 表示タイミング -->
-                {generate_diff_sec_section()}
-
-                <!-- パフォーマンス推移 -->
-                {generate_trends_section(trends)}
-
-                <!-- パネル別処理時間推移 -->
-                {generate_panel_trends_section(panel_trends)}
-
-                <!-- 異常検知 -->
-                {generate_anomalies_section(anomalies, performance_stats)}
-            </div>
-        </section>
-    </div>
-
-    <script>
-        // データをグローバル変数として設定
-        window.hourlyData = """
-        + hourly_data_json
-        + """;
-        window.trendsData = """
-        + trends_data_json
-        + """;
-        window.anomaliesData = """
-        + anomalies_data_json
-        + """;
-        window.panelTrendsData = """
-        + panel_trends_data_json
-        + """;
-
-        // チャート生成（外部JSファイルで実装）
-        document.addEventListener('DOMContentLoaded', function() {
-            generateHourlyCharts();
-            generateDiffSecCharts();
-            generateBoxplotCharts();
-            generateTrendsCharts();
-            generatePanelTrendsCharts();
-            generatePanelTimeSeriesChart();
-        });
-
-        """
-        + weather_display.metrics.webapi.page_js.generate_chart_javascript()
-        + """
-    </script>
-</html>
-    """
-    )
-
-    return html
-
-
-def generate_alerts_section(alerts):
-    """アラートセクションのHTML生成。"""
-    if not alerts:
-        return f"""
-        <div class="notification is-success" id="alerts">
-            <span class="icon">{_icon("check-circle")}</span>
-            パフォーマンスアラートは検出されていません。
-        </div>
-        """
-
-    alerts_html = (
-        '<div class="section" id="alerts"><h2 class="title is-4 section-header">'
-        '<div class="permalink-container">'
-        f'<span class="icon">{_icon("exclamation-triangle")}</span> '
-        "パフォーマンスアラート"
-        f'<span class="permalink-icon" onclick="copyPermalink(\'alerts\')">{_icon("link")}</span>'
-        "</div></h2>"
-    )
-
-    for alert in alerts:
-        severity_class = {"critical": "is-danger", "warning": "is-warning", "info": "is-info"}.get(
-            alert.get("severity", "info"), "is-info"
-        )
-
-        alert_type = alert.get("type", "アラート").replace("_", " ")
-        alert_message = alert.get("message", "メッセージなし")
-
-        alerts_html += f"""
-        <div class="notification {severity_class} alert-item">
-            <strong>{alert_type}:</strong> {alert_message}
-        </div>
-        """
-
-    alerts_html += "</div>"
-    return alerts_html
-
-
-def generate_basic_stats_section(basic_stats):
-    """基本統計セクションのHTML生成。"""
-    draw_panel = basic_stats.get("draw_panel", {})
-    display_image = basic_stats.get("display_image", {})
-
-    return f"""
-    <div class="section" id="basic-stats">
-        <h2 class="title is-4 section-header">
-            <div class="permalink-container">
-                <span class="icon">{_icon("chart-bar")}</span>
-                基本統計
-                <span class="permalink-icon" onclick="copyPermalink('basic-stats')">{_icon("link")}</span>
-            </div>
-        </h2>
-
-        <div class="columns">
-            <div class="column">
-                <div class="card metrics-card" id="draw-panel-stats">
-                    <span class="card-permalink" onclick="copyPermalink('draw-panel-stats')">{_icon("link")}</span>
-                    <div class="card-header">
-                        <p class="card-header-title">画像生成処理</p>
-                    </div>
-                    <div class="card-content">
-                        <div class="columns is-multiline">
-                            <div class="column is-half">
-                                <div class="has-text-centered">
-                                    <p class="heading">総実行回数</p>
-                                    <p class="stat-number has-text-primary">
-                                    {draw_panel.get("total_operations", 0):,}
-                                </p>
-                                </div>
-                            </div>
-                            <div class="column is-half">
-                                <div class="has-text-centered">
-                                    <p class="heading">エラー回数</p>
-                                    <p class="stat-number has-text-danger">
-                                    {draw_panel.get("error_count", 0):,}
-                                </p>
-                                </div>
-                            </div>
-                            <div class="column is-half">
-                                <div class="has-text-centered">
-                                    <p class="heading">平均処理時間（秒）</p>
-                                    <p class="stat-number has-text-info">
-                                    {draw_panel.get("avg_elapsed_time", 0):.2f}
-                                </p>
-                                </div>
-                            </div>
-                            <div class="column is-half">
-                                <div class="has-text-centered">
-                                    <p class="heading">最大処理時間（秒）</p>
-                                    <p class="stat-number has-text-warning">
-                                    {draw_panel.get("max_elapsed_time", 0):.2f}
-                                </p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="column">
-                <div class="card metrics-card" id="display-image-stats">
-                    <span class="card-permalink" onclick="copyPermalink('display-image-stats')">{_icon("link")}</span>
-                    <div class="card-header">
-                        <p class="card-header-title">表示実行処理</p>
-                    </div>
-                    <div class="card-content">
-                        <div class="columns is-multiline">
-                            <div class="column is-half">
-                                <div class="has-text-centered">
-                                    <p class="heading">総実行回数</p>
-                                    <p class="stat-number has-text-primary">
-                                    {display_image.get("total_operations", 0):,}
-                                </p>
-                                </div>
-                            </div>
-                            <div class="column is-half">
-                                <div class="has-text-centered">
-                                    <p class="heading">失敗回数</p>
-                                    <p class="stat-number has-text-danger">
-                                    {display_image.get("failure_count", 0):,}
-                                </p>
-                                </div>
-                            </div>
-                            <div class="column is-half">
-                                <div class="has-text-centered">
-                                    <p class="heading">平均処理時間（秒）</p>
-                                    <p class="stat-number has-text-info">
-                                    {display_image.get("avg_elapsed_time", 0):.2f}
-                                </p>
-                                </div>
-                            </div>
-                            <div class="column is-half">
-                                <div class="has-text-centered">
-                                    <p class="heading">最大処理時間（秒）</p>
-                                    <p class="stat-number has-text-warning">
-                                    {display_image.get("max_elapsed_time", 0):.2f}
-                                </p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-    """
-
-
-def generate_hourly_patterns_section(hourly_patterns):
-    """時間別パターンセクションのHTML生成。"""
-    return f"""
-    <div class="section" id="hourly-patterns">
-        <h2 class="title is-4 section-header">
-            <div class="permalink-container">
-                <span class="icon">{_icon("clock")}</span>
-                時間別パフォーマンスパターン
-                <span class="permalink-icon" onclick="copyPermalink('hourly-patterns')">{_icon("link")}</span>
-            </div>
-        </h2>
-
-        <div class="columns">
-            <div class="column is-half">
-                <div class="card metrics-card" id="draw-panel-hourly">
-                    <span class="card-permalink" onclick="copyPermalink('draw-panel-hourly')">{_icon("link")}</span>
-                    <div class="card-header">
-                        <p class="card-header-title">画像生成処理 - 時間別パフォーマンス</p>
-                    </div>
-                    <div class="card-content">
-                        <div class="chart-container">
-                            <canvas id="drawPanelHourlyChart"></canvas>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <div class="column is-half">
-                <div class="card metrics-card" id="draw-panel-boxplot">
-                    <span class="card-permalink" onclick="copyPermalink('draw-panel-boxplot')">{_icon("link")}</span>
-                    <div class="card-header">
-                        <p class="card-header-title">画像生成処理 - 時間別分布</p>
-                    </div>
-                    <div class="card-content">
-                        <div class="chart-container">
-                            <canvas id="drawPanelBoxplotChart"></canvas>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <div class="columns">
-            <div class="column is-half">
-                <div class="card metrics-card" id="display-image-hourly">
-                    <span class="card-permalink" onclick="copyPermalink('display-image-hourly')">{_icon("link")}</span>
-                    <div class="card-header">
-                        <p class="card-header-title">表示実行処理 - 時間別パフォーマンス</p>
-                    </div>
-                    <div class="card-content">
-                        <div class="chart-container">
-                            <canvas id="displayImageHourlyChart"></canvas>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <div class="column is-half">
-                <div class="card metrics-card" id="display-image-box">
-                    <span class="card-permalink" onclick="copyPermalink('display-image-box')">{_icon("link")}</span>
-                    <div class="card-header">
-                        <p class="card-header-title">表示実行処理 - 時間別分布</p>
-                    </div>
-                    <div class="card-content">
-                        <div class="chart-container">
-                            <canvas id="displayImageBoxplotChart"></canvas>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-    """
-
-
-def generate_trends_section(trends):
-    """パフォーマンス推移セクションのHTML生成。"""
-    return f"""
-    <div class="section" id="performance-trends">
-        <h2 class="title is-4 section-header">
-            <div class="permalink-container">
-                <span class="icon">{_icon("chart-bar")}</span>
-                パフォーマンス推移
-                <span class="permalink-icon" onclick="copyPermalink('performance-trends')">{_icon("link")}</span>
-            </div>
-        </h2>
-        <p class="subtitle is-6">平均処理時間の箱ヒゲ図（実行回数は非表示）</p>
-
-        <div class="columns">
-            <div class="column is-6">
-                <div class="card metrics-card" id="draw-panel-trends">
-                    <span class="card-permalink" onclick="copyPermalink('draw-panel-trends')">{_icon("link")}</span>
-                    <div class="card-header">
-                        <p class="card-header-title">画像生成処理 - 日別推移</p>
-                    </div>
-                    <div class="card-content">
-                        <div class="chart-container">
-                            <canvas id="drawPanelTrendsChart"></canvas>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <div class="column is-6">
-                <div class="card metrics-card" id="display-image-trends">
-                    <span class="card-permalink" onclick="copyPermalink('display-image-trends')">{_icon("link")}</span>
-                    <div class="card-header">
-                        <p class="card-header-title">表示実行処理 - 日別推移</p>
-                    </div>
-                    <div class="card-content">
-                        <div class="chart-container">
-                            <canvas id="displayImageTrendsChart"></canvas>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <div class="columns">
-            <div class="column is-6">
-                <div class="card metrics-card" id="diff-sec-trends">
-                    <span class="card-permalink" onclick="copyPermalink('diff-sec-trends')">{_icon("link")}</span>
-                    <div class="card-header">
-                        <p class="card-header-title">表示タイミング - 日別推移</p>
-                    </div>
-                    <div class="card-content">
-                        <div class="chart-container">
-                            <canvas id="diffSecTrendsChart"></canvas>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-    """
-
-
-def generate_anomalies_section(anomalies, performance_stats):
-    """異常検知セクションのHTML生成。"""
-    draw_panel_anomalies = anomalies.get("draw_panel", {})
-    display_image_anomalies = anomalies.get("display_image", {})
-
-    # 異常の表示用フォーマット
-    dp_anomaly_count = draw_panel_anomalies.get("anomalies_detected", 0)
-    di_anomaly_count = display_image_anomalies.get("anomalies_detected", 0)
-    dp_anomaly_rate = draw_panel_anomalies.get("anomaly_rate", 0) * 100
-    di_anomaly_rate = display_image_anomalies.get("anomaly_rate", 0) * 100
-
-    anomalies_html = f"""
-    <div class="section" id="anomaly-detection">
-        <h2 class="title is-4 section-header">
-            <div class="permalink-container">
-                <span class="icon">{_icon("magnifying-glass")}</span> 異常検知
-                <span class="permalink-icon" onclick="copyPermalink('anomaly-detection')">{_icon("link")}</span>
-            </div>
-        </h2>
-
-        <div class="columns">
-            <div class="column">
-                <div class="card metrics-card" id="draw-panel-anomalies">
-                    <span class="card-permalink" onclick="copyPermalink('draw-panel-anomalies')">{_icon("link")}</span>
-                    <div class="card-header">
-                        <p class="card-header-title">画像生成処理の異常</p>
-                    </div>
-                    <div class="card-content">
-                        <div class="columns">
-                            <div class="column has-text-centered">
-                                <p class="heading">検出された異常数</p>
-                                <p class="stat-number has-text-warning">{dp_anomaly_count}</p>
-                            </div>
-                            <div class="column has-text-centered">
-                                <p class="heading">異常率</p>
-                                <p class="stat-number has-text-warning">{dp_anomaly_rate:.2f}%</p>
-                            </div>
-                        </div>
-    """
-
-    # 個別の異常がある場合は表示
-    if draw_panel_anomalies.get("anomalies"):
-        anomalies_html += '<div class="content"><h5>最近の異常:</h5>'
-        # 新しいもの順でソート
-        sorted_anomalies = sorted(
-            draw_panel_anomalies["anomalies"], key=lambda x: x.get("timestamp", ""), reverse=True
-        )
-        for anomaly in sorted_anomalies[:20]:  # 最新20件を表示
-            timestamp_str = anomaly.get("timestamp", "不明")
-            elapsed_time = anomaly.get("elapsed_time", 0)
-            # hour = anomaly.get("hour", 0)  # unused
-            error_code = anomaly.get("error_code", 0)
-
-            # 異常の種類を分析（統計情報を使用）
-            dp_stats = performance_stats.get("draw_panel", {})
-            avg_time = dp_stats.get("avg_time", 0)
-            std_time = dp_stats.get("std_time", 0)
-
-            anomaly_reasons = []
-
-            anomaly_details = []
-
-            if elapsed_time > 60:  # 1分以上
-                anomaly_reasons.append('<span class="tag is-small is-warning">長時間処理</span>')
-                if std_time > 0:
-                    sigma_deviation = (elapsed_time - avg_time) / std_time
-                    sign = "+" if sigma_deviation >= 0 else ""
-                    anomaly_details.append(f"平均値から<strong>{sign}{sigma_deviation:.1f}σ</strong>乖離")
-                anomaly_details.append(f"実行時間: <strong>{elapsed_time:.2f}秒</strong>")
-            elif elapsed_time < 1:  # 1秒未満
-                anomaly_reasons.append('<span class="tag is-small is-info">短時間処理</span>')
-                if std_time > 0:
-                    sigma_deviation = (elapsed_time - avg_time) / std_time
-                    sign = "+" if sigma_deviation >= 0 else ""
-                    anomaly_details.append(f"平均値から<strong>{sign}{sigma_deviation:.1f}σ</strong>乖離")
-                anomaly_details.append(f"実行時間: <strong>{elapsed_time:.2f}秒</strong>")
-
-            if error_code > 0:
-                anomaly_reasons.append('<span class="tag is-small is-danger">エラー発生</span>')
-                anomaly_details.append(f"エラーコード: <strong>{error_code}</strong>")
-
-            if not anomaly_reasons:
-                anomaly_reasons.append('<span class="tag is-small is-light">パターン異常</span>')
-                if std_time > 0:
-                    sigma_deviation = (elapsed_time - avg_time) / std_time
-                    sign = "+" if sigma_deviation >= 0 else ""
-                    anomaly_details.append(f"平均値から<strong>{sign}{sigma_deviation:.1f}σ</strong>乖離")
-                anomaly_details.append(f"実行時間: <strong>{elapsed_time:.2f}秒</strong>")
-
-            # 日時を自然な日本語形式に変換
-            try:
-                import datetime
-
-                if timestamp_str != "不明":
-                    # ISO形式の日時をパース
-                    dt = datetime.datetime.fromisoformat(timestamp_str.replace("+09:00", "+09:00"))
-                    # 日本語形式に変換 (年も含める)
-                    formatted_time = dt.strftime("%Y年%m月%d日 %H時%M分")
-
-                    # 経過時間を計算
-                    now = datetime.datetime.now(dt.tzinfo)
-                    elapsed_delta = now - dt
-
-                    if elapsed_delta.days > 0:
-                        elapsed_text = f"{elapsed_delta.days}日前"
-                    elif elapsed_delta.seconds // 3600 > 0:
-                        hours = elapsed_delta.seconds // 3600
-                        elapsed_text = f"{hours}時間前"
-                    elif elapsed_delta.seconds // 60 > 0:
-                        minutes = elapsed_delta.seconds // 60
-                        elapsed_text = f"{minutes}分前"
-                    else:
-                        elapsed_text = "たった今"
-
-                    formatted_time += f" ({elapsed_text})"
-                else:
-                    formatted_time = "不明"
-            except Exception:
-                formatted_time = timestamp_str
-
-            reason_tags = " ".join(anomaly_reasons)
-            detail_text = " | ".join(anomaly_details)
-            anomalies_html += f"""<div class="anomaly-item">
-                <div class="mb-2">
-                    <span class="tag is-warning">{formatted_time}</span>
-                    {reason_tags}
-                </div>
-                <div class="pl-3 has-text-grey-dark" style="font-size: 0.9rem;">
-                    {detail_text}
-                </div>
-            </div>"""
-        anomalies_html += "</div>"
-
-    anomalies_html += f"""
-                    </div>
-                </div>
-            </div>
-
-            <div class="column">
-                <div class="card metrics-card" id="display-anomalies">
-                    <span class="card-permalink" onclick="copyPermalink('display-anomalies')">{_icon("link")}</span>
-                    <div class="card-header">
-                        <p class="card-header-title">表示実行処理の異常</p>
-                    </div>
-                    <div class="card-content">
-                        <div class="columns">
-                            <div class="column has-text-centered">
-                                <p class="heading">検出された異常数</p>
-                                <p class="stat-number has-text-warning">{di_anomaly_count}</p>
-                            </div>
-                            <div class="column has-text-centered">
-                                <p class="heading">異常率</p>
-                                <p class="stat-number has-text-warning">{di_anomaly_rate:.2f}%</p>
-                            </div>
-                        </div>
-    """
-
-    # 個別の異常がある場合は表示
-    if display_image_anomalies.get("anomalies"):
-        anomalies_html += '<div class="content"><h5>最近の異常:</h5>'
-        # 新しいもの順でソート
-        sorted_anomalies = sorted(
-            display_image_anomalies["anomalies"], key=lambda x: x.get("timestamp", ""), reverse=True
-        )
-        for anomaly in sorted_anomalies[:20]:  # 最新20件を表示
-            timestamp_str = anomaly.get("timestamp", "不明")
-            elapsed_time = anomaly.get("elapsed_time", 0)
-            # hour = anomaly.get("hour", 0)  # unused
-            success = anomaly.get("success", True)
-
-            # 異常の種類を分析（表示実行処理用、統計情報を使用）
-            di_stats = performance_stats.get("display_image", {})
-            avg_time_di = di_stats.get("avg_time", 0)
-            std_time_di = di_stats.get("std_time", 0)
-
-            anomaly_reasons = []
-
-            anomaly_details = []
-
-            if elapsed_time > 120:  # 2分以上
-                anomaly_reasons.append('<span class="tag is-small is-warning">長時間処理</span>')
-                if std_time_di > 0:
-                    sigma_deviation = (elapsed_time - avg_time_di) / std_time_di
-                    sign = "+" if sigma_deviation >= 0 else ""
-                    anomaly_details.append(f"平均値から<strong>{sign}{sigma_deviation:.1f}σ</strong>乖離")
-                anomaly_details.append(f"実行時間: <strong>{elapsed_time:.2f}秒</strong>")
-            elif elapsed_time < 5:  # 5秒未満
-                anomaly_reasons.append('<span class="tag is-small is-info">短時間処理</span>')
-                if std_time_di > 0:
-                    sigma_deviation = (elapsed_time - avg_time_di) / std_time_di
-                    sign = "+" if sigma_deviation >= 0 else ""
-                    anomaly_details.append(f"平均値から<strong>{sign}{sigma_deviation:.1f}σ</strong>乖離")
-                anomaly_details.append(f"実行時間: <strong>{elapsed_time:.2f}秒</strong>")
-
-            if not success:
-                anomaly_reasons.append('<span class="tag is-small is-danger">実行失敗</span>')
-                anomaly_details.append("実行結果: <strong>失敗</strong>")
-
-            if not anomaly_reasons:
-                anomaly_reasons.append('<span class="tag is-small is-light">パターン異常</span>')
-                if std_time_di > 0:
-                    sigma_deviation = (elapsed_time - avg_time_di) / std_time_di
-                    sign = "+" if sigma_deviation >= 0 else ""
-                    anomaly_details.append(f"平均値から<strong>{sign}{sigma_deviation:.1f}σ</strong>乖離")
-                anomaly_details.append(f"実行時間: <strong>{elapsed_time:.2f}秒</strong>")
-
-            # 日時を自然な日本語形式に変換
-            try:
-                import datetime
-
-                if timestamp_str != "不明":
-                    # ISO形式の日時をパース
-                    dt = datetime.datetime.fromisoformat(timestamp_str.replace("+09:00", "+09:00"))
-                    # 日本語形式に変換 (年も含める)
-                    formatted_time = dt.strftime("%Y年%m月%d日 %H時%M分")
-
-                    # 経過時間を計算
-                    now = datetime.datetime.now(dt.tzinfo)
-                    elapsed_delta = now - dt
-
-                    if elapsed_delta.days > 0:
-                        elapsed_text = f"{elapsed_delta.days}日前"
-                    elif elapsed_delta.seconds // 3600 > 0:
-                        hours = elapsed_delta.seconds // 3600
-                        elapsed_text = f"{hours}時間前"
-                    elif elapsed_delta.seconds // 60 > 0:
-                        minutes = elapsed_delta.seconds // 60
-                        elapsed_text = f"{minutes}分前"
-                    else:
-                        elapsed_text = "たった今"
-
-                    formatted_time += f" ({elapsed_text})"
-                else:
-                    formatted_time = "不明"
-            except Exception:
-                formatted_time = timestamp_str
-
-            reason_tags = " ".join(anomaly_reasons)
-            detail_text = " | ".join(anomaly_details)
-            anomalies_html += f"""<div class="anomaly-item">
-                <div class="mb-2">
-                    <span class="tag is-warning">{formatted_time}</span>
-                    {reason_tags}
-                </div>
-                <div class="pl-3 has-text-grey-dark" style="font-size: 0.9rem;">
-                    {detail_text}
-                </div>
-            </div>"""
-        anomalies_html += "</div>"
-
-    anomalies_html += """
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-    """
-
-    return anomalies_html
-
-
-def generate_diff_sec_section():
-    """表示タイミングセクションのHTML生成。"""
-    return f"""
-    <div class="section" id="display-timing">
-        <h2 class="title is-4 section-header">
-            <div class="permalink-container">
-                <span class="icon">{_icon("clock")}</span> 表示タイミング
-                <span class="permalink-icon" onclick="copyPermalink('display-timing')">{_icon("link")}</span>
-            </div>
-        </h2>
-        <p class="subtitle is-6">表示実行時の分単位での秒数の偏差（0秒が理想的なタイミング）</p>
-
-        <div class="columns">
-            <div class="column is-half">
-                <div class="card metrics-card" id="diff-sec-hourly">
-                    <span class="card-permalink" onclick="copyPermalink('diff-sec-hourly')">{_icon("link")}</span>
-                    <div class="card-header">
-                        <p class="card-header-title">表示タイミング - 時間別パフォーマンス</p>
-                    </div>
-                    <div class="card-content">
-                        <div class="chart-container">
-                            <canvas id="diffSecHourlyChart"></canvas>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <div class="column is-half">
-                <div class="card metrics-card" id="diff-sec-boxplot">
-                    <span class="card-permalink" onclick="copyPermalink('diff-sec-boxplot')">{_icon("link")}</span>
-                    <div class="card-header">
-                        <p class="card-header-title">表示タイミング - 時間別分布</p>
-                    </div>
-                    <div class="card-content">
-                        <div class="chart-container">
-                            <canvas id="diffSecBoxplotChart"></canvas>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-    """
-
-
-def generate_panel_trends_section(panel_trends):
-    """パネル別処理時間推移セクションのHTML生成。"""
-    return f"""
-    <div class="section" id="panel-trends">
-        <h2 class="title is-4 section-header">
-            <div class="permalink-container">
-                <span class="icon">{_icon("puzzle-piece")}</span>
-                パネル別処理時間ヒストグラム
-                <span class="permalink-icon" onclick="copyPermalink('panel-trends')">{_icon("link")}</span>
-            </div>
-        </h2>
-        <p class="subtitle is-6">各パネルの処理時間分布をヒストグラムで表示（横軸：時間、縦軸：割合）</p>
-
-        <div class="columns is-multiline is-variable is-1" id="panelTrendsContainer"
-             style="justify-content: flex-start;">
-            <!-- パネル別ヒストグラムがJavaScriptで動的に生成される -->
-        </div>
-    </div>
-
-    <div class="section" id="panel-timeseries">
-        <h2 class="title is-4 section-header">
-            <div class="permalink-container">
-                <span class="icon">{_icon("chart-line")}</span>
-                パネル別処理時間推移
-                <span class="permalink-icon" onclick="copyPermalink('panel-timeseries')">{_icon("link")}</span>
-            </div>
-        </h2>
-        <p class="subtitle is-6">各パネルの処理時間の時系列推移グラフ（時間軸での処理時間変化）</p>
-
-        <div class="columns">
-            <div class="column">
-                <div class="card metrics-card" id="panel-time-series">
-                    <span class="card-permalink" onclick="copyPermalink('panel-time-series')">{_icon("link")}</span>
-                    <div class="card-header">
-                        <p class="card-header-title">パネル別処理時間推移</p>
-                    </div>
-                    <div class="card-content">
-                        <div class="chart-container">
-                            <canvas id="panelTimeSeriesChart"></canvas>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
     """

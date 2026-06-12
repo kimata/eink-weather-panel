@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
-雨雲レーダー画像を生成します。
+現在の降水量オーバーレイ画像を生成します。
 
 Usage:
-  rain_cloud_panel.py [-c CONFIG] -o PNG_FILE [-D]
+  rain_fall.py [-c CONFIG] -o PNG_FILE [-D]
 
 Options:
   -c CONFIG         : CONFIG を設定ファイルとして読み込んで実行します。[default: config.yaml]
@@ -15,29 +15,19 @@ from __future__ import annotations
 
 import datetime
 import logging
-import pathlib
 import time
 import traceback
 
 import my_lib.font_util
-import my_lib.notify.slack
 import my_lib.panel_config
 import my_lib.panel_util
 import my_lib.pil_util
 import my_lib.sensor_data
 import PIL.Image
-import PIL.ImageDraw
 import PIL.ImageFont
 import pytz
 
 import weather_display.config
-
-_DATA_PATH = pathlib.Path("data")
-_WINDOW_SIZE_CACHE = _DATA_PATH / "window_size.cache"
-_CACHE_EXPIRE_HOUR = 1
-
-_CLOUD_IMAGE_XPATH = '//div[contains(@id, "jmatile_map_")]'
-
 
 _FONT_SPEC: dict[str, my_lib.font_util.FontSpec] = {
     "value": ("en_bold", 80),
@@ -85,6 +75,9 @@ def _get_rainfall_status(
         window_min=0,
         last=True,
     )
+
+    if not data.valid or len(data.value) == 0:
+        return None
 
     raining_status = data.value[0]
 

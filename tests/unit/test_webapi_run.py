@@ -46,14 +46,14 @@ class TestCleanMap:
     """clean_map 関数のテスト"""
 
     def test_clean_map_removes_old_entries(self):
-        """古いエントリが削除されること"""
+        """生成完了済みの古いエントリが削除されること"""
         from weather_display.runner.webapi import run
 
         run._panel_data_map = {
             "old_token": PanelData(
                 lock=threading.Lock(),
                 log=queue.Queue(),
-                time=time.time() - 120,  # 2分前
+                time=time.time() - run._TOKEN_EXPIRE_SEC - 60,  # 期限切れ (future=None は完了扱い)
             ),
             "new_token": PanelData(
                 lock=threading.Lock(),
@@ -66,6 +66,27 @@ class TestCleanMap:
 
         assert "old_token" not in run._panel_data_map
         assert "new_token" in run._panel_data_map
+
+    def test_clean_map_keeps_running_entries(self):
+        """生成中 (future 未完了) のエントリは期限切れでも保持されること"""
+        import concurrent.futures
+
+        from weather_display.runner.webapi import run
+
+        running_future: concurrent.futures.Future = concurrent.futures.Future()  # 未完了の future
+
+        run._panel_data_map = {
+            "running_token": PanelData(
+                lock=threading.Lock(),
+                log=queue.Queue(),
+                time=time.time() - run._TOKEN_EXPIRE_SEC - 60,  # 期限切れ
+                future=running_future,
+            ),
+        }
+
+        run._clean_map()
+
+        assert "running_token" in run._panel_data_map
 
     def test_clean_map_keeps_recent_entries(self):
         """最近のエントリが保持されること"""

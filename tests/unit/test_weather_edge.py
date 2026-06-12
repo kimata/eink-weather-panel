@@ -176,7 +176,7 @@ class TestDrawWeatherInfo:
         return _get_face_map(config.font)
 
     def test_draw_weather_info_with_wbgt(self, config, weather_info_icons, weather_info_face_map, mocker):
-        """is_wbgt_exist == True のケース (line 574)"""
+        """WBGT 値が存在するケース"""
         from my_lib.weather import HourlyData, WeatherInfo, WindInfo
 
         from weather_display.panel.weather import _draw_hourly_weather
@@ -207,7 +207,6 @@ class TestDrawWeatherInfo:
             img=img,
             info=info,
             wbgt=wbgt,
-            is_wbgt_exist=True,  # is_wbgt_exist == True をテスト
             is_today=True,
             is_first=True,
             pos_x=100,

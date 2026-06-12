@@ -8,6 +8,7 @@ import * as Scroll from "react-scroll";
 
 interface ApiResponseGenerate {
     token: string;
+    error?: string;
 }
 
 function App() {
@@ -32,46 +33,45 @@ function App() {
     const scroller = Scroll.scroller;
     const Element = Scroll.Element;
 
-    const reqGenerate = () => {
-        return new Promise((resolve) => {
-            const query = new URLSearchParams({ mode: mode.value });
-            fetch(API_ENDPOINT + "/run?" + query)
-                .then((res) => res.json())
-                .then((resJson) => resolve(resJson))
-                .catch((error) => {
-                    setError(true);
-                    setErrorMessage("通信に失敗しました");
-                    console.error(error);
-                });
-        });
+    const reqGenerate = async (): Promise<ApiResponseGenerate> => {
+        const query = new URLSearchParams({ mode: mode.value });
+        const res = await fetch(API_ENDPOINT + "/run?" + query);
+        const resJson = (await res.json()) as ApiResponseGenerate;
+        if (!res.ok || resJson.error || !resJson.token) {
+            console.error(resJson.error);
+            throw new Error(`画像生成の開始に失敗しました (${res.status})`);
+        }
+        return resJson;
     };
 
-    const readImage = (token: string) => {
-        return new Promise(() => {
-            const param = new URLSearchParams({ token: token });
-            fetch(API_ENDPOINT + "/image", {
-                method: "POST",
-                body: param,
-            })
-                .then((res) => res.blob())
-                .then((resBlob) => {
-                    setImageSrc(URL.createObjectURL(resBlob));
-                })
-                .catch((error) => {
-                    setError(true);
-                    setErrorMessage(error);
-                    console.error("通信に失敗しました", error);
-                });
+    const readImage = async (token: string) => {
+        const param = new URLSearchParams({ token: token });
+        const res = await fetch(API_ENDPOINT + "/image", {
+            method: "POST",
+            body: param,
         });
+        if (!res.ok || !(res.headers.get("Content-Type") || "").startsWith("image/")) {
+            throw new Error("画像の取得に失敗しました");
+        }
+        const resBlob = await res.blob();
+        setImageSrc(URL.createObjectURL(resBlob));
     };
 
     const generate = async () => {
-        const res = (await reqGenerate()) as ApiResponseGenerate;
         setFinish(false);
         setError(false);
         setLog([]);
         setImageSrc(DEFAULT_IMAGE);
-        readLog(res.token);
+        try {
+            const res = await reqGenerate();
+            await readLog(res.token);
+        } catch (e) {
+            setError(true);
+            setErrorMessage(e instanceof Error ? e.message : "通信に失敗しました");
+            console.error(e);
+        } finally {
+            setFinish(true);
+        }
     };
 
     useEffect(() => {
@@ -84,25 +84,23 @@ function App() {
     const readLog = async (token: string) => {
         const decoder = new TextDecoder();
         const param = new URLSearchParams({ token: token });
-        fetch(API_ENDPOINT + "/log", {
+        const res = await fetch(API_ENDPOINT + "/log", {
             method: "POST",
             body: param,
-        })
-            .then((res) => (res.body as ReadableStream).getReader())
-            .then((reader) => {
-                function processChunk({ done, value }: ReadableStreamReadResult<Uint8Array>) {
-                    if (done) {
-                        readImage(token);
-                        setFinish(true);
-                        return;
-                    }
-                    const lines = decoder.decode(value).trimEnd().split(/\n/);
-                    setLog((old) => old.concat(lines));
-
-                    reader.read().then(processChunk);
-                }
-                reader.read().then(processChunk);
-            });
+        });
+        if (!res.ok || res.body === null) {
+            throw new Error("ログの取得に失敗しました");
+        }
+        const reader = res.body.getReader();
+        for (;;) {
+            const { done, value } = await reader.read();
+            if (done) {
+                break;
+            }
+            const lines = decoder.decode(value).trimEnd().split(/\n/);
+            setLog((old) => old.concat(lines));
+        }
+        await readImage(token);
     };
 
     const GenerateButton = () => {

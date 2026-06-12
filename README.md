@@ -101,7 +101,7 @@ https://weather-panel-webapp-demo.kubernetes.green-rabbit.net/weather_panel/
 
 ```bash
 # React フロントエンドをビルド
-cd react && npm ci && npm run build && cd -
+cd frontend && npm ci && npm run build && cd -
 
 # サービス起動
 docker compose up --build

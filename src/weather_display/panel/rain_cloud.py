@@ -310,7 +310,11 @@ def _fetch_cloud_image(
     _change_window_size(driver, width, height)
     _shape_cloud_display(driver, wait, width, height, is_future)
 
-    wait.until(lambda driver: driver.execute_script("return document.readyState") == "complete")
+    # NOTE: SPA のため readyState はタイル再描画の完了を保証しない。
+    # レーダータイル (img 要素) のロード完了を待ってからスクリーンショットを撮る。
+    wait.until(
+        lambda driver: driver.execute_script("return Array.from(document.images).every(i => i.complete)")
+    )
     time.sleep(0.5)
 
     return driver.find_element(selenium.webdriver.common.by.By.XPATH, _CLOUD_IMAGE_XPATH).screenshot_as_png
@@ -647,11 +651,14 @@ def _create_rain_cloud_panel_impl(
     ]
 
     bar: PIL.Image.Image | None = None
-    for i, sub_panel_config in enumerate(SUB_PANEL_CONFIG_LIST):
-        sub_img, bar = task_list[i].result()
-        img.paste(sub_img, (sub_panel_config.offset_x, sub_panel_config.offset_y))
-
-    executor.shutdown(True)
+    try:
+        for i, sub_panel_config in enumerate(SUB_PANEL_CONFIG_LIST):
+            sub_img, bar = task_list[i].result()
+            img.paste(sub_img, (sub_panel_config.offset_x, sub_panel_config.offset_y))
+    finally:
+        # NOTE: 片方のタスクが失敗しても、もう片方が Chrome (固定プロファイル) を掴んだまま
+        # リトライに入らないよう、全タスクの完了を待ってから抜ける
+        executor.shutdown(True)
 
     assert bar is not None  # noqa: S101 # SUB_PANEL_CONFIG_LIST は常に2要素
     return _draw_legend(img, bar, rain_cloud_config, face_map)

@@ -44,14 +44,7 @@ class TestPlotItem:
             "yaxis": matplotlib.font_manager.FontProperties(fname=f"{font_path}/migmix-1p-regular.ttf"),
         }
 
-    @pytest.fixture
-    def axis_config(self):
-        """軸設定"""
-        from weather_display.panel.sensor_graph import _get_shared_axis_config
-
-        return _get_shared_axis_config()
-
-    def test_plot_item_with_none_data(self, plot_setup, face_map, axis_config):
+    def test_plot_item_with_none_data(self, plot_setup, face_map):
         """data が None の場合のテスト"""
         from weather_display.panel.sensor_graph import _plot_item
 
@@ -67,10 +60,9 @@ class TestPlotItem:
             xbegin_numeric=0,
             small=False,
             face_map=face_map,
-            axis_config=axis_config,
         )
 
-    def test_plot_item_with_empty_time_numeric(self, plot_setup, face_map, axis_config):
+    def test_plot_item_with_empty_time_numeric(self, plot_setup, face_map):
         """time_numeric が空の場合のフォールバックテスト"""
         from weather_display.panel.sensor_graph import PlotData, _plot_item
 
@@ -92,10 +84,9 @@ class TestPlotItem:
             xbegin_numeric=0,
             small=False,
             face_map=face_map,
-            axis_config=axis_config,
         )
 
-    def test_plot_item_with_datetime_time(self, plot_setup, face_map, axis_config):
+    def test_plot_item_with_datetime_time(self, plot_setup, face_map):
         """datetime型の時間データを含むデータのテスト（フォールバック処理）"""
         from weather_display.panel.sensor_graph import PlotData, _plot_item
 
@@ -120,10 +111,9 @@ class TestPlotItem:
             xbegin_numeric=0,
             small=False,
             face_map=face_map,
-            axis_config=axis_config,
         )
 
-    def test_plot_item_with_numeric_time(self, plot_setup, face_map, axis_config):
+    def test_plot_item_with_numeric_time(self, plot_setup, face_map):
         """数値型の時間データを含むデータのテスト（フォールバック処理）"""
         from weather_display.panel.sensor_graph import PlotData, _plot_item
 
@@ -149,10 +139,9 @@ class TestPlotItem:
             xbegin_numeric=0,
             small=False,
             face_map=face_map,
-            axis_config=axis_config,
         )
 
-    def test_plot_item_with_log_scale_and_none_values(self, plot_setup, face_map, axis_config):
+    def test_plot_item_with_log_scale_and_none_values(self, plot_setup, face_map):
         """log スケールで None 値を含むデータのテスト"""
         import matplotlib.dates
 
@@ -180,7 +169,6 @@ class TestPlotItem:
             xbegin_numeric=time_numeric[0],
             small=False,
             face_map=face_map,
-            axis_config=axis_config,
         )
 
 

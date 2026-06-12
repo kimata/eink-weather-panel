@@ -6,14 +6,12 @@ import os
 import pathlib
 import signal
 import subprocess
-import sys
 import time
 import traceback
 from collections.abc import Callable
 from typing import Any, TypeVar
 
 import my_lib.footprint
-import my_lib.panel_util
 import my_lib.proc_util
 import paramiko
 
@@ -156,7 +154,7 @@ def execute(
             ssh.exec_command,
             (
                 "cat - > /dev/shm/display.png && "
-                "sudo fbi -1 -T 1 -d /dev/fb0 --noverbose /dev/shm/display.png; echo $?",
+                "sudo fbi -1 -T 1 -d /dev/fb0 --noverbose /dev/shm/display.png",
             ),
         )
 
@@ -196,25 +194,30 @@ def execute(
 
         logging.info(stderr_data.decode("utf-8").rstrip())
 
-        # SSH接続の終了ステータスを取得
+        # fbi コマンドの終了ステータスを取得
         fbi_status = ssh_stdout.channel.recv_exit_status()
 
-        # NOTE: -24 は create_image.py の異常時の終了コードに合わせる。
-        if (fbi_status == 0) and (proc.returncode == 0):
-            logging.info("Succeeded.")
-            my_lib.footprint.update(config.liveness.file.display)
-        elif proc.returncode == create_image.ERROR_CODE_MAJOR:
+        if proc.returncode not in (0, create_image.ERROR_CODE_MAJOR, create_image.ERROR_CODE_MINOR):
+            # NOTE: 設定エラーや OOM-kill など、create_image.py が想定外のコードで終了したケース
+            logging.error("Failed to create image. (code: %d)", proc.returncode)
+            msg = f"Failed to create image. (code: {proc.returncode})"
+            raise RuntimeError(msg)
+
+        if fbi_status != 0:
+            logging.warning("Failed to display image. (code: %d)", fbi_status)
+            logging.warning("[stdout] %s", ssh_stdout.read().decode("utf-8"))
+            logging.warning("[stderr] %s", ssh_stderr.read().decode("utf-8"))
+            msg = f"Failed to display image. (code: {fbi_status})"
+            raise RuntimeError(msg)
+
+        if proc.returncode == create_image.ERROR_CODE_MAJOR:
             logging.warning("Failed to create image at all. (code: %d)", proc.returncode)
         elif proc.returncode == create_image.ERROR_CODE_MINOR:
             logging.warning("Failed to create image partially. (code: %d)", proc.returncode)
             my_lib.footprint.update(config.liveness.file.display)
-        elif fbi_status != 0:
-            logging.warning("Failed to display image. (code: %d)", fbi_status)
-            logging.warning("[stdout] %s", ssh_stdout.read().decode("utf-8"))
-            logging.warning("[stderr] %s", ssh_stderr.read().decode("utf-8"))
         else:
-            logging.error("Failed to create image. (code: %d)", proc.returncode)
-            sys.exit(proc.returncode)
+            logging.info("Succeeded.")
+            my_lib.footprint.update(config.liveness.file.display)
     finally:
         # 例外発生時も含め、SSHチャンネルを確実にクリーンアップ
         _cleanup_ssh_channels(ssh_stdin, ssh_stdout, ssh_stderr)

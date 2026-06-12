@@ -30,6 +30,7 @@ import weather_display.metrics.webapi.page
 import weather_display.runner.webapi.run
 
 SCHEMA_CONFIG = "schema/config.schema"
+URL_PREFIX = "/panel"
 
 
 def term():
@@ -50,28 +51,25 @@ def sig_handler(num, frame):
         term()
 
 
-def create_app(config_file_normal, config_file_small, dummy_mode=False):
+def create_app(config_file_normal, config_file_small, dummy_mode=False, use_reloader=False):
     # NOTE: アクセスログは無効にする
     logging.getLogger("werkzeug").setLevel(logging.ERROR)
 
-    import my_lib.config as config_module
-    import my_lib.webapp.config
-
-    config_data = config_module.load(config_file_normal, pathlib.Path(SCHEMA_CONFIG))
-    my_lib.webapp.config.URL_PREFIX = "/panel"
-    webapp_config = my_lib.webapp.config.WebappConfig.parse(config_data.get("webapp", {}))
-    my_lib.webapp.config.init(webapp_config)
-
     import my_lib.webapp.base
+    import my_lib.webapp.config
     import my_lib.webapp.util
 
-    if os.environ.get("WERKZEUG_RUN_MAIN") == "true":
+    config_data = my_lib.config.load(config_file_normal, pathlib.Path(SCHEMA_CONFIG))
+    webapp_config = my_lib.webapp.config.WebappConfig.parse(config_data["webapp"])
+    environment = my_lib.webapp.config.build_environment(webapp_config, url_prefix=URL_PREFIX)
+
+    # NOTE: werkzeug リローダー使用時はリローダーの子プロセス (WERKZEUG_RUN_MAIN=true) でのみ
+    # 初期化する。それ以外 (gunicorn 等の WSGI サーバーやテスト) では常に初期化する。
+    if not use_reloader or os.environ.get("WERKZEUG_RUN_MAIN") == "true":
         # NOTE: オプションでダミーモードが指定された場合、環境変数もそれに揃えておく
         if dummy_mode:
             logging.warning("Set dummy mode")
             os.environ["DUMMY_MODE"] = "true"
-        else:  # pragma: no cover
-            pass
 
         weather_display.runner.webapi.run.init(pathlib.Path(__file__).parent / "create_image.py")
 
@@ -79,8 +77,6 @@ def create_app(config_file_normal, config_file_small, dummy_mode=False):
             weather_display.runner.webapi.run.term()
 
         atexit.register(notify_terminate)
-    else:  # pragma: no cover
-        pass
 
     app = flask.Flask("eink-weather-panel")
 
@@ -90,15 +86,13 @@ def create_app(config_file_normal, config_file_small, dummy_mode=False):
     app.config["CONFIG_FILE_SMALL"] = config_file_small
     app.config["DUMMY_MODE"] = dummy_mode
 
-    app.register_blueprint(my_lib.webapp.base.blueprint, url_prefix=my_lib.webapp.config.URL_PREFIX)
-    app.register_blueprint(my_lib.webapp.base.blueprint_default)
-    app.register_blueprint(my_lib.webapp.util.blueprint, url_prefix=my_lib.webapp.config.URL_PREFIX)
     app.register_blueprint(
-        weather_display.runner.webapi.run.blueprint, url_prefix=my_lib.webapp.config.URL_PREFIX
+        my_lib.webapp.base.create_static_blueprint(environment=environment), url_prefix=URL_PREFIX
     )
-    app.register_blueprint(
-        weather_display.metrics.webapi.page.blueprint, url_prefix=my_lib.webapp.config.URL_PREFIX
-    )
+    app.register_blueprint(my_lib.webapp.base.create_root_redirect_blueprint(url_prefix=URL_PREFIX))
+    app.register_blueprint(my_lib.webapp.util.blueprint, url_prefix=URL_PREFIX)
+    app.register_blueprint(weather_display.runner.webapi.run.blueprint, url_prefix=URL_PREFIX)
+    app.register_blueprint(weather_display.metrics.webapi.page.blueprint, url_prefix=URL_PREFIX)
 
     my_lib.webapp.config.show_handler_list(app)
 
@@ -119,7 +113,7 @@ if __name__ == "__main__":
 
     my_lib.logger.init("panel.e-ink.weather", level=logging.DEBUG if debug_mode else logging.INFO)
 
-    app = create_app(config_file_normal, config_file_small, dummy_mode)
+    app = create_app(config_file_normal, config_file_small, dummy_mode, use_reloader=True)
 
     signal.signal(signal.SIGTERM, sig_handler)
 

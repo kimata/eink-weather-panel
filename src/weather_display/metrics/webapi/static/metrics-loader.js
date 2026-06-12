@@ -762,7 +762,7 @@ function renderBasicStats(data) {
                                     <div class="has-text-centered">
                                         <p class="heading">失敗回数</p>
                                         <p class="stat-number has-text-danger">
-                                            ${(displayImage.failure_count || 0).toLocaleString()}
+                                            ${(displayImage.error_count || 0).toLocaleString()}
                                         </p>
                                     </div>
                                 </div>

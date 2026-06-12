@@ -107,27 +107,3 @@ class TestSensorGraphPanelError:
         # エラー時は3要素のタプルを返す
         assert len(result) == 3
         assert "Traceback" in result[2]
-
-
-class TestGetSharedAxisConfig:
-    """get_shared_axis_config 関数のテスト"""
-
-    def test_get_shared_axis_config_returns_axis_config(self):
-        """AxisConfig を返すこと"""
-        from weather_display.panel.sensor_graph import AxisConfig, _get_shared_axis_config
-
-        result = _get_shared_axis_config()
-
-        assert isinstance(result, AxisConfig)
-        assert result.major_locator is not None
-        assert result.major_formatter is not None
-
-    def test_get_shared_axis_config_is_cached(self):
-        """キャッシュされていること"""
-        from weather_display.panel.sensor_graph import _get_shared_axis_config
-
-        result1 = _get_shared_axis_config()
-        result2 = _get_shared_axis_config()
-
-        # 同じオブジェクトを返すこと
-        assert result1 is result2

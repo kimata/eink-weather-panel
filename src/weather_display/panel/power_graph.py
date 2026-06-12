@@ -24,7 +24,6 @@ import matplotlib
 import matplotlib.axes
 import matplotlib.ticker
 import my_lib.notify.slack
-import my_lib.plot_util
 import PIL.Image
 
 matplotlib.use("Agg")
@@ -133,7 +132,9 @@ def _plot_item(
 
     ax.fill_between(x, y, 0, facecolor="#D0D0D0", alpha=0.5)  # type: ignore[arg-type]
 
-    text = "?" if not data.valid else fmt.format(next((item for item in reversed(y) if item), None))
+    # NOTE: 0 W も有効な値として扱う (truthiness 判定だと 0.0 がスキップされる)
+    latest = next((item for item in reversed(y) if item is not None), None) if data.valid else None
+    text = "?" if latest is None else fmt.format(latest)
 
     ax.xaxis.set_minor_locator(matplotlib.dates.HourLocator(byhour=range(0, 24, 6)))
     ax.xaxis.set_minor_formatter(matplotlib.dates.DateFormatter("%-H"))

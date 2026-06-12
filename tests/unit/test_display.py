@@ -291,7 +291,7 @@ class TestExecute:
         mock_update.assert_called_once()
 
     def test_execute_with_fbi_failure(self, config, mocker, mock_ssh_session):
-        """fbi コマンド失敗時にログが出力されること"""
+        """fbi コマンド失敗時に例外が送出され、フットプリントが更新されないこと"""
         from weather_display import display
 
         mock_proc = mocker.MagicMock()
@@ -305,20 +305,22 @@ class TestExecute:
         mock_ssh_session["stderr"].read.return_value = b"fbi error stderr"
 
         mocker.patch("subprocess.Popen", return_value=mock_proc)
-        mocker.patch("my_lib.footprint.update")
+        mock_update = mocker.patch("my_lib.footprint.update")
         mocker.patch("my_lib.proc_util.reap_zombie")
 
-        # 例外が発生しないこと
-        display.execute(
-            mock_ssh_session["ssh"],
-            config,
-            "config.yaml",
-            small_mode=False,
-            test_mode=True,
-        )
+        with pytest.raises(RuntimeError, match="Failed to display image"):
+            display.execute(
+                mock_ssh_session["ssh"],
+                config,
+                "config.yaml",
+                small_mode=False,
+                test_mode=True,
+            )
+
+        mock_update.assert_not_called()
 
     def test_execute_with_unknown_error(self, config, mocker, mock_ssh_session):
-        """不明なエラーコードで終了すること"""
+        """不明なエラーコードで例外が送出されること"""
         from weather_display import display
 
         mock_proc = mocker.MagicMock()
@@ -330,7 +332,7 @@ class TestExecute:
         mocker.patch("my_lib.footprint.update")
         mocker.patch("my_lib.proc_util.reap_zombie")
 
-        with pytest.raises(SystemExit) as exc_info:
+        with pytest.raises(RuntimeError, match=r"Failed to create image\. \(code: 99\)"):
             display.execute(
                 mock_ssh_session["ssh"],
                 config,
@@ -338,8 +340,6 @@ class TestExecute:
                 small_mode=False,
                 test_mode=True,
             )
-
-        assert exc_info.value.code == 99
 
 
 class TestSshKillAndCloseEdgeCases:

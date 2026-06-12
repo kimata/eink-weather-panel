@@ -15,7 +15,6 @@ from __future__ import annotations
 
 import asyncio
 import datetime
-import functools
 import io
 import logging
 import os
@@ -29,11 +28,9 @@ import matplotlib.dates
 import matplotlib.font_manager
 import matplotlib.gridspec
 import matplotlib.pyplot
-import matplotlib.ticker
 import my_lib.font_util
 import my_lib.panel_config
 import my_lib.panel_util
-import my_lib.plot_util
 import my_lib.sensor_data
 import pandas.plotting
 import PIL.Image
@@ -56,23 +53,6 @@ class PlotData:
     time: list[datetime.datetime] = field(default_factory=list)
     time_numeric: list[float] = field(default_factory=list)
     value: list[float | None] = field(default_factory=list)
-
-
-@dataclass
-class AxisConfig:
-    """軸設定用のデータ構造"""
-
-    major_locator: matplotlib.ticker.Locator
-    major_formatter: matplotlib.ticker.Formatter
-
-
-@functools.lru_cache(maxsize=8)
-def _get_shared_axis_config() -> AxisConfig:
-    """共通の軸設定を返す（キャッシュ付き）"""
-    return AxisConfig(
-        major_locator=matplotlib.dates.DayLocator(interval=1),
-        major_formatter=matplotlib.dates.DateFormatter("%-d"),
-    )
 
 
 _FONT_SPEC: dict[str, my_lib.font_util.FontSpec] = {
@@ -102,7 +82,6 @@ def _plot_item(
     scale: str,
     small: bool,
     face_map: dict[str, matplotlib.font_manager.FontProperties],
-    axis_config: AxisConfig,
 ) -> None:
     logging.info("Plot %s", title)
 
@@ -177,9 +156,10 @@ def _plot_item(
 
     font = face_map["value_small"] if small else face_map["value"]
 
-    # 共有された軸設定を使用
-    ax.xaxis.set_major_locator(axis_config.major_locator)
-    ax.xaxis.set_major_formatter(axis_config.major_formatter)
+    # NOTE: Locator/Formatter は 1 つの Axis 専用のため、サブプロットごとに生成する
+    # (共有すると目盛り位置が最後に割り当てた Axes の表示範囲で計算されてしまう)
+    ax.xaxis.set_major_locator(matplotlib.dates.DayLocator(interval=1))
+    ax.xaxis.set_major_formatter(matplotlib.dates.DateFormatter("%-d"))
     for label in ax.get_xticklabels():
         label.set_fontproperties(face_map["xaxis"])
 
@@ -368,9 +348,6 @@ def _create_sensor_graph_impl(
                     param_max + span * 0.05,
                 )
 
-        # 共通の軸設定を取得（日付変換最適化）
-        axis_config = _get_shared_axis_config()
-
         # 開始時間を数値化
         time_begin_numeric = float(matplotlib.dates.date2num(time_begin))
 
@@ -418,7 +395,6 @@ def _create_sensor_graph_impl(
                     param.scale,
                     param.size_small,
                     face_map,
-                    axis_config,
                 )
 
                 if (param.name == "temp") and room.aircon is not None:

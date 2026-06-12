@@ -23,6 +23,8 @@ import werkzeug.serving
 
 import weather_display.config
 
+URL_PREFIX = "/weather_panel"
+
 
 @dataclass
 class MetricsServerHandle:
@@ -35,14 +37,12 @@ class MetricsServerHandle:
 def create_app(config: weather_display.config.AppConfig) -> flask.Flask:
     import my_lib.webapp.config
 
-    my_lib.webapp.config.URL_PREFIX = "/weather_panel"
-
     import weather_display.metrics.webapi.page
 
     # NOTE: アクセスログは無効にする
     logging.getLogger("werkzeug").setLevel(logging.ERROR)
 
-    app = flask.Flask("unit_cooler")
+    app = flask.Flask("eink-weather-panel-metrics")
 
     flask_cors.CORS(app)
 
@@ -50,7 +50,7 @@ def create_app(config: weather_display.config.AppConfig) -> flask.Flask:
 
     app.json.compat = True  # type: ignore[attr-defined]
 
-    app.register_blueprint(weather_display.metrics.webapi.page.blueprint)
+    app.register_blueprint(weather_display.metrics.webapi.page.blueprint, url_prefix=URL_PREFIX)
 
     my_lib.webapp.config.show_handler_list(app, True)
 

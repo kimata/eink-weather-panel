@@ -19,7 +19,6 @@ import locale
 import logging
 import math
 import pathlib
-import urllib.parse
 import urllib.request
 from dataclasses import dataclass
 
@@ -123,7 +122,7 @@ def _get_image(weather_info: my_lib.weather.WeatherInfo) -> PIL.Image.Image:
     gamma = 0.24
 
     file_bytes = np.asarray(
-        bytearray(urllib.request.urlopen(weather_info.icon_url).read()),  # noqa: S310
+        bytearray(urllib.request.urlopen(weather_info.icon_url, timeout=10).read()),  # noqa: S310
         dtype=np.uint8,
     )
     img = cv2.imdecode(file_bytes, cv2.IMREAD_UNCHANGED)
@@ -132,15 +131,9 @@ def _get_image(weather_info: my_lib.weather.WeatherInfo) -> PIL.Image.Image:
 
     # NOTE: 透過部分を白で塗りつぶす
     img[img[..., -1] == 0] = [255, 255, 255, 0]
-    img = img[:, :, :3]
 
-    dump_path = str(
-        pathlib.Path(__file__).parent
-        / "img"
-        / (weather_info.text + "_" + pathlib.Path(urllib.parse.urlparse(weather_info.icon_url).path).name)
-    )
-
-    PIL.Image.fromarray(img).save(dump_path)
+    # NOTE: cv2.imdecode は BGR(A) を返すため、以降 RGB として扱えるように変換する
+    img = cv2.cvtColor(img[:, :, :3], cv2.COLOR_BGR2RGB)
 
     h, w = img.shape[:2]
 
@@ -516,7 +509,6 @@ def _draw_hourly_weather(
     img: PIL.Image.Image,
     info: my_lib.weather.HourlyData,
     wbgt: float | None,
-    is_wbgt_exist: bool,
     is_today: bool,
     is_first: bool,
     pos_x: float,
@@ -570,8 +562,8 @@ def _draw_hourly_weather(
         face_map["wind"],
     )
     next_pos_y += 30
-    if is_wbgt_exist:
-        assert wbgt is not None  # noqa: S101
+    # NOTE: WBGT は提供期間外や欠測で値が無いことがあるため、その場合は体感温度にフォールバックする
+    if wbgt is not None:
         next_pos_y = _draw_temp(
             img,
             wbgt,
@@ -613,7 +605,6 @@ def _draw_day_weather(
             img,
             info[hour_index],
             wbgt_info[hour_index] if wbgt_info is not None else None,
-            wbgt_info is not None,
             is_today,
             hour_index == 2,
             next_pos_x,
