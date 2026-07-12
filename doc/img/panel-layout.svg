@@ -1,0 +1,81 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1240 530" font-family="-apple-system, 'Segoe UI', 'Helvetica Neue', Arial, 'Hiragino Kaku Gothic ProN', 'Noto Sans CJK JP', Meiryo, sans-serif">
+  <style>
+    .t { font-size: 15px; font-weight: bold; fill: #0f172a; }
+    .sub { font-size: 11px; fill: #64748b; }
+    .p { font-size: 12px; font-weight: bold; fill: #1e293b; }
+    .g { font-size: 10px; fill: #334155; }
+  </style>
+  <rect x="0" y="0" width="1240" height="530" fill="#ffffff"/>
+
+  <!-- ===== 標準モード ===== -->
+  <text x="40" y="58" class="t">標準モード — 3200×1800（7 パネル）</text>
+  <text x="40" y="78" class="sub">config.example.yaml の配置</text>
+
+  <!-- デバイス -->
+  <rect x="40" y="110" width="640" height="360" fill="#ffffff" stroke="#334155" stroke-width="2"/>
+
+  <!-- weather 3200x1000 @(0,0) -->
+  <rect x="40" y="110" width="640" height="200" fill="#dbeafe" fill-opacity="0.8" stroke="#3b82f6" stroke-width="1.5"/>
+  <text x="56" y="132" class="p">weather</text>
+  <text x="56" y="148" class="g">3200×1000 @ (0, 0)</text>
+
+  <!-- power 1600x510 @(0,620) -->
+  <rect x="40" y="234" width="320" height="102" fill="#fde68a" fill-opacity="0.85" stroke="#d97706" stroke-width="1.5"/>
+  <text x="52" y="256" class="p">power</text>
+  <text x="52" y="272" class="g">1600×510 @ (0, 620)</text>
+
+  <!-- sensor 1600x690 @(0,1120) -->
+  <rect x="40" y="334" width="320" height="138" fill="#bbf7d0" fill-opacity="0.85" stroke="#16a34a" stroke-width="1.5"/>
+  <text x="52" y="356" class="p">sensor</text>
+  <text x="52" y="372" class="g">1600×690 @ (0, 1120)</text>
+
+  <!-- rain_cloud 1596x860 @(1604,960) -->
+  <rect x="361" y="302" width="319" height="172" fill="#c7d2fe" fill-opacity="0.85" stroke="#6366f1" stroke-width="1.5"/>
+  <text x="530" y="395" class="p">rain_cloud</text>
+  <text x="530" y="411" class="g">1596×860 @ (1604, 960)</text>
+
+  <!-- wbgt 798x300 @(1604,960) -->
+  <rect x="361" y="302" width="160" height="60" fill="#fecaca" fill-opacity="0.9" stroke="#dc2626" stroke-width="1.5"/>
+  <text x="371" y="322" class="p">wbgt</text>
+  <text x="371" y="337" class="g">798×300 @ (1604, 960)</text>
+
+  <!-- rain_fall オーバーレイ -->
+  <rect x="366" y="307" width="309" height="162" fill="none" stroke="#0ea5e9" stroke-width="1.5" stroke-dasharray="6 4"/>
+  <text x="668" y="326" text-anchor="end" class="g" fill="#0369a1">rain_fall（オーバーレイ）</text>
+  <text x="668" y="341" text-anchor="end" class="g" fill="#0369a1">1596×860 @ (1604, 960)</text>
+
+  <!-- time 400x160 @(2782,1630) -->
+  <rect x="596" y="436" width="80" height="32" fill="#f5d0fe" fill-opacity="0.95" stroke="#a855f7" stroke-width="1.5"/>
+  <text x="636" y="456" text-anchor="middle" class="g" font-weight="bold">time</text>
+  <text x="636" y="488" text-anchor="middle" class="g">time: 400×160 @ (2782, 1630)</text>
+
+  <!-- ===== 小型モード ===== -->
+  <text x="760" y="58" class="t">小型モード — 2200×1650（4 パネル）</text>
+  <text x="760" y="78" class="sub">config-small.example.yaml の配置</text>
+
+  <!-- デバイス -->
+  <rect x="760" y="110" width="440" height="330" fill="#ffffff" stroke="#334155" stroke-width="2"/>
+
+  <!-- weather 2200x2000 @(0,0) scale 0.84 -->
+  <rect x="760" y="110" width="440" height="330" fill="#dbeafe" fill-opacity="0.8" stroke="#3b82f6" stroke-width="1.5"/>
+  <text x="772" y="132" class="p">weather</text>
+  <text x="772" y="148" class="g">2200×2000 @ (0, 0), scale 0.84</text>
+  <text x="772" y="163" class="g">※デバイス範囲外は切り捨て</text>
+
+  <!-- rain_cloud 860x1650 @(1340,0) -->
+  <rect x="1028" y="110" width="172" height="330" fill="#c7d2fe" fill-opacity="0.85" stroke="#6366f1" stroke-width="1.5"/>
+  <text x="1042" y="408" class="p">rain_cloud</text>
+  <text x="1042" y="424" class="g">860×1650 @ (1340, 0)</text>
+
+  <!-- wbgt 860x300 @(1340,0) -->
+  <rect x="1028" y="110" width="172" height="60" fill="#fecaca" fill-opacity="0.9" stroke="#dc2626" stroke-width="1.5"/>
+  <text x="1038" y="130" class="p">wbgt</text>
+  <text x="1038" y="145" class="g">860×300 @ (1340, 0)</text>
+
+  <!-- time 400x150 @(1995,740) scale 0.5 -->
+  <rect x="1159" y="258" width="41" height="30" fill="#f5d0fe" fill-opacity="0.95" stroke="#a855f7" stroke-width="1.5"/>
+  <rect x="945" y="236" width="250" height="17" fill="#ffffff" fill-opacity="0.85"/>
+  <text x="1195" y="249" text-anchor="end" class="g">time: 400×150 @ (1995, 740), scale 0.5</text>
+
+  <text x="40" y="512" class="sub">縮尺 1/5。数値は「幅×高さ @ (offset_x, offset_y)」。各パネルは透過 PNG として生成され、create_image.py が alpha_paste で重ね合わせる。</text>
+</svg>

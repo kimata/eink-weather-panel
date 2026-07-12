@@ -60,7 +60,7 @@ https://weather-panel-webapp-demo.kubernetes.green-rabbit.net/weather_panel/
 | 標準   | 3200×1800 | 7        | BOOX Mira Pro |
 | 小型   | 2200×1650 | 4        | BOOX Mira     |
 
-詳細なアーキテクチャは [ARCHITECTURE.md](ARCHITECTURE.md) を参照してください。
+詳細なアーキテクチャは [doc/architecture.md](doc/architecture.md) を参照してください。
 
 ## クイックスタート
 
@@ -338,7 +338,7 @@ pre-commit run --all-files
 
 ### アーキテクチャ
 
-詳細なアーキテクチャ（データフロー図、シーケンス図、コードパターン）は [ARCHITECTURE.md](ARCHITECTURE.md) を参照してください。
+詳細なアーキテクチャ（データフロー図、シーケンス図、コードパターン）は [doc/architecture.md](doc/architecture.md) を参照してください。
 
 ### ディレクトリ構成
 

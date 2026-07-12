@@ -1,0 +1,62 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 980 560" font-family="-apple-system, 'Segoe UI', 'Helvetica Neue', Arial, 'Hiragino Kaku Gothic ProN', 'Noto Sans CJK JP', Meiryo, sans-serif">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#64748b"/>
+    </marker>
+  </defs>
+  <style>
+    .t { font-size: 14px; font-weight: bold; fill: #0f172a; }
+    .n { font-size: 13px; font-weight: bold; fill: #1e293b; }
+    .s { font-size: 11px; fill: #475569; }
+    .lbl { font-size: 11px; fill: #334155; }
+    .edge { stroke: #64748b; stroke-width: 1.5; fill: none; marker-end: url(#arrow); }
+    .ret { stroke: #64748b; stroke-width: 1.5; stroke-dasharray: 5 4; fill: none; marker-end: url(#arrow); }
+  </style>
+  <rect x="0" y="0" width="980" height="560" fill="#ffffff"/>
+
+  <!-- ブラウザ -->
+  <rect x="40" y="200" width="190" height="110" rx="8" fill="#f1f5f9" stroke="#64748b"/>
+  <text x="135" y="238" text-anchor="middle" class="n">ブラウザ</text>
+  <text x="135" y="262" text-anchor="middle" class="s">React フロントエンド</text>
+  <text x="135" y="280" text-anchor="middle" class="s">（frontend/ — Vite + TS）</text>
+
+  <line x1="230" y1="255" x2="330" y2="255" class="edge"/>
+  <text x="280" y="245" text-anchor="middle" class="lbl">HTTP /panel</text>
+
+  <!-- webui.py -->
+  <rect x="330" y="40" width="350" height="480" rx="12" fill="#f8fafc" stroke="#94a3b8" stroke-dasharray="6 4"/>
+  <text x="505" y="68" text-anchor="middle" class="t">webui.py — Flask（URL prefix: /panel）</text>
+
+  <rect x="350" y="88" width="310" height="54" rx="8" fill="#e2e8f0" stroke="#64748b"/>
+  <text x="505" y="110" text-anchor="middle" class="n">静的配信 blueprint</text>
+  <text x="505" y="130" text-anchor="middle" class="s">React のビルド成果物を配信</text>
+
+  <rect x="350" y="165" width="310" height="200" rx="8" fill="#ede9fe" stroke="#7c3aed"/>
+  <text x="505" y="190" text-anchor="middle" class="n">runner/webapi/run.py</text>
+  <text x="365" y="216" class="s">POST /api/image — 生成開始、token（UUID）を発行</text>
+  <text x="365" y="238" class="s">POST /api/log — 生成ログをストリーミング取得</text>
+  <text x="365" y="260" class="s">GET /api/run — 完成画像（PNG）を取得</text>
+  <line x1="365" y1="276" x2="645" y2="276" stroke="#c4b5fd"/>
+  <text x="365" y="298" class="s">ThreadPoolExecutor（max_workers=3）</text>
+  <text x="365" y="320" class="s">PanelData: log queue / image / future / 完了時刻</text>
+  <text x="365" y="342" class="s">_image_reader / _log_reader スレッドで回収</text>
+
+  <rect x="350" y="390" width="310" height="54" rx="8" fill="#fef3c7" stroke="#d97706"/>
+  <text x="505" y="412" text-anchor="middle" class="n">metrics/webapi/page.py blueprint</text>
+  <text x="505" y="432" text-anchor="middle" class="s">メトリクスダッシュボード（/api/metrics）</text>
+
+  <text x="505" y="482" text-anchor="middle" class="s">このほか my_lib.webapp 由来の util / リダイレクト用</text>
+  <text x="505" y="500" text-anchor="middle" class="s">blueprint も登録される</text>
+
+  <!-- create_image.py -->
+  <rect x="760" y="205" width="190" height="120" rx="8" fill="#dbeafe" stroke="#3b82f6"/>
+  <text x="855" y="235" text-anchor="middle" class="n">create_image.py</text>
+  <text x="855" y="259" text-anchor="middle" class="s">サブプロセス</text>
+  <text x="855" y="281" text-anchor="middle" class="s">PNG → stdout</text>
+  <text x="855" y="301" text-anchor="middle" class="s">ログ → stderr</text>
+
+  <line x1="660" y1="240" x2="760" y2="240" class="edge"/>
+  <text x="710" y="230" text-anchor="middle" class="lbl">起動（Popen）</text>
+  <line x1="760" y1="290" x2="660" y2="290" class="ret"/>
+  <text x="710" y="312" text-anchor="middle" class="lbl">stdout / stderr</text>
+</svg>

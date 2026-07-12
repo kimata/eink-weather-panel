@@ -1,0 +1,79 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 980 700" font-family="-apple-system, 'Segoe UI', 'Helvetica Neue', Arial, 'Hiragino Kaku Gothic ProN', 'Noto Sans CJK JP', Meiryo, sans-serif">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#475569"/>
+    </marker>
+  </defs>
+  <style>
+    .h { font-size: 13px; font-weight: bold; fill: #1e293b; }
+    .m { font-size: 11px; fill: #334155; }
+    .s { font-size: 11px; fill: #64748b; }
+    .life { stroke: #cbd5e1; stroke-width: 1.5; stroke-dasharray: 4 4; }
+    .msg { stroke: #475569; stroke-width: 1.5; fill: none; marker-end: url(#arrow); }
+    .ret { stroke: #475569; stroke-width: 1.5; stroke-dasharray: 5 4; fill: none; marker-end: url(#arrow); }
+  </style>
+  <rect x="0" y="0" width="980" height="700" fill="#ffffff"/>
+
+  <!-- ヘッダー -->
+  <rect x="65" y="25" width="170" height="36" rx="6" fill="#dbeafe" stroke="#3b82f6"/>
+  <text x="150" y="48" text-anchor="middle" class="h">display_image.py</text>
+  <rect x="345" y="25" width="170" height="36" rx="6" fill="#dbeafe" stroke="#3b82f6"/>
+  <text x="430" y="48" text-anchor="middle" class="h">create_image.py</text>
+  <rect x="615" y="25" width="150" height="36" rx="6" fill="#ffedd5" stroke="#ea580c"/>
+  <text x="690" y="48" text-anchor="middle" class="h">Raspberry Pi（fbi）</text>
+  <rect x="820" y="25" width="120" height="36" rx="6" fill="#ffedd5" stroke="#ea580c"/>
+  <text x="880" y="48" text-anchor="middle" class="h">E-Ink</text>
+
+  <!-- ライフライン -->
+  <line x1="150" y1="61" x2="150" y2="665" class="life"/>
+  <line x1="430" y1="61" x2="430" y2="665" class="life"/>
+  <line x1="690" y1="61" x2="690" y2="665" class="life"/>
+  <line x1="880" y1="61" x2="880" y2="665" class="life"/>
+
+  <!-- ループ枠 -->
+  <rect x="30" y="85" width="930" height="565" rx="8" fill="none" stroke="#94a3b8" stroke-dasharray="6 4"/>
+  <rect x="30" y="85" width="200" height="26" fill="#f1f5f9" stroke="#94a3b8"/>
+  <text x="40" y="103" class="m" font-weight="bold">loop — 更新サイクルごと</text>
+
+  <!-- メッセージ -->
+  <line x1="150" y1="140" x2="690" y2="140" class="msg"/>
+  <text x="420" y="132" text-anchor="middle" class="m">ssh_connect() — 失敗時は 2 秒間隔で最大 3 回リトライ</text>
+
+  <line x1="150" y1="180" x2="690" y2="180" class="msg"/>
+  <text x="420" y="172" text-anchor="middle" class="m">sudo killall -9 fbi（残存プロセスの回収）</text>
+
+  <line x1="150" y1="220" x2="690" y2="220" class="msg"/>
+  <text x="420" y="212" text-anchor="middle" class="m">exec_command（PNG 受信 → /dev/shm/display.png → fbi 表示のコマンドを準備）</text>
+
+  <line x1="150" y1="260" x2="425" y2="260" class="msg"/>
+  <text x="290" y="252" text-anchor="middle" class="m">サブプロセス起動（タイムアウト 300 秒）</text>
+
+  <!-- create_image アクティベーション -->
+  <rect x="425" y="260" width="10" height="80" fill="#93c5fd" stroke="#3b82f6"/>
+  <text x="445" y="296" class="s">設定ロード → パネル並列描画 → 合成</text>
+  <text x="445" y="314" class="s">（タイムアウト時はセッションごと強制終了）</text>
+
+  <line x1="425" y1="340" x2="150" y2="340" class="ret"/>
+  <text x="290" y="332" text-anchor="middle" class="m">PNG（stdout 経由）</text>
+
+  <line x1="150" y1="380" x2="690" y2="380" class="msg"/>
+  <text x="420" y="372" text-anchor="middle" class="m">PNG を SSH stdin へ書き込み</text>
+
+  <line x1="690" y1="420" x2="880" y2="420" class="msg"/>
+  <text x="785" y="412" text-anchor="middle" class="m">fbi が /dev/fb0 に描画</text>
+
+  <line x1="690" y1="460" x2="150" y2="460" class="ret"/>
+  <text x="420" y="452" text-anchor="middle" class="m">fbi の終了ステータス</text>
+
+  <!-- 自己処理ノート -->
+  <rect x="170" y="490" width="560" height="26" rx="5" fill="#fffbeb" stroke="#f59e0b"/>
+  <text x="180" y="507" class="m">成功時: liveness ファイル更新（my_lib.footprint.update → healthz.py が監視）</text>
+
+  <rect x="170" y="530" width="560" height="26" rx="5" fill="#fffbeb" stroke="#f59e0b"/>
+  <text x="180" y="547" class="m">TimingController.calculate_sleep_time() — カルマンフィルタで所要時間を推定</text>
+
+  <rect x="170" y="570" width="560" height="26" rx="5" fill="#fffbeb" stroke="#f59e0b"/>
+  <text x="180" y="587" class="m">sleep — 更新完了が毎分 0 秒に揃うようスリープ時間を調整</text>
+
+  <text x="495" y="632" text-anchor="middle" class="s">例外発生時は 10 秒待ってリトライ。2 回連続で失敗すると Slack 通知して終了（Kubernetes が再起動）。</text>
+</svg>

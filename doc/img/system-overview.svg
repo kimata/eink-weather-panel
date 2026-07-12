@@ -1,0 +1,114 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 980 640" font-family="-apple-system, 'Segoe UI', 'Helvetica Neue', Arial, 'Hiragino Kaku Gothic ProN', 'Noto Sans CJK JP', Meiryo, sans-serif">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#64748b"/>
+    </marker>
+  </defs>
+  <style>
+    .t { font-size: 14px; font-weight: bold; fill: #0f172a; }
+    .n { font-size: 13px; font-weight: bold; fill: #1e293b; }
+    .s { font-size: 11px; fill: #475569; }
+    .lbl { font-size: 11px; fill: #334155; }
+    .edge { stroke: #64748b; stroke-width: 1.5; fill: none; marker-end: url(#arrow); }
+  </style>
+  <rect x="0" y="0" width="980" height="640" fill="#ffffff"/>
+
+  <!-- 外部データソース -->
+  <text x="30" y="78" class="s" font-weight="bold">外部データソース</text>
+  <g>
+    <rect x="30" y="95" width="195" height="58" rx="8" fill="#d1fae5" stroke="#059669"/>
+    <text x="127" y="119" text-anchor="middle" class="n">Yahoo! 天気</text>
+    <text x="127" y="137" text-anchor="middle" class="s">weather.yahoo.co.jp</text>
+
+    <rect x="30" y="175" width="195" height="58" rx="8" fill="#d1fae5" stroke="#059669"/>
+    <text x="127" y="199" text-anchor="middle" class="n">気象庁 雨雲レーダー</text>
+    <text x="127" y="217" text-anchor="middle" class="s">Selenium + Headless Chrome</text>
+
+    <rect x="30" y="255" width="195" height="58" rx="8" fill="#d1fae5" stroke="#059669"/>
+    <text x="127" y="279" text-anchor="middle" class="n">環境省（WBGT）</text>
+    <text x="127" y="297" text-anchor="middle" class="s">wbgt.env.go.jp</text>
+
+    <rect x="30" y="335" width="195" height="58" rx="8" fill="#d1fae5" stroke="#059669"/>
+    <text x="127" y="359" text-anchor="middle" class="n">InfluxDB</text>
+    <text x="127" y="377" text-anchor="middle" class="s">センサー / 電力 / 雨量データ</text>
+  </g>
+
+  <!-- サーバーコンテナ -->
+  <rect x="285" y="55" width="380" height="470" rx="12" fill="#f8fafc" stroke="#94a3b8" stroke-dasharray="6 4"/>
+  <text x="475" y="82" text-anchor="middle" class="t">画像生成サーバー（Docker / Kubernetes）</text>
+
+  <rect x="305" y="100" width="340" height="78" rx="8" fill="#dbeafe" stroke="#3b82f6"/>
+  <text x="475" y="130" text-anchor="middle" class="n">display_image.py</text>
+  <text x="475" y="152" text-anchor="middle" class="s">メインループ / SSH 接続管理 / タイミング制御</text>
+
+  <line x1="360" y1="178" x2="360" y2="240" class="edge"/>
+  <text x="352" y="214" text-anchor="end" class="lbl">サブプロセス起動</text>
+  <line x1="590" y1="240" x2="590" y2="178" class="edge"/>
+  <text x="598" y="214" text-anchor="start" class="lbl">PNG（stdout）</text>
+
+  <rect x="305" y="240" width="340" height="96" rx="8" fill="#dbeafe" stroke="#3b82f6"/>
+  <text x="475" y="268" text-anchor="middle" class="n">create_image.py（サブプロセス）</text>
+  <text x="475" y="290" text-anchor="middle" class="s">multiprocessing.Pool でパネルを並列描画</text>
+  <text x="475" y="308" text-anchor="middle" class="s">標準 7 パネル / 小型 4 パネル</text>
+
+  <line x1="385" y1="336" x2="385" y2="390" class="edge"/>
+  <text x="393" y="368" text-anchor="start" class="lbl">メトリクス記録</text>
+
+  <rect x="305" y="390" width="160" height="70" rx="8" fill="#fef3c7" stroke="#d97706"/>
+  <text x="385" y="413" text-anchor="middle" class="n">metrics.db（SQLite）</text>
+  <text x="385" y="431" text-anchor="middle" class="s">処理時間・エラー記録</text>
+  <text x="385" y="447" text-anchor="middle" class="s">draw_panel / display_image</text>
+
+  <line x1="485" y1="425" x2="465" y2="425" class="edge"/>
+
+  <rect x="485" y="390" width="160" height="70" rx="8" fill="#ede9fe" stroke="#7c3aed"/>
+  <text x="565" y="413" text-anchor="middle" class="n">metrics server</text>
+  <text x="565" y="431" text-anchor="middle" class="s">別スレッド（werkzeug）</text>
+  <text x="565" y="447" text-anchor="middle" class="s">ダッシュボード提供</text>
+
+  <!-- 外部ソース → create_image -->
+  <line x1="225" y1="124" x2="305" y2="258" class="edge"/>
+  <line x1="225" y1="204" x2="305" y2="281" class="edge"/>
+  <line x1="225" y1="284" x2="305" y2="304" class="edge"/>
+  <line x1="225" y1="364" x2="305" y2="327" class="edge"/>
+
+  <!-- Raspberry Pi -->
+  <rect x="720" y="55" width="230" height="250" rx="12" fill="#fff7ed" stroke="#ea580c" stroke-dasharray="6 4"/>
+  <text x="835" y="82" text-anchor="middle" class="t">Raspberry Pi</text>
+
+  <rect x="740" y="100" width="190" height="78" rx="8" fill="#ffedd5" stroke="#ea580c"/>
+  <text x="835" y="124" text-anchor="middle" class="n">fbi</text>
+  <text x="835" y="144" text-anchor="middle" class="s">cat - → /dev/shm/display.png</text>
+  <text x="835" y="162" text-anchor="middle" class="s">sudo fbi -1 -T 1 -d /dev/fb0</text>
+
+  <line x1="835" y1="178" x2="835" y2="205" class="edge"/>
+
+  <rect x="740" y="205" width="190" height="78" rx="8" fill="#ffedd5" stroke="#ea580c"/>
+  <text x="835" y="229" text-anchor="middle" class="n">E-Ink ディスプレイ</text>
+  <text x="835" y="249" text-anchor="middle" class="s">標準 3200×1800</text>
+  <text x="835" y="267" text-anchor="middle" class="s">小型 2200×1650</text>
+
+  <line x1="645" y1="139" x2="720" y2="139" class="edge"/>
+  <text x="682" y="112" text-anchor="middle" class="lbl">SSH（paramiko）</text>
+  <text x="682" y="128" text-anchor="middle" class="lbl">画像を stdin 転送</text>
+
+  <!-- ブラウザ -->
+  <rect x="720" y="390" width="230" height="70" rx="8" fill="#f1f5f9" stroke="#64748b"/>
+  <text x="835" y="418" text-anchor="middle" class="n">ブラウザ</text>
+  <text x="835" y="438" text-anchor="middle" class="s">メトリクスダッシュボード / Web UI</text>
+
+  <line x1="720" y1="425" x2="645" y2="425" class="edge"/>
+  <text x="682" y="415" text-anchor="middle" class="lbl">HTTP</text>
+  <text x="682" y="443" text-anchor="middle" class="lbl">/weather_panel</text>
+
+  <!-- webui.py -->
+  <rect x="285" y="555" width="380" height="60" rx="8" fill="#ede9fe" stroke="#7c3aed"/>
+  <text x="475" y="579" text-anchor="middle" class="n">webui.py — Flask + React Web UI</text>
+  <text x="475" y="599" text-anchor="middle" class="s">オンデマンド画像生成（URL prefix: /panel）</text>
+
+  <line x1="475" y1="555" x2="475" y2="340" stroke="#64748b" stroke-width="1.5" stroke-dasharray="5 4" fill="none" marker-end="url(#arrow)"/>
+  <text x="483" y="490" text-anchor="start" class="lbl">create_image.py を起動</text>
+
+  <path d="M 835 460 L 835 585 L 669 585" stroke="#64748b" stroke-width="1.5" stroke-dasharray="5 4" fill="none" marker-end="url(#arrow)"/>
+  <text x="845" y="525" text-anchor="start" class="lbl">HTTP /panel</text>
+</svg>

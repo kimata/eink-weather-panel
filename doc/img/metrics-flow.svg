@@ -1,0 +1,66 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 980 540" font-family="-apple-system, 'Segoe UI', 'Helvetica Neue', Arial, 'Hiragino Kaku Gothic ProN', 'Noto Sans CJK JP', Meiryo, sans-serif">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#64748b"/>
+    </marker>
+  </defs>
+  <style>
+    .t { font-size: 14px; font-weight: bold; fill: #0f172a; }
+    .n { font-size: 13px; font-weight: bold; fill: #1e293b; }
+    .s { font-size: 11px; fill: #475569; }
+    .lbl { font-size: 11px; fill: #334155; }
+    .edge { stroke: #64748b; stroke-width: 1.5; fill: none; marker-end: url(#arrow); }
+  </style>
+  <rect x="0" y="0" width="980" height="540" fill="#ffffff"/>
+
+  <!-- 記録側 -->
+  <rect x="40" y="80" width="240" height="80" rx="8" fill="#dbeafe" stroke="#3b82f6"/>
+  <text x="160" y="106" text-anchor="middle" class="n">create_image.py</text>
+  <text x="160" y="126" text-anchor="middle" class="s">collect_draw_panel_metrics()</text>
+  <text x="160" y="144" text-anchor="middle" class="s">パネル別処理時間・エラー</text>
+
+  <rect x="40" y="200" width="240" height="80" rx="8" fill="#dbeafe" stroke="#3b82f6"/>
+  <text x="160" y="226" text-anchor="middle" class="n">display_image.py</text>
+  <text x="160" y="246" text-anchor="middle" class="s">collect_display_image_metrics()</text>
+  <text x="160" y="264" text-anchor="middle" class="s">表示時間・タイミングずれ（diff_sec）</text>
+
+  <line x1="280" y1="120" x2="350" y2="170" class="edge"/>
+  <line x1="280" y1="240" x2="350" y2="220" class="edge"/>
+
+  <!-- DB -->
+  <rect x="350" y="110" width="260" height="190" rx="8" fill="#fef3c7" stroke="#d97706"/>
+  <text x="480" y="138" text-anchor="middle" class="n">metrics.db（SQLite / WAL）</text>
+  <line x1="368" y1="152" x2="592" y2="152" stroke="#fcd34d"/>
+  <text x="368" y="176" class="s">draw_panel_metrics — 画像生成全体</text>
+  <text x="368" y="200" class="s">panel_metrics — パネル別</text>
+  <text x="368" y="224" class="s">display_image_metrics — 表示実行</text>
+  <text x="368" y="258" class="s">※ create_image.py は親プロセス使用中の</text>
+  <text x="368" y="276" class="s">　 WAL を消さないようクリーンアップを抑止</text>
+
+  <line x1="610" y1="205" x2="680" y2="205" class="edge"/>
+  <text x="645" y="195" text-anchor="middle" class="lbl">参照</text>
+
+  <!-- 分析・API -->
+  <rect x="680" y="60" width="270" height="290" rx="8" fill="#ede9fe" stroke="#7c3aed"/>
+  <text x="815" y="88" text-anchor="middle" class="n">metrics/webapi/page.py</text>
+  <text x="815" y="106" text-anchor="middle" class="s">（MetricsAnalyzer で集計）</text>
+  <line x1="698" y1="118" x2="932" y2="118" stroke="#c4b5fd"/>
+  <text x="698" y="140" class="s">GET /api/metrics — ダッシュボード HTML</text>
+  <text x="698" y="162" class="s">GET /api/metrics/data — 統合データ</text>
+  <text x="698" y="184" class="s">GET /api/metrics/basic-stats</text>
+  <text x="698" y="206" class="s">GET /api/metrics/hourly-patterns</text>
+  <text x="698" y="228" class="s">GET /api/metrics/trends, /panel-trends</text>
+  <text x="698" y="250" class="s">GET /api/metrics/panel-daily-trends</text>
+  <text x="698" y="272" class="s">GET /api/metrics/alerts, /anomalies</text>
+  <line x1="698" y1="288" x2="932" y2="288" stroke="#c4b5fd"/>
+  <text x="698" y="310" class="s">統計: 箱ひげ図統計量（四分位数）</text>
+  <text x="698" y="330" class="s">異常検知: IQR 法（Q1/Q3 ± 1.5×IQR）</text>
+
+  <!-- ホスティング -->
+  <rect x="350" y="400" width="600" height="100" rx="8" fill="#f8fafc" stroke="#94a3b8" stroke-dasharray="6 4"/>
+  <text x="368" y="428" class="n">この blueprint は 2 箇所から提供される</text>
+  <text x="368" y="454" class="s">① display_image.py 内の metrics server スレッド（werkzeug、URL prefix: /weather_panel）</text>
+  <text x="368" y="476" class="s">② webui.py の Flask アプリ（URL prefix: /panel）</text>
+
+  <line x1="815" y1="350" x2="815" y2="400" class="edge"/>
+</svg>
