@@ -21,6 +21,19 @@ blueprint = flask.Blueprint(
     static_url_path="/static",
 )
 
+
+@blueprint.after_request
+def _apply_cache_max_age(response: flask.Response) -> flask.Response:
+    # NOTE: my_lib.flask_util.gzipped は gzip 応答時に Cache-Control: max-age=86400 を
+    # 無条件で設定する。毎分更新されるメトリクスが丸一日キャッシュされるのを防ぐため、
+    # 各エンドポイントが flask.g.cache_max_age に設定した値でここで上書きする。
+    # (blueprint の after_request は after_this_request のコールバックより後に実行される)
+    max_age = flask.g.pop("cache_max_age", None)
+    if max_age is not None:
+        response.headers["Cache-Control"] = f"max-age={max_age}"
+    return response
+
+
 # Heroicons SVG definitions (outline style, 24x24)
 _HEROICONS = {
     "chart-line": '<svg class="hero-icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 3v11.25A2.25 2.25 0 0 0 6 16.5h2.25M3.75 3h-1.5m1.5 0h16.5m0 0h1.5m-1.5 0v11.25A2.25 2.25 0 0 1 18 16.5h-2.25m-7.5 0h7.5m-7.5 0-1 3m8.5-3 1 3m0 0 .5 1.5m-.5-1.5h-9.5m0 0-.5 1.5M9 11.25v1.5M12 9v3.75m3-6v6" /></svg>',

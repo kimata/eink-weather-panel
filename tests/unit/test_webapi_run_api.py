@@ -102,7 +102,6 @@ class TestApiImage:
 
         token = "test-token-12345678-1234-1234-1234"
         run._panel_data_map[token] = PanelData(
-            lock=threading.Lock(),
             log=queue.Queue(),
             time=time.time(),
             image=b"\x89PNG\r\n\x1a\n",  # PNG header
@@ -145,7 +144,6 @@ class TestApiLog:
         log_queue.put(None)  # 完了通知
 
         run._panel_data_map[token] = PanelData(
-            lock=threading.Lock(),
             log=log_queue,
             time=time.time(),
         )
@@ -171,7 +169,6 @@ class TestApiLog:
         log_queue.put(None)
 
         run._panel_data_map[token] = PanelData(
-            lock=threading.Lock(),
             log=log_queue,
             time=time.time(),
         )
@@ -193,7 +190,6 @@ class TestApiLog:
         log_queue = queue.Queue()
 
         run._panel_data_map[token] = PanelData(
-            lock=threading.Lock(),
             log=log_queue,
             time=time.time(),
         )
@@ -225,7 +221,6 @@ class TestApiLog:
         log_queue.get.side_effect = RuntimeError("Queue error")
 
         run._panel_data_map[token] = PanelData(
-            lock=threading.Lock(),
             log=log_queue,
             time=time.time(),
         )

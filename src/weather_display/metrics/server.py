@@ -100,10 +100,10 @@ def term(handle: MetricsServerHandle) -> None:
 if __name__ == "__main__":
     # TEST Code
 
+    import pathlib
+
     import docopt
-    import my_lib.config
     import my_lib.logger
-    import my_lib.pretty
 
     assert __doc__ is not None  # noqa: S101
     args = docopt.docopt(__doc__)
@@ -114,9 +114,11 @@ if __name__ == "__main__":
 
     my_lib.logger.init("test", level=logging.DEBUG if debug_mode else logging.INFO)
 
-    config = my_lib.config.load(config_file)
+    # NOTE: dict のまま渡すと AppConfig の属性アクセスで全エンドポイントが 500 になるため、
+    # frozen dataclass にパースして渡す
+    config = weather_display.config.load(config_file, pathlib.Path("schema/config.schema"))
 
-    metrics_server_handle = start(config, port)  # type: ignore[arg-type]
+    metrics_server_handle = start(config, port)
 
     try:
         # サーバーを継続実行

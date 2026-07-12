@@ -26,6 +26,17 @@ _DEFAULT_DB_PATH = pathlib.Path("data/metrics.db")
 _DEFAULT_DAYS_LIMIT = 30  # デフォルトは過去30日間
 
 
+def suppress_wal_cleanup(db_path: str | pathlib.Path) -> None:
+    """このプロセスでの初回接続時の WAL/SHM クリーンアップを抑止する。
+
+    create_image.py は毎サイクル新規プロセスとして、親プロセス
+    (display_image.py / webui.py) が使用中の metrics DB に接続するため、そのままでは
+    初回接続時のクリーンアップが使用中のライブ WAL を削除してデータ喪失や DB 破損を
+    引き起こし得る。クリーンアップ済みとして事前登録することで削除を抑止する。
+    """
+    my_lib.sqlite_util.mark_cleanup_done(db_path)
+
+
 def _to_jst_str(dt: datetime.datetime) -> str:
     """datetime を SQLite の文字列比較に使える JST 形式に変換する。"""
     if dt.tzinfo is None:

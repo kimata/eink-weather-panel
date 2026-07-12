@@ -31,7 +31,7 @@ def mock_display(mocker, mock_ssh, mock_sensor_fetch_data):
     mock_sensor_fetch_data()
 
     mocker.patch("weather_display.display.ssh_connect", return_value=mock_ssh["ssh"])
-    mocker.patch("weather_display.display.ssh_kill_and_close")
+    mocker.patch("weather_display.display.ssh_kill")
     mocker.patch("weather_display.display.execute")
 
     return mock_ssh
@@ -88,7 +88,7 @@ class TestExecute:
 
         mock_sensor_fetch_data()
 
-        mocker.patch("weather_display.display.ssh_kill_and_close")
+        mocker.patch("weather_display.display.ssh_kill")
         mocker.patch("weather_display.display.ssh_connect", side_effect=Exception("Test exception"))
         mock_metrics = mocker.patch(
             "weather_display.metrics.collector.collect_display_image_metrics", return_value=1
@@ -248,7 +248,7 @@ class TestExecuteTimingController:
         mock_sensor_fetch_data()
 
         mocker.patch("weather_display.display.ssh_connect", return_value=mock_ssh["ssh"])
-        mocker.patch("weather_display.display.ssh_kill_and_close")
+        mocker.patch("weather_display.display.ssh_kill")
         mocker.patch("weather_display.display.execute")
 
         return mock_ssh
@@ -388,7 +388,7 @@ class TestExecuteMetricsLogging:
         mock_sensor_fetch_data()
 
         mocker.patch("weather_display.display.ssh_connect", return_value=mock_ssh["ssh"])
-        mocker.patch("weather_display.display.ssh_kill_and_close")
+        mocker.patch("weather_display.display.ssh_kill")
         mocker.patch("weather_display.display.execute")
 
         return mock_ssh

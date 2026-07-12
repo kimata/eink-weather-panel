@@ -92,9 +92,13 @@ def execute(
     ssh: paramiko.SSHClient | None = None
 
     try:
-        weather_display.display.ssh_kill_and_close(prev_ssh, "fbi")
+        # NOTE: 前サイクルの接続は死んでいる可能性があるため、ベストエフォートで閉じるだけにし、
+        # 残存 fbi の回収 (killall) は新規に確立した接続で表示直前に行う
+        weather_display.display.ssh_close(prev_ssh)
 
         ssh = weather_display.display.ssh_connect(rasp_hostname, str(key_file_path))
+
+        weather_display.display.ssh_kill(ssh, "fbi")
 
         weather_display.display.execute(ssh, config, config_file, small_mode, test_mode)
 
@@ -209,7 +213,10 @@ def start(
                 sys.stderr.flush()
                 time.sleep(1)
                 raise
-            time.sleep(10)
+            # NOTE: リトライ待ちの間も SIGTERM に応答できるようにする
+            if should_terminate.wait(timeout=10):
+                logging.info("Terminate worker")
+                break
 
     logging.info("Stop worker")
 
@@ -244,9 +251,7 @@ def cleanup(handle: weather_display.metrics.server.MetricsServerHandle) -> None:
     for thread in threading.enumerate():
         logging.info("  Thread: %s (daemon=%s, alive=%s)", thread.name, thread.daemon, thread.is_alive())
 
-    # プロセス終了
     logging.info("Graceful shutdown completed")
-    sys.exit(0)
 
 
 if __name__ == "__main__":
@@ -288,6 +293,9 @@ if __name__ == "__main__":
 
     handle = weather_display.metrics.server.start(config, metrics_port)
 
-    start(config, rasp_hostname, key_file_path, config_file, small_mode, test_mode, is_one_time)
-
-    cleanup(handle)
+    # NOTE: fail_count 到達時の raise でも cleanup を実行する。
+    # cleanup は sys.exit しないため、例外時は非ゼロ終了コードが維持される
+    try:
+        start(config, rasp_hostname, key_file_path, config_file, small_mode, test_mode, is_one_time)
+    finally:
+        cleanup(handle)

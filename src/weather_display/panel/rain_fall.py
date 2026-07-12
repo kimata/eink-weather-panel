@@ -155,12 +155,6 @@ def _draw_rainfall(
 
     amount_text = _gen_amount_text(amount)
 
-    start = raining["start"]
-    if not isinstance(start, datetime.datetime):
-        return img
-
-    start_text = _gen_start_text(start)
-
     line_height = my_lib.pil_util.text_size(img, face_map["value"], "0")[1]
 
     pos_y = pos_y + icon.size[1] + 10
@@ -176,7 +170,7 @@ def _draw_rainfall(
         stroke_fill=(255, 255, 255, 200),
     )[0]
     next_pos_x += my_lib.pil_util.text_size(img, face_map["unit"], " ")[0]
-    next_pos_x = my_lib.pil_util.draw_text(
+    my_lib.pil_util.draw_text(
         img,
         "mm/h",
         (next_pos_x, pos_y + line_height - my_lib.pil_util.text_size(img, face_map["unit"], "h")[1]),
@@ -185,20 +179,25 @@ def _draw_rainfall(
         "#333",
         stroke_width=10,
         stroke_fill=(255, 255, 255, 200),
-    )[0]
-    next_pos_x += my_lib.pil_util.text_size(img, face_map["start"], " ")[0]
-
-    pos_y = int(pos_y + line_height * 1.2)
-    my_lib.pil_util.draw_text(
-        img,
-        start_text,
-        (pos_x, pos_y),
-        face_map["start"],
-        "left",
-        "#333",
-        stroke_width=10,
-        stroke_fill=(255, 255, 255, 200),
     )
+
+    # NOTE: 降雨開始時刻は補助情報のため、取得できない場合 (7日以上降り続いた場合等) でも
+    # 降水量の表示は行い、開始時刻の描画のみスキップする
+    start = raining["start"]
+    if isinstance(start, datetime.datetime):
+        start_text = _gen_start_text(start)
+
+        pos_y = int(pos_y + line_height * 1.2)
+        my_lib.pil_util.draw_text(
+            img,
+            start_text,
+            (pos_x, pos_y),
+            face_map["start"],
+            "left",
+            "#333",
+            stroke_width=10,
+            stroke_fill=(255, 255, 255, 200),
+        )
 
     return img
 

@@ -263,68 +263,50 @@ function getInitialDaysLimit() {
     return 30; // デフォルトは30日
 }
 
+// 読み込み処理の世代カウンタ。
+// 読み込み中に期間が切り替えられた場合、古い実行の残りセクションが新しい期間の
+// 画面に混在しないよう、世代が進んだら古い実行を打ち切る。
+let loadGeneration = 0;
+
 // データ取得とレンダリングのメイン処理
 async function loadMetricsData() {
+    const generation = ++loadGeneration;
+
     try {
         // コンテンツを表示
         document.getElementById("metrics-content").style.display = "block";
 
-        // 総セクション数を定義（メイン6 + 異常検知1）
-        const mainSections = 6; // alerts, basic-stats, hourly-patterns, diff-sec, trends, panel-trends
-        let currentSection = 0;
-
         // メインセクションを順次読み込み（高速）
-        await loadAndRenderSection(
-            "alerts",
-            "/api/metrics/alerts",
-            renderAlerts,
-            false,
-            ++currentSection,
-            mainSections
-        );
-        await loadAndRenderSection(
-            "basic-stats",
-            "/api/metrics/basic-stats",
-            renderBasicStats,
-            false,
-            ++currentSection,
-            mainSections
-        );
-        await loadAndRenderSection(
-            "hourly-patterns",
-            "/api/metrics/hourly-patterns",
-            renderHourlyPatterns,
-            false,
-            ++currentSection,
-            mainSections
-        );
-        await loadAndRenderSection(
-            "diff-sec",
-            "/api/metrics/hourly-patterns",
-            renderDiffSec,
-            false,
-            ++currentSection,
-            mainSections
-        ); // 同じデータを使用
-        await loadAndRenderSection(
-            "trends",
-            "/api/metrics/trends",
-            renderTrends,
-            false,
-            ++currentSection,
-            mainSections
-        );
-        await loadAndRenderSection(
-            "panel-trends",
-            "/api/metrics/panel-trends",
-            renderPanelTrends,
-            false,
-            ++currentSection,
-            mainSections
-        );
+        const sections = [
+            ["alerts", "/api/metrics/alerts", renderAlerts],
+            ["basic-stats", "/api/metrics/basic-stats", renderBasicStats],
+            ["hourly-patterns", "/api/metrics/hourly-patterns", renderHourlyPatterns],
+            // NOTE: diff-sec は hourly-patterns と同じデータを使用
+            ["diff-sec", "/api/metrics/hourly-patterns", renderDiffSec],
+            ["trends", "/api/metrics/trends", renderTrends],
+            ["panel-trends", "/api/metrics/panel-trends", renderPanelTrends],
+        ];
+
+        let currentSection = 0;
+        for (const [sectionId, apiUrl, renderFunc] of sections) {
+            if (generation !== loadGeneration) return;
+            await loadAndRenderSection(
+                sectionId,
+                apiUrl,
+                renderFunc,
+                false,
+                ++currentSection,
+                sections.length,
+                generation
+            );
+        }
+
+        if (generation !== loadGeneration) return;
 
         // パネル別日別推移データを追加で読み込み
-        await loadPanelDailyTrendsAsync();
+        await loadPanelDailyTrendsAsync(generation);
+
+        if (generation !== loadGeneration) return;
 
         // メインセクション完了 - 進捗表示を更新
         const progressDisplay = document.getElementById("progress-display");
@@ -338,7 +320,7 @@ async function loadMetricsData() {
         console.log("メインセクションの読み込み完了 - 異常検知を非同期で読み込み開始");
 
         // 異常検知セクションを非同期で読み込み（ブロックしない）
-        loadAnomaliesAsync();
+        loadAnomaliesAsync(generation);
     } catch (error) {
         console.error("メトリクスデータの読み込みエラー:", error);
         showError(error.message);
@@ -346,7 +328,7 @@ async function loadMetricsData() {
 }
 
 // パネル別日別推移データを読み込み
-async function loadPanelDailyTrendsAsync() {
+async function loadPanelDailyTrendsAsync(generation) {
     try {
         const urlWithParams = `/api/metrics/panel-daily-trends?${getApiParams()}`;
         console.log(`パネル別日別推移データの取得開始: ${urlWithParams}`);
@@ -359,6 +341,9 @@ async function loadPanelDailyTrendsAsync() {
 
         const data = await response.json();
         console.log("パネル別日別推移データの取得完了:", data);
+
+        // NOTE: 取得中に期間が切り替えられていた場合は反映しない
+        if (generation !== undefined && generation !== loadGeneration) return;
 
         // データをグローバル変数に設定
         window.panelDailyTrendsData = data.panel_daily_trends;
@@ -373,7 +358,7 @@ async function loadPanelDailyTrendsAsync() {
 }
 
 // 異常検知セクションを非同期で読み込み
-async function loadAnomaliesAsync() {
+async function loadAnomaliesAsync(generation) {
     const container = document.getElementById("anomalies-container");
     if (!container) return;
 
@@ -401,6 +386,9 @@ async function loadAnomaliesAsync() {
         console.log("異常検知データの取得完了:", data);
         console.log("anomalies:", data.anomalies);
         console.log("performance_stats:", data.performance_stats);
+
+        // NOTE: 取得中に期間が切り替えられていた場合は反映しない
+        if (generation !== undefined && generation !== loadGeneration) return;
 
         // データをグローバル変数に設定
         window.anomaliesData = data.anomalies;
@@ -446,7 +434,8 @@ async function loadAndRenderSection(
     renderFunc,
     isLast = false,
     currentStep = 0,
-    totalSteps = 0
+    totalSteps = 0,
+    generation = undefined
 ) {
     const container = document.getElementById(`${sectionId}-container`);
     if (!container) return;
@@ -485,6 +474,9 @@ async function loadAndRenderSection(
 
         const data = await response.json();
         console.log(`${sectionId}データの取得完了`);
+
+        // NOTE: 取得中に期間が切り替えられていた場合は反映しない (画面への期間混在防止)
+        if (generation !== undefined && generation !== loadGeneration) return;
 
         // データをグローバル変数に設定（既存のチャート生成関数用）
         setGlobalData(sectionId, data);

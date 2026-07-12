@@ -15,32 +15,48 @@ pytestmark = pytest.mark.selenium
 class TestGetDriverProfileName:
     """get_driver_profile_name 関数のテスト"""
 
-    def test_profile_name_without_xdist(self, mocker):
-        """PYTEST_XDIST_WORKER がない場合のプロファイル名"""
+    def test_profile_name_contains_pid(self):
+        """プロファイル名にプロセス固有のサフィックス (PID) が付与されること"""
         from weather_display.panel.rain_cloud import _get_driver_profile_name
 
-        mocker.patch.dict(os.environ, {}, clear=True)
-        # 環境変数がない場合を確実にするため
-        if "PYTEST_XDIST_WORKER" in os.environ:
-            del os.environ["PYTEST_XDIST_WORKER"]
+        pid = os.getpid()
 
         result = _get_driver_profile_name(False)
-        assert result == "rain_cloud"
+        assert result == f"rain_cloud_{pid}"
 
         result = _get_driver_profile_name(True)
-        assert result == "rain_cloud_future"
+        assert result == f"rain_cloud_future_{pid}"
 
-    def test_profile_name_with_xdist(self, mocker):
-        """PYTEST_XDIST_WORKER がある場合のプロファイル名"""
-        from weather_display.panel.rain_cloud import _get_driver_profile_name
 
-        mocker.patch.dict(os.environ, {"PYTEST_XDIST_WORKER": "gw0"})
+class TestCleanupStaleProfiles:
+    """_cleanup_stale_profiles 関数のテスト"""
 
-        result = _get_driver_profile_name(False)
-        assert result == "rain_cloud_gw0"
+    def test_removes_only_dead_process_profiles(self, mocker, tmp_path):
+        """生存していないプロセスのプロファイルのみ削除されること"""
+        from weather_display.panel import rain_cloud
 
-        result = _get_driver_profile_name(True)
-        assert result == "rain_cloud_future_gw0"
+        chrome_dir = tmp_path / "chrome"
+        chrome_dir.mkdir(parents=True)
+
+        # 自プロセス (生存中) のプロファイル
+        alive_profile = chrome_dir / f"rain_cloud_{os.getpid()}"
+        alive_profile.mkdir()
+
+        # 存在しない PID のプロファイル
+        stale_profile = chrome_dir / "rain_cloud_future_999999999"
+        stale_profile.mkdir()
+
+        # PID サフィックスのない (旧形式の) プロファイルは対象外
+        legacy_profile = chrome_dir / "rain_cloud"
+        legacy_profile.mkdir()
+
+        mocker.patch.object(rain_cloud, "_DATA_PATH", tmp_path)
+
+        rain_cloud._cleanup_stale_profiles()
+
+        assert alive_profile.exists()
+        assert not stale_profile.exists()
+        assert legacy_profile.exists()
 
 
 class TestRetouchCloudImage:

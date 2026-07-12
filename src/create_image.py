@@ -276,6 +276,11 @@ if __name__ == "__main__":
         config_file, pathlib.Path(SCHEMA_CONFIG_SMALL if small_mode else SCHEMA_CONFIG)
     )
 
+    # NOTE: このプロセスは親プロセス (display_image.py / webui.py) が使用中の metrics DB に
+    # 接続するため、初回接続時の WAL/SHM クリーンアップを抑止する (ライブ WAL の削除防止)
+    if config.metrics is not None:
+        weather_display.metrics.collector.suppress_wal_cleanup(config.metrics.data)
+
     img, status = create_image(config, small_mode, dummy_mode, test_mode)
 
     logging.info("Save %s.", out_file)

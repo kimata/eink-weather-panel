@@ -14,9 +14,12 @@ Options:
 from __future__ import annotations
 
 import concurrent.futures
+import contextlib
 import logging
 import os
 import pathlib
+import re
+import shutil
 import time
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -434,13 +437,36 @@ def _draw_caption(
 
 
 def _get_driver_profile_name(is_future: bool) -> str:
-    name = "rain_cloud" + ("_future" if is_future else "")
-    suffix = os.environ.get("PYTEST_XDIST_WORKER", None)
+    # NOTE: WebUI 経由では create_image.py が最大 3 本並行実行され得るため、固定名だと
+    # 複数プロセスが同一プロファイルを奪い合ってプロファイル破損を招く。
+    # プロセス固有のサフィックスを付与して使い捨てにし、使用後は削除する
+    # (pytest-xdist のワーカーも別プロセスのため、PID で一意になる)
+    return "rain_cloud" + ("_future" if is_future else "") + f"_{os.getpid()}"
 
-    if suffix is None:
-        return name
-    else:
-        return f"{name}_{suffix}"
+
+def _cleanup_stale_profiles() -> None:
+    """プロセス異常終了 (タイムアウト kill 等) で削除されずに残ったプロファイルを削除する。
+
+    プロファイル名末尾の PID の生存確認をした上で削除するため、稼働中プロセスの
+    プロファイルには手を付けない。
+    """
+    chrome_dir = _DATA_PATH / "chrome"
+    if not chrome_dir.exists():
+        return
+
+    for profile_path in chrome_dir.glob("rain_cloud*"):
+        # NOTE: pytest-xdist 実行時は my_lib.chrome_util が ".gwN" を付加するため考慮する
+        m = re.search(r"_(\d+)(?:\.\w+)?$", profile_path.name)
+        if m is None:
+            continue
+
+        pid = int(m.group(1))
+        if pid == os.getpid() or pathlib.Path(f"/proc/{pid}").exists():
+            continue
+
+        with contextlib.suppress(Exception):
+            shutil.rmtree(profile_path)
+            logging.info("Removed stale Chrome profile: %s", profile_path)
 
 
 def _create_rain_cloud_img(
@@ -454,6 +480,7 @@ def _create_rain_cloud_img(
 
     driver = None
     img = None
+    profile_name = _get_driver_profile_name(sub_panel_config.is_future)
 
     def on_error(exc: Exception, screenshot: PIL.Image.Image | None, page_source: str | None) -> None:
         """エラーをSlackに通知（ページソース付き）"""
@@ -466,9 +493,7 @@ def _create_rain_cloud_img(
         )
 
     try:
-        driver = my_lib.selenium_util.create_driver(
-            _get_driver_profile_name(sub_panel_config.is_future), _DATA_PATH, use_undetected=False
-        )
+        driver = my_lib.selenium_util.create_driver(profile_name, _DATA_PATH, use_undetected=False)
 
         with my_lib.selenium_util.error_handler(
             driver,
@@ -498,6 +523,8 @@ def _create_rain_cloud_img(
                 my_lib.selenium_util.quit_driver_gracefully(driver)
             except Exception as cleanup_error:
                 logging.warning("Failed to cleanup driver: %s", cleanup_error)
+            # NOTE: プロファイルはプロセス固有の使い捨てのため、削除してディスク肥大化を防ぐ
+            my_lib.chrome_util.delete_profile(profile_name, _DATA_PATH)
 
     img, bar = _retouch_cloud_image(img, rain_cloud_config)
     img = _draw_equidistant_circle(img)
@@ -595,6 +622,9 @@ def _create_rain_cloud_panel_impl(
     context: my_lib.panel_config.NormalPanelContext,
     is_threaded: object = True,
 ) -> PIL.Image.Image:
+    # NOTE: 異常終了したプロセスの使い捨てプロファイルが残っていたら回収する
+    _cleanup_stale_profiles()
+
     if context.is_side_by_side:
         sub_width = int(rain_cloud_config.panel.width / 2)
         sub_height = rain_cloud_config.panel.height

@@ -26,16 +26,29 @@ blueprint = flask.Blueprint("webapi-run", __name__)
 
 @dataclass
 class PanelData:
-    lock: threading.Lock
     log: queue.Queue[bytes | None]
     time: float
     image: bytes = b""
     future: concurrent.futures.Future[None] | None = None
+    # NOTE: 生成完了時刻。トークンの有効期限はこの時刻を起点に計算する
+    completed_time: float | None = None
 
+
+# NOTE: create_image.py の終了コード。220 (一部パネル失敗)・222 (全パネル失敗) でも
+# 画像自体は生成される
+_ERROR_CODE_MINOR = 220
+_ERROR_CODE_MAJOR = 222
 
 _thread_pool: concurrent.futures.ThreadPoolExecutor | None = None
 _panel_data_map: dict[str, PanelData] = {}
+# NOTE: webui は threaded=True で動作するため、_panel_data_map の操作はこのロックで保護する
+_map_lock = threading.Lock()
 _create_image_path: pathlib.Path | str | None = None
+
+
+def _get_panel_data(token: str) -> PanelData | None:
+    with _map_lock:
+        return _panel_data_map.get(token)
 
 
 def init(create_image_path_: pathlib.Path | str) -> None:
@@ -55,8 +68,9 @@ def term() -> None:
 
 
 def _image_reader(proc: subprocess.Popen[bytes], token: str) -> None:
-    global _panel_data_map
-    panel_data = _panel_data_map[token]
+    panel_data = _get_panel_data(token)
+    if panel_data is None:
+        return
     img_stream = io.BytesIO()
 
     stdout = proc.stdout
@@ -87,9 +101,9 @@ def _image_reader(proc: subprocess.Popen[bytes], token: str) -> None:
 
 
 def _log_reader(proc: subprocess.Popen[bytes], token: str) -> None:
-    global _panel_data_map
-
-    panel_data = _panel_data_map[token]
+    panel_data = _get_panel_data(token)
+    if panel_data is None:
+        return
     stderr = proc.stderr
     if stderr is None:
         return
@@ -107,23 +121,23 @@ def _log_reader(proc: subprocess.Popen[bytes], token: str) -> None:
 def _generate_image_impl(
     config_file: str, is_small_mode: bool, is_dummy_mode: bool, is_test_mode: bool, token: str
 ) -> None:
-    global _panel_data_map
-
-    panel_data = _panel_data_map[token]
-    if _create_image_path is None:
-        logging.error("create_image_path is not initialized")
-        panel_data.log.put(None)
+    panel_data = _get_panel_data(token)
+    if panel_data is None:
         return
 
-    cmd: list[str | pathlib.Path] = ["python3", _create_image_path, "-c", config_file]
-    if is_small_mode:
-        cmd.append("-S")
-    if is_dummy_mode:
-        cmd.append("-d")
-    if is_test_mode:
-        cmd.append("-t")
-
     try:
+        if _create_image_path is None:
+            logging.error("create_image_path is not initialized")
+            return
+
+        cmd: list[str | pathlib.Path] = ["python3", _create_image_path, "-c", config_file]
+        if is_small_mode:
+            cmd.append("-S")
+        if is_dummy_mode:
+            cmd.append("-d")
+        if is_test_mode:
+            cmd.append("-t")
+
         proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=False)  # noqa: S603
 
         # 非同期でstdoutとstderrを読み取り
@@ -149,10 +163,18 @@ def _generate_image_impl(
         stdout_thread.join(timeout=30)
         stderr_thread.join(timeout=30)
 
-        # NOTE: None を積むことで、実行完了を通知
-        panel_data.log.put(None)
+        # NOTE: 220/222 は一部/全パネル失敗でも画像自体は生成されるため正常扱いとする。
+        # それ以外の異常終了 (タイムアウト kill 含む) はログに積んでクライアントに伝える
+        if proc.returncode not in (0, _ERROR_CODE_MINOR, _ERROR_CODE_MAJOR):
+            logging.warning("create_image.py exited abnormally (code: %s)", proc.returncode)
+            panel_data.log.put(
+                f"ERROR: 画像生成プロセスが異常終了しました (code: {proc.returncode})\n".encode()
+            )
     except Exception:
         logging.exception("Failed to execute subprocess")
+    finally:
+        # NOTE: 完了時刻を記録し (トークン期限の起点)、None を積んで実行完了を通知
+        panel_data.completed_time = time.time()
         panel_data.log.put(None)
 
 
@@ -160,24 +182,28 @@ _TOKEN_EXPIRE_SEC = 300
 
 
 def _clean_map() -> None:
-    global _panel_data_map
-
     # NOTE: 生成中 (future 未完了) のトークンを削除すると、クライアントがログ・画像を
-    # 取得できなくなるため、生成完了かつ期限切れのものだけを削除する
-    remove_token: list[str] = [
-        token
-        for token, panel_data in _panel_data_map.items()
-        if (panel_data.future is None or panel_data.future.done())
-        and (time.time() - panel_data.time) > _TOKEN_EXPIRE_SEC
-    ]
+    # 取得できなくなるため、生成完了かつ期限切れのものだけを削除する。
+    # 期限はキュー滞留や長時間生成を考慮し、生成完了時刻を起点に計算する
+    def _is_expired(panel_data: PanelData, now: float) -> bool:
+        if panel_data.future is not None and not panel_data.future.done():
+            return False
+        base_time = panel_data.completed_time if panel_data.completed_time is not None else panel_data.time
+        return (now - base_time) > _TOKEN_EXPIRE_SEC
 
-    for token in remove_token:
-        del _panel_data_map[token]
+    now = time.time()
+
+    with _map_lock:
+        remove_token: list[str] = [
+            token for token, panel_data in _panel_data_map.items() if _is_expired(panel_data, now)
+        ]
+
+        for token in remove_token:
+            del _panel_data_map[token]
 
 
 def generate_image(config_file: str, is_small_mode: bool, is_dummy_mode: bool, is_test_mode: bool) -> str:
     global _thread_pool
-    global _panel_data_map
 
     if _thread_pool is None:
         msg = "_thread_pool is not initialized. Call init() first."
@@ -189,17 +215,17 @@ def generate_image(config_file: str, is_small_mode: bool, is_dummy_mode: bool, i
     log_queue: queue.Queue[bytes | None] = queue.Queue()
 
     panel_data = PanelData(
-        lock=threading.Lock(),
         log=log_queue,
         time=time.time(),
     )
-    _panel_data_map[token] = panel_data
+    with _map_lock:
+        _panel_data_map[token] = panel_data
 
     # ThreadPoolExecutorのsubmitを使用して非同期実行
     future = _thread_pool.submit(
         _generate_image_impl, config_file, is_small_mode, is_dummy_mode, is_test_mode, token
     )
-    _panel_data_map[token].future = future
+    panel_data.future = future
 
     return token
 
@@ -208,29 +234,30 @@ def generate_image(config_file: str, is_small_mode: bool, is_dummy_mode: bool, i
 @my_lib.flask_util.gzipped
 @validate()
 def api_image(form: schemas.TokenRequest) -> flask.Response | str:
-    global _panel_data_map
-
     # NOTE: @gzipped をつけた場合、キャッシュ用のヘッダを付与しているので、
     # 無効化する。
     flask.g.disable_cache = True
 
-    if form.token not in _panel_data_map:
+    panel_data = _get_panel_data(form.token)
+    if panel_data is None:
         return f"Invalid token: {form.token}"
 
-    image_data = _panel_data_map[form.token].image
+    # NOTE: 生成失敗 (タイムアウト kill 等) や未完了で画像が空の場合、空バイト列を
+    # image/png の 200 で返すとフロントの Content-Type チェックをすり抜けるため、404 を返す
+    if not panel_data.image:
+        return flask.Response("Image is not available", status=404, mimetype="text/plain")
 
-    return flask.Response(image_data, mimetype="image/png")
+    return flask.Response(panel_data.image, mimetype="image/png")
 
 
 @blueprint.route("/api/log", methods=["POST"])
 @validate()
 def api_log(form: schemas.TokenRequest) -> flask.Response | str:
-    global _panel_data_map
-
-    if form.token not in _panel_data_map:
+    panel_data = _get_panel_data(form.token)
+    if panel_data is None:
         return f"Invalid token: {form.token}"
 
-    log_queue = _panel_data_map[form.token].log
+    log_queue = panel_data.log
 
     def generate() -> Any:
         try:
@@ -238,6 +265,10 @@ def api_log(form: schemas.TokenRequest) -> flask.Response | str:
                 try:
                     log = log_queue.get(timeout=0.1)
                 except queue.Empty:
+                    # NOTE: 終端センチネル (None) は一度しか取り出せないため、生成完了後に
+                    # 再度ログを取得された場合はここで終端させる (無限ループ防止)
+                    if panel_data.future is None or panel_data.future.done():
+                        break
                     continue
                 if log is None:
                     break

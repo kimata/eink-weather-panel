@@ -736,7 +736,7 @@ def __draw_panel_weather_day(
     pos_x: float,
     pos_y: float,
     weather_day_info: list[my_lib.weather.HourlyData],
-    clothing_info: int,
+    clothing_info: int | None,
     sunset_info: str,
     wbgt_info: list[int | None] | None,
     is_today: bool,
@@ -750,7 +750,9 @@ def __draw_panel_weather_day(
 
     next_pos_x, next_pos_y, text_pos_x = _draw_date(img, pos_x, pos_y, date, face_map)
     next_pos_y = _draw_sunset(img, text_pos_x, next_pos_y + 20, sunset_info, icon, face_map)
-    _draw_clothing(img, text_pos_x, next_pos_y + 20, clothing_info, icon)
+    # NOTE: 服装指数は装飾要素のため、取得できなかった場合は描画をスキップする
+    if clothing_info is not None:
+        _draw_clothing(img, text_pos_x, next_pos_y + 20, clothing_info, icon)
     _draw_day_weather(
         img,
         weather_day_info,
@@ -769,7 +771,7 @@ def _draw_panel_weather(
     weather_config: weather_display.config.WeatherConfig,
     font_config: my_lib.panel_config.FontConfigProtocol,
     weather_info: my_lib.weather.WeatherResult,
-    clothing_info: my_lib.weather.ClothingResult,
+    clothing_info: my_lib.weather.ClothingResult | None,
     sunset_info: my_lib.weather.SunsetResult,
     wbgt_info: my_lib.weather.WbgtResult,
     is_side_by_side: bool,
@@ -806,7 +808,7 @@ def _draw_panel_weather(
         pos_x,
         pos_y,
         weather_info.today.data,
-        clothing_info.today.data,
+        clothing_info.today.data if clothing_info is not None else None,
         sunset_info.today,
         wbgt_info.daily.today,
         True,
@@ -824,7 +826,7 @@ def _draw_panel_weather(
         pos_x,
         pos_y,
         weather_info.tomorrow.data,
-        clothing_info.tomorrow.data,
+        clothing_info.tomorrow.data if clothing_info is not None else None,
         sunset_info.tomorrow,
         wbgt_info.daily.tomorrow,
         False,
@@ -846,11 +848,24 @@ def _create_weather_panel_impl(
         sunset_future = executor.submit(my_lib.weather.get_sunset_nao, opt_config.sunset.data.nao.pref)
         wbgt_future = executor.submit(my_lib.weather.get_wbgt, opt_config.wbgt.data.env_go.url)
 
-        # すべての結果を取得
+        # NOTE: 天気予報本体は必須のため、例外はそのまま伝播させてリトライに任せる
         weather_info = weather_future.result()
-        clothing_info = clothing_future.result()
         sunset_info = sunset_future.result()
-        wbgt_info = wbgt_future.result()
+
+        # NOTE: 服装指数・WBGT は装飾的な要素のため、取得に失敗 (タイムアウト・HTTP エラー・
+        # パース失敗) してもパネル全体はエラーにせず、欠測と同じ扱いに縮退する
+        clothing_info: my_lib.weather.ClothingResult | None
+        try:
+            clothing_info = clothing_future.result()
+        except Exception:
+            logging.exception("Failed to fetch clothing info. Skip drawing clothing.")
+            clothing_info = None
+
+        try:
+            wbgt_info = wbgt_future.result()
+        except Exception:
+            logging.exception("Failed to fetch WBGT info. Fall back to Misnar formula.")
+            wbgt_info = my_lib.weather.WbgtResult()
 
     img = PIL.Image.new(
         "RGBA",

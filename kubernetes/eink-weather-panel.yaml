@@ -1,23 +1,23 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-    name: e-ink-weather-panel-deployment
+    name: eink-weather-panel
     namespace: panel
     labels:
-        app: e-ink-weather-panel
+        app: eink-weather-panel
 spec:
     replicas: 1
     selector:
         matchLabels:
-            app: e-ink-weather-panel
+            app: eink-weather-panel
     template:
         metadata:
             labels:
-                app: e-ink-weather-panel
+                app: eink-weather-panel
         spec:
             containers:
-                - name: e-ink-weather-panel
-                  image: registry.green-rabbit.net:5000/kimata/e-ink_weather_panel:latest
+                - name: eink-weather-panel
+                  image: gitlab.green-rabbit.net:5050/kimata/eink-weather-panel:latest
                   imagePullPolicy: Always
                   env:
                       - name: RASP_HOSTNAME
@@ -36,11 +36,19 @@ spec:
                           ephemeral-storage: 1Gi
                   livenessProbe:
                       exec:
+                          # NOTE: shebang のシステム python3 はイメージに存在しないため、
+                          # uv 経由で venv の Python を使って実行する
                           command:
-                              - /opt/e-ink_weather/src/healthz.py
+                              - uv
+                              - run
+                              - --no-group
+                              - dev
+                              - src/healthz.py
                       initialDelaySeconds: 120
                       periodSeconds: 60
-                      timeoutSeconds: 1
+                      # NOTE: 設定ファイルのロード (YAML + JSON Schema 検証) に数秒かかるため、
+                      # 余裕を持たせる
+                      timeoutSeconds: 30
                       successThreshold: 1
                       failureThreshold: 2
             dnsPolicy: Default

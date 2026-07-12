@@ -1,10 +1,34 @@
 // メトリクス表示用JavaScript（Chart.js）
 
+// Chart.js インスタンスを canvas ID 単位で管理するヘルパー。
+// 既存インスタンスを destroy してから生成することで、期間切替のたびに
+// 旧チャート (canvas・データ・ResizeObserver) がリークするのを防ぐ。
+const _chartRegistry = {};
+function createOrReplaceChart(canvas, config) {
+    const el = typeof canvas === "string" ? document.getElementById(canvas) : canvas;
+    if (!el) return null;
+
+    const key = el.id;
+    if (key && _chartRegistry[key]) {
+        _chartRegistry[key].destroy();
+        delete _chartRegistry[key];
+    }
+
+    // NOTE: 同一 canvas 要素への二重 new Chart() は例外になるため、念のため既存の
+    // 関連付けも破棄する
+    const existing = typeof Chart.getChart === "function" ? Chart.getChart(el) : null;
+    if (existing) existing.destroy();
+
+    const chart = new Chart(el, config);
+    if (key) _chartRegistry[key] = chart;
+    return chart;
+}
+
 function generateHourlyCharts() {
     // 画像生成パネル 時間別パフォーマンス
     const drawPanelCtx = document.getElementById("drawPanelHourlyChart");
     if (drawPanelCtx && window.hourlyData?.draw_panel) {
-        new Chart(drawPanelCtx, {
+        createOrReplaceChart(drawPanelCtx, {
             type: "line",
             data: {
                 labels: window.hourlyData.draw_panel.map((d) => d.hour + "時"),
@@ -136,7 +160,7 @@ function generateHourlyCharts() {
         const MAX_Y = 30;
         // データをクランプしつつ元の値を保持
         const displayData = window.hourlyData.display_image;
-        new Chart(displayImageCtx, {
+        createOrReplaceChart(displayImageCtx, {
             type: "line",
             data: {
                 labels: displayData.map((d) => d.hour + "時"),

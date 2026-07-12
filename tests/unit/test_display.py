@@ -343,9 +343,9 @@ class TestExecute:
 
 
 class TestSshKillAndCloseEdgeCases:
-    """ssh_kill_and_close_impl 関数のエッジケーステスト"""
+    """ssh_kill / ssh_close 関数のエッジケーステスト"""
 
-    def test_ssh_kill_and_close_impl_channel_close_error(self, mocker):
+    def test_ssh_kill_and_close_channel_close_error(self, mocker):
         """チャンネルクローズ時のエラーを処理すること"""
         from weather_display import display
 
@@ -359,19 +359,33 @@ class TestSshKillAndCloseEdgeCases:
         mock_ssh.exec_command.return_value = (mock_stdin, mock_stdout, mock_stderr)
 
         # 例外が発生しないこと
-        display._ssh_kill_and_close_impl(mock_ssh, "fbi")
+        display.ssh_kill_and_close(mock_ssh, "fbi")
 
         mock_ssh.close.assert_called()
 
-    def test_ssh_kill_and_close_impl_raises_general_exception(self, mocker):
-        """一般的な例外を再度発生させること"""
+    def test_ssh_kill_does_not_raise_on_dead_transport(self, mocker):
+        """トランスポート死亡時 (SSHException 等) でも例外を伝播させないこと"""
+        import paramiko
+
+        from weather_display import display
+
+        mock_ssh = mocker.MagicMock()
+        mock_ssh.exec_command.side_effect = paramiko.SSHException("SSH session not active")
+
+        # 例外が発生しないこと (killall はベストエフォート)
+        display.ssh_kill(mock_ssh, "fbi")
+
+    def test_ssh_kill_and_close_closes_even_if_kill_fails(self, mocker):
+        """killall が失敗しても接続クローズは実行されること"""
         from weather_display import display
 
         mock_ssh = mocker.MagicMock()
         mock_ssh.exec_command.side_effect = RuntimeError("General error")
 
-        with pytest.raises(RuntimeError, match="General error"):
-            display._ssh_kill_and_close_impl(mock_ssh, "fbi")
+        # 例外が発生しないこと
+        display.ssh_kill_and_close(mock_ssh, "fbi")
+
+        mock_ssh.close.assert_called()
 
 
 class TestCleanupSshChannels:

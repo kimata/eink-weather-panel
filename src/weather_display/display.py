@@ -65,35 +65,35 @@ def _ssh_connect_impl(hostname: str, key_filename: str) -> paramiko.SSHClient:
     return ssh
 
 
-def _ssh_kill_and_close_impl(ssh: paramiko.SSHClient | None, cmd: str) -> None:
+def ssh_kill(ssh: paramiko.SSHClient | None, cmd: str) -> None:
+    # NOTE: fbi コマンドのプロセスが残るので強制終了させる。
+    # killall はベストエフォートのクリーンアップであり、失敗しても後続の表示処理は継続する
     if ssh is None:
         return
 
     try:
-        # NOTE: fbi コマンドのプロセスが残るので強制終了させる
         stdin, stdout, stderr = ssh.exec_command(f"sudo killall -9 {cmd}")
 
         # SSHコマンドの完了を待機してゾンビプロセスを防止
         stdout.channel.recv_exit_status()
 
-        # チャンネルのクリーンアップ
-        try:
-            stdin.close()
-            stdout.close()
-            stderr.close()
-        except Exception as e:
-            logging.warning("Error closing SSH command channels: %s", e)
+        _cleanup_ssh_channels(stdin, stdout, stderr)
+    except Exception as e:
+        logging.warning("Failed to kill %s: %s", cmd, e)
 
+
+def ssh_close(ssh: paramiko.SSHClient | None) -> None:
+    # NOTE: 接続が既に死んでいても新規接続を妨げないよう、ベストエフォートで閉じる
+    if ssh is None:
+        return
+
+    with contextlib.suppress(Exception):
         ssh.close()
-        return
-    except AttributeError:
-        return
-    except Exception:
-        raise
 
 
 def ssh_kill_and_close(ssh: paramiko.SSHClient | None, cmd: str) -> None:
-    _exec_patiently(_ssh_kill_and_close_impl, (ssh, cmd))
+    ssh_kill(ssh, cmd)
+    ssh_close(ssh)
 
 
 def ssh_connect(hostname: str, key_file_path: str) -> paramiko.SSHClient:

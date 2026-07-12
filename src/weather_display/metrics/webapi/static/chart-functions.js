@@ -181,7 +181,7 @@ function generateDiffSecCharts() {
         const diffSecData = window.hourlyData.diff_sec;
         const chartLabels = diffSecData.map((d) => d.hour + "時");
 
-        new Chart(diffSecCtx, {
+        createOrReplaceChart(diffSecCtx, {
             type: "line",
             data: {
                 labels: chartLabels,
@@ -316,7 +316,7 @@ function generateDiffSecCharts() {
         }
         const chartLabels = boxplotData.map((d) => d.x);
 
-        new Chart(diffSecBoxplotCtx, {
+        createOrReplaceChart(diffSecBoxplotCtx, {
             type: "boxplot",
             data: {
                 labels: chartLabels,
@@ -417,7 +417,7 @@ function generateBoxplotCharts() {
         }
         const labels = boxplotData.map((d) => d.x);
 
-        new Chart(drawPanelBoxplotCtx, {
+        createOrReplaceChart(drawPanelBoxplotCtx, {
             type: "boxplot",
             data: {
                 labels: labels,
@@ -467,7 +467,7 @@ function generateBoxplotCharts() {
         }
         const labels = boxplotData.map((d) => d.x);
 
-        new Chart(displayImageBoxplotCtx, {
+        createOrReplaceChart(displayImageBoxplotCtx, {
             type: "boxplot",
             data: {
                 labels: labels,
@@ -538,7 +538,7 @@ function generateTrendsCharts() {
         }));
 
         const drawPanelResetBtnId = "drawPanelTrendsChart-reset";
-        const drawPanelChart = new Chart(drawPanelTrendsCtx, {
+        const drawPanelChart = createOrReplaceChart(drawPanelTrendsCtx, {
             type: "boxplot",
             data: {
                 labels: boxplotData.map((d) => d.x),
@@ -585,7 +585,7 @@ function generateTrendsCharts() {
         }));
 
         const displayImageResetBtnId = "displayImageTrendsChart-reset";
-        const displayImageChart = new Chart(displayImageTrendsCtx, {
+        const displayImageChart = createOrReplaceChart(displayImageTrendsCtx, {
             type: "boxplot",
             data: {
                 labels: boxplotData.map((d) => d.x),
@@ -632,7 +632,7 @@ function generateTrendsCharts() {
         }));
 
         const diffSecResetBtnId = "diffSecTrendsChart-reset";
-        const diffSecChart = new Chart(diffSecTrendsCtx, {
+        const diffSecChart = createOrReplaceChart(diffSecTrendsCtx, {
             type: "boxplot",
             data: {
                 labels: boxplotData.map((d) => d.x),
@@ -730,7 +730,7 @@ function generatePanelTrendsCharts() {
     // boxplotチャートを作成（統計量オブジェクトをそのまま使用）
     const canvas = document.getElementById("panelBoxplotChart");
     try {
-        new Chart(canvas, {
+        createOrReplaceChart(canvas, {
             type: "boxplot",
             data: {
                 labels: panelNames,
@@ -868,7 +868,7 @@ function generatePanelDailyTrendsCharts() {
         const resetBtnId = `panelDailyChart-${index}-reset`;
 
         try {
-            const chart = new Chart(canvas, {
+            const chart = createOrReplaceChart(canvas, {
                 type: "boxplot",
                 data: {
                     labels: boxplotData.map((d) => d.x),

@@ -5,7 +5,6 @@ runner/webapi/run.py のユニットテスト
 """
 
 import queue
-import threading
 import time
 
 import pytest
@@ -51,12 +50,10 @@ class TestCleanMap:
 
         run._panel_data_map = {
             "old_token": PanelData(
-                lock=threading.Lock(),
                 log=queue.Queue(),
                 time=time.time() - run._TOKEN_EXPIRE_SEC - 60,  # 期限切れ (future=None は完了扱い)
             ),
             "new_token": PanelData(
-                lock=threading.Lock(),
                 log=queue.Queue(),
                 time=time.time(),  # 現在
             ),
@@ -77,7 +74,6 @@ class TestCleanMap:
 
         run._panel_data_map = {
             "running_token": PanelData(
-                lock=threading.Lock(),
                 log=queue.Queue(),
                 time=time.time() - run._TOKEN_EXPIRE_SEC - 60,  # 期限切れ
                 future=running_future,
@@ -94,12 +90,10 @@ class TestCleanMap:
 
         run._panel_data_map = {
             "token1": PanelData(
-                lock=threading.Lock(),
                 log=queue.Queue(),
                 time=time.time() - 30,  # 30秒前
             ),
             "token2": PanelData(
-                lock=threading.Lock(),
                 log=queue.Queue(),
                 time=time.time() - 50,  # 50秒前
             ),
@@ -109,6 +103,37 @@ class TestCleanMap:
 
         assert "token1" in run._panel_data_map
         assert "token2" in run._panel_data_map
+
+    def test_clean_map_uses_completed_time(self):
+        """期限が作成時刻ではなく生成完了時刻を起点に計算されること"""
+        import concurrent.futures
+
+        from weather_display.runner.webapi import run
+
+        done_future: concurrent.futures.Future = concurrent.futures.Future()
+        done_future.set_result(None)
+
+        run._panel_data_map = {
+            # 作成からは期限切れだが、完了した直後 → 保持
+            "just_completed": PanelData(
+                log=queue.Queue(),
+                time=time.time() - run._TOKEN_EXPIRE_SEC - 60,
+                future=done_future,
+                completed_time=time.time(),
+            ),
+            # 完了からも期限切れ → 削除
+            "long_completed": PanelData(
+                log=queue.Queue(),
+                time=time.time() - run._TOKEN_EXPIRE_SEC * 3,
+                future=done_future,
+                completed_time=time.time() - run._TOKEN_EXPIRE_SEC - 60,
+            ),
+        }
+
+        run._clean_map()
+
+        assert "just_completed" in run._panel_data_map
+        assert "long_completed" not in run._panel_data_map
 
 
 class TestGenerateImage:
@@ -150,7 +175,6 @@ class TestGenerateImage:
         token = run.generate_image("config.yaml", True, True, False)
 
         panel_data = run._panel_data_map[token]
-        assert hasattr(panel_data, "lock")
         assert hasattr(panel_data, "log")
         assert hasattr(panel_data, "image")
         assert panel_data.image == b""
@@ -168,7 +192,6 @@ class TestImageReader:
 
         token = "test_token"
         run._panel_data_map[token] = PanelData(
-            lock=threading.Lock(),
             log=queue.Queue(),
             time=time.time(),
         )
@@ -192,7 +215,6 @@ class TestLogReader:
         token = "test_token"
         log_queue = queue.Queue()
         run._panel_data_map[token] = PanelData(
-            lock=threading.Lock(),
             log=log_queue,
             time=time.time(),
         )
@@ -212,7 +234,6 @@ class TestLogReader:
         token = "test_token_exc"
         log_queue = queue.Queue()
         run._panel_data_map[token] = PanelData(
-            lock=threading.Lock(),
             log=log_queue,
             time=time.time(),
         )
@@ -233,7 +254,6 @@ class TestImageReaderEdgeCases:
 
         token = "test_token_oserror"
         run._panel_data_map[token] = PanelData(
-            lock=threading.Lock(),
             log=queue.Queue(),
             time=time.time(),
         )
@@ -253,7 +273,6 @@ class TestImageReaderEdgeCases:
 
         token = "test_token_general_exc"
         run._panel_data_map[token] = PanelData(
-            lock=threading.Lock(),
             log=queue.Queue(),
             time=time.time(),
         )
@@ -270,7 +289,6 @@ class TestImageReaderEdgeCases:
 
         token = "test_token_remaining"
         run._panel_data_map[token] = PanelData(
-            lock=threading.Lock(),
             log=queue.Queue(),
             time=time.time(),
         )
@@ -289,7 +307,6 @@ class TestImageReaderEdgeCases:
 
         token = "test_token_wait"
         run._panel_data_map[token] = PanelData(
-            lock=threading.Lock(),
             log=queue.Queue(),
             time=time.time(),
         )
@@ -329,7 +346,6 @@ class TestGenerateImageImpl:
         token = "test_none_path_token"
         log_queue = queue.Queue()
         run._panel_data_map[token] = PanelData(
-            lock=threading.Lock(),
             log=log_queue,
             time=time.time(),
         )
@@ -349,7 +365,6 @@ class TestGenerateImageImpl:
         token = "test_impl_token"
         log_queue = queue.Queue()
         run._panel_data_map[token] = PanelData(
-            lock=threading.Lock(),
             log=log_queue,
             time=time.time(),
         )
@@ -388,7 +403,6 @@ class TestGenerateImageImpl:
 
         token = "test_small_token"
         run._panel_data_map[token] = PanelData(
-            lock=threading.Lock(),
             log=queue.Queue(),
             time=time.time(),
         )
@@ -414,7 +428,6 @@ class TestGenerateImageImpl:
 
         token = "test_dummy_token"
         run._panel_data_map[token] = PanelData(
-            lock=threading.Lock(),
             log=queue.Queue(),
             time=time.time(),
         )
@@ -442,7 +455,6 @@ class TestGenerateImageImpl:
 
         token = "test_timeout_token"
         run._panel_data_map[token] = PanelData(
-            lock=threading.Lock(),
             log=queue.Queue(),
             time=time.time(),
         )
@@ -469,7 +481,6 @@ class TestGenerateImageImpl:
 
         token = "test_kill_token"
         run._panel_data_map[token] = PanelData(
-            lock=threading.Lock(),
             log=queue.Queue(),
             time=time.time(),
         )
@@ -499,7 +510,6 @@ class TestGenerateImageImpl:
 
         token = "test_exception_token"
         run._panel_data_map[token] = PanelData(
-            lock=threading.Lock(),
             log=queue.Queue(),
             time=time.time(),
         )
@@ -555,7 +565,6 @@ class TestApiEndpoints:
         token = "valid_token"
         run._panel_data_map = {
             token: PanelData(
-                lock=threading.Lock(),
                 log=queue.Queue(),
                 time=time.time(),
                 image=b"\x89PNG\r\n\x1a\n",  # PNG header
@@ -590,7 +599,6 @@ class TestApiEndpoints:
 
         run._panel_data_map = {
             token: PanelData(
-                lock=threading.Lock(),
                 log=log_queue,
                 time=time.time(),
             )
@@ -601,6 +609,47 @@ class TestApiEndpoints:
         assert response.status_code == 200
         assert b"Log line 1" in response.data
         assert b"Log line 2" in response.data
+
+    def test_api_log_completed_token_terminates(self, client):
+        """完了済みトークンへの再取得でレスポンスが終端すること (無限ループしないこと)"""
+        import concurrent.futures
+
+        from weather_display.runner.webapi import run
+
+        done_future: concurrent.futures.Future = concurrent.futures.Future()
+        done_future.set_result(None)
+
+        token = "completed_token"
+        # NOTE: 終端センチネル (None) は最初のリクエストで消費済みの状態を再現
+        run._panel_data_map = {
+            token: PanelData(
+                log=queue.Queue(),
+                time=time.time(),
+                future=done_future,
+                completed_time=time.time(),
+            )
+        }
+
+        response = client.post("/api/log", data={"token": token})
+
+        assert response.status_code == 200
+        assert response.data == b""
+
+    def test_api_image_empty_image_returns_404(self, client):
+        """画像が空 (生成失敗・未完了) の場合に 404 を返すこと"""
+        from weather_display.runner.webapi import run
+
+        token = "empty_image_token"
+        run._panel_data_map = {
+            token: PanelData(
+                log=queue.Queue(),
+                time=time.time(),
+            )
+        }
+
+        response = client.post("/api/image", data={"token": token})
+
+        assert response.status_code == 404
 
     def test_api_run_endpoint(self, client, mocker):
         """api/run エンドポイントのテスト"""
