@@ -20,7 +20,7 @@ resolution-markers = [
 ]
 
 [options]
-exclude-newer = "2026-04-17T00:08:14.286774734Z"
+exclude-newer = "2026-07-05T02:22:54.899676219Z"
 exclude-newer-span = "P1W"
 
 [[package]]
@@ -666,7 +666,7 @@ requires-dist = [
     { name = "flask-pydantic", specifier = ">=0.12.0" },
     { name = "influxdb-client", extras = ["ciso"], specifier = ">=1.44.0" },
     { name = "matplotlib", specifier = ">=3.10.8" },
-    { name = "my-lib", git = "https://github.com/kimata/my-py-lib?rev=9f21d5be5150f338caff53a55054115059630d97" },
+    { name = "my-lib", git = "https://github.com/kimata/my-py-lib?rev=83a17543814a2ce7f37a0fd8fb812eaf07e95d86" },
     { name = "opencv-contrib-python-headless", specifier = ">=4.13.0" },
     { name = "pandas", specifier = ">=2.3.3" },
     { name = "paramiko", specifier = ">=4.0.0" },
@@ -1572,7 +1572,7 @@ wheels = [
 [[package]]
 name = "my-lib"
 version = "0.2.0"
-source = { git = "https://github.com/kimata/my-py-lib?rev=9f21d5be5150f338caff53a55054115059630d97#9f21d5be5150f338caff53a55054115059630d97" }
+source = { git = "https://github.com/kimata/my-py-lib?rev=83a17543814a2ce7f37a0fd8fb812eaf07e95d86#83a17543814a2ce7f37a0fd8fb812eaf07e95d86" }
 dependencies = [
     { name = "coloredlogs" },
     { name = "dacite" },
