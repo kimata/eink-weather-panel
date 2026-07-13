@@ -23,6 +23,8 @@ ENV TZ=Asia/Tokyo \
 RUN locale-gen en_US.UTF-8
 RUN locale-gen ja_JP.UTF-8
 
+# NOTE: Chromeは頻繁に更新されるため、キャッシュバスターを使用して最新版を取得する
+ARG CHROME_CACHE_BUSTER
 RUN curl -O https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb
 
 RUN --mount=type=cache,target=/var/lib/apt,sharing=locked \
@@ -30,14 +32,14 @@ RUN --mount=type=cache,target=/var/lib/apt,sharing=locked \
     apt-get update && apt-get install --no-install-recommends --assume-yes \
     ./google-chrome-stable_current_amd64.deb
 
-
 COPY font /usr/share/fonts/
+RUN fc-cache --force --verbose
 
 USER ubuntu
 
+ENV PYTHONDONTWRITEBYTECODE=1
 ENV PATH="/home/ubuntu/.local/bin:$PATH"
-ENV UV_LINK_MODE=copy \
-    UV_NO_SYNC=1
+ENV UV_LINK_MODE=copy
 
 # ubuntu ユーザーで uv をインストール
 RUN curl -LsSf https://astral.sh/uv/install.sh | sh
@@ -49,18 +51,20 @@ RUN --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
     --mount=type=bind,source=uv.lock,target=uv.lock \
     --mount=type=bind,source=README.md,target=README.md \
     --mount=type=cache,target=/home/ubuntu/.cache/uv,uid=1000,gid=1000 \
-    uv sync --no-install-project --no-editable --no-group dev --compile-bytecode
+    uv sync --locked --no-install-project --no-editable --no-group dev --compile-bytecode
 
 ARG IMAGE_BUILD_DATE
 ENV IMAGE_BUILD_DATE=${IMAGE_BUILD_DATE}
 
 COPY --chown=ubuntu:ubuntu . .
 
-RUN mkdir -p data
-
-# プロジェクトをインストール
 RUN --mount=type=cache,target=/home/ubuntu/.cache/uv,uid=1000,gid=1000 \
-    uv sync --no-group dev --compile-bytecode
+    uv sync --locked --no-editable --no-group dev --compile-bytecode
+
+# NOTE: プロジェクトはビルド時にインストール済みのため、実行時の再同期を抑止する
+ENV UV_NO_SYNC=1
+
+RUN mkdir -p data
 
 ENTRYPOINT ["/usr/bin/tini", "--", "uv", "run", "--no-group", "dev"]
 
