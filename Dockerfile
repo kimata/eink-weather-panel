@@ -58,8 +58,10 @@ ENV IMAGE_BUILD_DATE=${IMAGE_BUILD_DATE}
 
 COPY --chown=ubuntu:ubuntu . .
 
+# NOTE: プロジェクト自身は editable でインストールする
+# （--no-editable にすると schema/ 等を __file__ 基準で解決するコードが壊れる）
 RUN --mount=type=cache,target=/home/ubuntu/.cache/uv,uid=1000,gid=1000 \
-    uv sync --locked --no-editable --no-group dev --compile-bytecode
+    uv sync --locked --no-group dev --compile-bytecode
 
 # NOTE: プロジェクトはビルド時にインストール済みのため、実行時の再同期を抑止する
 ENV UV_NO_SYNC=1
