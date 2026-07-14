@@ -1,0 +1,252 @@
+# eink-weather-panel 固有の CI ジョブ（py-project のテンプレート管理外）
+#
+# 共通骨格（generate-tag / build-react / build-image / test-typecheck /
+# test-pytest / tag-latest / deploy / renovate）は py-project の
+# gitlab-ci-gen (docker 系統テンプレート) が .gitlab-ci.yml に生成する。
+
+# 共通テンプレート: Dockerを使用したパネルテスト
+.panel_test_template:
+    stage: test
+    needs:
+        - generate-tag
+        - build-image
+    variables:
+        PANEL_SCRIPT: "" # 各ジョブで上書き
+
+    script:
+        # NOTE: テストに失敗するとテスト用のコンテナが残るので削除する
+        - >
+            docker ps --filter "label=job=${CI_JOB_NAME}" | grep hours |
+            cut -d " " -f1 |
+            while read id; do docker stop --time 5 $id; done || true
+        - >
+            docker run --tty=true --name ${CI_JOB_NAME}-${CI_JOB_ID}
+            --label job=${CI_JOB_NAME} ${CI_REGISTRY_IMAGE}:${TAG}
+            ${PANEL_SCRIPT} -c config.yaml -o ${CI_JOB_NAME}.png
+        - docker wait ${CI_JOB_NAME}-${CI_JOB_ID}
+        - docker cp ${CI_JOB_NAME}-${CI_JOB_ID}:/opt/eink-weather-panel/${CI_JOB_NAME}.png .
+        - docker rm ${CI_JOB_NAME}-${CI_JOB_ID}
+    artifacts:
+        paths:
+            - ${CI_JOB_NAME}.png
+# センサーグラフ画像のテスト
+test-sensor-graph:
+    extends: .panel_test_template
+    variables:
+        PANEL_SCRIPT: "src/weather_display/panel/sensor_graph.py"
+# 電力グラフ画像のテスト
+test-power-graph:
+    extends: .panel_test_template
+    variables:
+        PANEL_SCRIPT: "src/weather_display/panel/power_graph.py"
+
+# 天気予報画像のテスト
+test-weather-panel:
+    extends: .panel_test_template
+    variables:
+        PANEL_SCRIPT: "src/weather_display/panel/weather.py"
+
+# 雨雲レーダ画像のテスト
+test-rain-cloud-panel:
+    extends: .panel_test_template
+    variables:
+        PANEL_SCRIPT: "src/weather_display/panel/rain_cloud.py"
+    artifacts:
+        when: always
+        paths:
+            - ${CI_JOB_NAME}.png
+# 共通テンプレート: create_image.pyを使用した統合テスト
+.create_image_template:
+    stage: test
+    variables:
+        CREATE_IMAGE_ARGS: "" # 各ジョブで上書き
+
+    script:
+        - >
+            docker run --tty=true --name ${CI_JOB_NAME}-${CI_JOB_ID}
+            --label job=${CI_JOB_NAME} ${CI_REGISTRY_IMAGE}:${TAG}
+            src/create_image.py ${CREATE_IMAGE_ARGS} -o ${CI_JOB_NAME}.png
+        - docker wait ${CI_JOB_NAME}-${CI_JOB_ID}
+        - docker cp ${CI_JOB_NAME}-${CI_JOB_ID}:/opt/eink-weather-panel/${CI_JOB_NAME}.png .
+        - docker rm ${CI_JOB_NAME}-${CI_JOB_ID}
+    artifacts:
+        paths:
+            - ${CI_JOB_NAME}.png
+# サンプル設定ファイルで，問題なく動くかチェック
+test-sample:
+    extends: .create_image_template
+    needs:
+        - generate-tag
+        - build-image
+        - job: test-weather-panel
+          artifacts: false
+        - job: test-power-graph
+          artifacts: false
+        - job: test-sensor-graph
+          artifacts: false
+        - job: test-rain-cloud-panel
+          artifacts: false
+    variables:
+        CREATE_IMAGE_ARGS: "-c config.example.yaml"
+test-sample-small:
+    extends: .create_image_template
+    needs:
+        - generate-tag
+        - build-image
+        - job: test-weather-panel
+          artifacts: false
+        - job: test-rain-cloud-panel
+          artifacts: false
+    variables:
+        CREATE_IMAGE_ARGS: "-S -c config-small.example.yaml"
+test-demo:
+    extends: .create_image_template
+    needs:
+        - generate-tag
+        - build-image
+        - job: test-weather-panel
+          artifacts: false
+        - job: test-power-graph
+          artifacts: false
+        - job: test-sensor-graph
+          artifacts: false
+        - job: test-rain-cloud-panel
+          artifacts: false
+    variables:
+        CREATE_IMAGE_ARGS: "-c config-demo.yaml"
+
+# 本番設定ファイルで，問題なく動くかチェック
+test-regular:
+    extends: .create_image_template
+    needs:
+        - generate-tag
+        - build-image
+        - job: test-weather-panel
+          artifacts: false
+        - job: test-power-graph
+          artifacts: false
+        - job: test-sensor-graph
+          artifacts: false
+        - job: test-rain-cloud-panel
+          artifacts: false
+    variables:
+        CREATE_IMAGE_ARGS: "" # デフォルト設定
+test-regular-small:
+    extends: .create_image_template
+    needs:
+        - generate-tag
+        - build-image
+        - job: test-weather-panel
+          artifacts: false
+        - job: test-rain-cloud-panel
+          artifacts: false
+    variables:
+        CREATE_IMAGE_ARGS: "-S -c config-small.yaml"
+# 共通テンプレート: display_image.pyを使用したディスプレイテスト
+.display_image_template:
+    stage: test
+    dependencies:
+        - generate-tag
+        - build-image
+    variables:
+        RASP_HOSTNAME: "" # 各ジョブで上書き
+        DISPLAY_IMAGE_ARGS: "" # 各ジョブで上書き
+    script:
+        - >
+            docker run --rm --tty=true ${CI_REGISTRY_IMAGE}:${TAG}
+            src/display_image.py ${DISPLAY_IMAGE_ARGS} -s ${RASP_HOSTNAME} -O
+# 本番設定ファイルで，問題なく動くかチェック
+test-display:
+    extends: .display_image_template
+    needs:
+        - generate-tag
+        - build-image
+        - job: test-regular
+          artifacts: false
+    variables:
+        RASP_HOSTNAME: rasp-meter-1
+        DISPLAY_IMAGE_ARGS: "-c config.yaml"
+test-display-small:
+    extends: .display_image_template
+    needs:
+        - generate-tag
+        - build-image
+        - job: test-regular-small
+          artifacts: false
+    variables:
+        RASP_HOSTNAME: rasp-display-2
+        DISPLAY_IMAGE_ARGS: "-S -c config-small.yaml"
+test-webui:
+    stage: test
+    needs:
+        - generate-tag
+        - build-image
+        - job: test-demo
+          artifacts: false
+    script:
+        # NOTE: テストに失敗するとテスト用のコンテナが残るので削除する
+        - >
+            docker ps  --filter "label=job=${CI_JOB_NAME}" | grep hours |
+            cut -d " " -f1 |
+            while read id; do docker stop -t 5 $id; done || true
+        # NOTE: 「-d」をつけると一週間前のデータを取得するので、センサーデータがしばらく欠損していた場合、
+        # センサーが復活しても一週間程度はこのテストは失敗するので注意
+        - >
+            docker run --rm --detach=true --tty=true
+            --name ${CI_JOB_NAME}-${CI_JOB_ID} --label job=${CI_JOB_NAME}
+            --publish :5000
+            ${CI_REGISTRY_IMAGE}:${TAG} ./src/webui.py -c config-demo.yaml
+
+        - docker ps | grep ${CI_JOB_NAME}-${CI_JOB_ID}
+
+        - uv sync --locked --no-editable
+        - uv run playwright install --with-deps chromium
+
+        - >
+            APP_PORT=$(docker port "${CI_JOB_NAME}-${CI_JOB_ID}" 5000 | cut -d: -f2)
+        - >
+            DOCKER_GATEWAY=$(docker network inspect bridge --format="{{range .IPAM.Config}}{{.Gateway}}{{end}}")
+        - >
+            APP_URL="http://${DOCKER_GATEWAY}:${APP_PORT}/panel/"
+        - >
+            echo "APP_URL: ${APP_URL}"
+        - >
+            timeout 60 bash -c "until curl --fail --connect-timeout 10 --max-time 15 \"${APP_URL}\" > /dev/null 2>&1;
+            do echo 'Retrying in 5 seconds...'; sleep 5; done" || ACCESS_FAILED=1
+        - docker logs ${CI_JOB_NAME}-${CI_JOB_ID} > flask_log.txt
+        - |
+            if [ "$ACCESS_FAILED" = "1" ]; then
+                echo "Failed to access App"
+                docker stop ${CI_JOB_NAME}-${CI_JOB_ID} || true
+                exit 1
+            fi
+
+        - docker logs ${CI_JOB_NAME}-${CI_JOB_ID} > flask_log.txt
+
+        - >
+            uv run pytest tests/e2e/test_webapp.py --no-cov
+            --host ${DOCKER_GATEWAY} --port ${APP_PORT}
+            --junit-xml=reports/e2e-junit.xml
+
+        - docker logs ${CI_JOB_NAME}-${CI_JOB_ID} > flask_log.txt
+        - docker stop ${CI_JOB_NAME}-${CI_JOB_ID}
+
+    cache:
+        - key:
+              files:
+                  - uv.lock
+          fallback_keys:
+              - uv-cache-${CI_PROJECT_ID}
+          paths:
+              - ${UV_CACHE_DIR}
+        - key: playwright-${CI_PROJECT_ID}
+          paths:
+              - .cache/ms-playwright/
+
+    artifacts:
+        when: always
+        paths:
+            - flask_log.txt
+            - reports/**
+        reports:
+            junit: reports/e2e-junit.xml
