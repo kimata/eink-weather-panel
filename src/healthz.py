@@ -13,11 +13,10 @@ Options:
 
 from __future__ import annotations
 
-import logging
 import pathlib
-import sys
 
 import my_lib.healthz
+import my_lib.healthz.cli
 
 import weather_display.config
 
@@ -25,24 +24,14 @@ SCHEMA_CONFIG = "schema/config.schema"
 SCHEMA_CONFIG_SMALL = "schema/config-small.schema"
 
 
-if __name__ == "__main__":
-    import docopt
-    import my_lib.logger
-
-    assert __doc__ is not None  # noqa: S101
-    args = docopt.docopt(__doc__)
-
-    config_file = args["-c"]
-    small_mode = args["-S"]
-    debug_mode = args["-D"]
-
-    my_lib.logger.init("panel.e-ink.weather", level=logging.DEBUG if debug_mode else logging.INFO)
-
-    config = weather_display.config.load(
-        config_file, pathlib.Path(SCHEMA_CONFIG_SMALL if small_mode else SCHEMA_CONFIG)
+def _load_config(config_file, args):
+    return weather_display.config.load(
+        config_file, pathlib.Path(SCHEMA_CONFIG_SMALL if args["-S"] else SCHEMA_CONFIG)
     )
 
-    target_list = [
+
+def _targets(config, args):
+    return [
         my_lib.healthz.HealthzTarget(
             name="display",
             liveness_file=config.liveness.file.display,
@@ -50,10 +39,13 @@ if __name__ == "__main__":
         )
     ]
 
-    failed_targets = my_lib.healthz.check_liveness_all_with_ports(target_list)
 
-    if not failed_targets:
-        logging.info("OK.")
-        sys.exit(0)
-    else:
-        sys.exit(-1)
+SPEC = my_lib.healthz.cli.HealthzCliSpec(
+    logger_name="panel.e-ink.weather",
+    config_loader=_load_config,
+    targets_builder=_targets,
+)
+
+if __name__ == "__main__":
+    assert __doc__ is not None  # noqa: S101
+    my_lib.healthz.cli.run(SPEC, __doc__)
