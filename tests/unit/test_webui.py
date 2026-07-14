@@ -5,7 +5,6 @@ webui.py のユニットテスト
 """
 
 import os
-import signal
 
 
 class TestCreateApp:
@@ -40,53 +39,21 @@ class TestCreateApp:
         assert app is not None
 
 
-class TestTerm:
-    """term 関数のテスト"""
+class TestSpec:
+    """WebAppSpec 定義のテスト
 
-    def test_term_calls_cleanup(self, mocker):
-        """term がクリーンアップ処理を呼ぶこと"""
+    graceful shutdown・シグナル処理は my_lib.webapp.runner 側でテストされる。
+    """
+
+    def test_logger_name(self):
+        """ロガー名が設定されている"""
         import webui
 
-        mock_run_term = mocker.patch("weather_display.runner.webapi.run.term")
-        mock_kill_child = mocker.patch("my_lib.proc_util.kill_child")
-        mock_exit = mocker.patch("sys.exit")
+        assert webui.SPEC.logger_name == "panel.e-ink.weather"
 
-        webui.term()
-
-        mock_run_term.assert_called_once()
-        mock_kill_child.assert_called_once()
-        mock_exit.assert_called_once_with(0)
-
-
-class TestSigHandler:
-    """sig_handler 関数のテスト"""
-
-    def test_sig_handler_sigterm(self, mocker):
-        """SIGTERM シグナルを処理できること"""
+    def test_term_hook_wired(self):
+        """term_hooks に runner.webapi.run.term が配線されている"""
+        import weather_display.runner.webapi.run
         import webui
 
-        mock_term = mocker.patch.object(webui, "term")
-
-        webui.sig_handler(signal.SIGTERM, None)
-
-        mock_term.assert_called_once()
-
-    def test_sig_handler_sigint(self, mocker):
-        """SIGINT シグナルを処理できること"""
-        import webui
-
-        mock_term = mocker.patch.object(webui, "term")
-
-        webui.sig_handler(signal.SIGINT, None)
-
-        mock_term.assert_called_once()
-
-    def test_sig_handler_other_signal(self, mocker):
-        """他のシグナルでは term を呼ばないこと"""
-        import webui
-
-        mock_term = mocker.patch.object(webui, "term")
-
-        webui.sig_handler(signal.SIGUSR1, None)
-
-        mock_term.assert_not_called()
+        assert weather_display.runner.webapi.run.term in webui.SPEC.term_hooks

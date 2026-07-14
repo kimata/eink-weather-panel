@@ -17,14 +17,11 @@ import atexit
 import logging
 import os
 import pathlib
-import signal
-import sys
 
 import flask
 import flask_cors
 import my_lib.config
-import my_lib.logger
-import my_lib.proc_util
+import my_lib.webapp.runner
 
 import weather_display.metrics.webapi.page
 import weather_display.runner.webapi.run
@@ -33,31 +30,15 @@ SCHEMA_CONFIG = "schema/config.schema"
 URL_PREFIX = "/panel"
 
 
-def term():
-    weather_display.runner.webapi.run.term()
-
-    # 子プロセスを終了
-    my_lib.proc_util.kill_child()
-
-    # プロセス終了
-    logging.info("Graceful shutdown completed")
-    sys.exit(0)
-
-
-def sig_handler(num, frame):
-    logging.warning("receive signal %d", num)
-
-    if num in (signal.SIGTERM, signal.SIGINT):
-        term()
-
-
 def create_app(config_file_normal, config_file_small, dummy_mode=False, use_reloader=False):
-    # NOTE: アクセスログは無効にする
-    logging.getLogger("werkzeug").setLevel(logging.ERROR)
-
+    # NOTE: 関数内 import は my_lib をローカル変数にするため、モジュールレベルの
+    # my_lib.* 参照より先にまとめて行う
     import my_lib.webapp.base
     import my_lib.webapp.config
     import my_lib.webapp.util
+
+    # NOTE: アクセスログは無効にする
+    my_lib.webapp.runner.silence_werkzeug_log()
 
     config_data = my_lib.config.load(config_file_normal, pathlib.Path(SCHEMA_CONFIG))
     webapp_config = my_lib.webapp.config.WebappConfig.parse(config_data["webapp"])
@@ -65,7 +46,7 @@ def create_app(config_file_normal, config_file_small, dummy_mode=False, use_relo
 
     # NOTE: werkzeug リローダー使用時はリローダーの子プロセス (WERKZEUG_RUN_MAIN=true) でのみ
     # 初期化する。それ以外 (gunicorn 等の WSGI サーバーやテスト) では常に初期化する。
-    if not use_reloader or os.environ.get("WERKZEUG_RUN_MAIN") == "true":
+    if my_lib.webapp.runner.should_init(use_reloader):
         # NOTE: オプションでダミーモードが指定された場合、環境変数もそれに揃えておく
         if dummy_mode:
             logging.warning("Set dummy mode")
@@ -99,28 +80,16 @@ def create_app(config_file_normal, config_file_small, dummy_mode=False, use_relo
     return app
 
 
+SPEC = my_lib.webapp.runner.WebAppSpec(
+    logger_name="panel.e-ink.weather",
+    # create_app が設定ファイルパスを直接受けるため、ここでは読み込まずパスのまま渡す
+    config_loader=lambda config_file, args: config_file,
+    app_factory=lambda config, ctx: create_app(
+        config, ctx.args["-s"], ctx.dummy_mode, use_reloader=ctx.use_reloader
+    ),
+    term_hooks=(weather_display.runner.webapi.run.term,),
+)
+
 if __name__ == "__main__":
-    import docopt
-
     assert __doc__ is not None  # noqa: S101
-    args = docopt.docopt(__doc__)
-
-    config_file_normal = args["-c"]
-    config_file_small = args["-s"]
-    port = args["-p"]
-    dummy_mode = args["-d"]
-    debug_mode = args["-D"]
-
-    my_lib.logger.init("panel.e-ink.weather", level=logging.DEBUG if debug_mode else logging.INFO)
-
-    app = create_app(config_file_normal, config_file_small, dummy_mode, use_reloader=True)
-
-    signal.signal(signal.SIGTERM, sig_handler)
-
-    # Flaskアプリケーションを実行
-    try:
-        # NOTE: スクリプトの自動リロード停止したい場合は use_reloader=False にする
-        app.run(host="0.0.0.0", port=port, threaded=True, use_reloader=True, debug=debug_mode)  # noqa: S104
-    except KeyboardInterrupt:
-        logging.info("Received KeyboardInterrupt, shutting down...")
-        sig_handler(signal.SIGINT, None)
+    my_lib.webapp.runner.run(SPEC, __doc__)
