@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import concurrent.futures
 import contextlib
+import io
 import logging
 import os
 import pathlib
@@ -23,30 +24,21 @@ import shutil
 import time
 from collections.abc import Callable
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
 
 import cv2
+import my_lib.browser
 import my_lib.chrome_util
 import my_lib.font_util
 import my_lib.notify.slack
 import my_lib.panel_config
 import my_lib.panel_util
 import my_lib.pil_util
-import my_lib.selenium_util
 import my_lib.serializer
 import my_lib.thread_util
 import numpy
 import PIL.Image
 import PIL.ImageDraw
 import PIL.ImageFont
-import selenium.webdriver.common.by
-import selenium.webdriver.support
-import selenium.webdriver.support.expected_conditions
-import selenium.webdriver.support.wait
-
-if TYPE_CHECKING:
-    from selenium.webdriver.remote.webdriver import WebDriver
-    from selenium.webdriver.support.wait import WebDriverWait
 
 import weather_display.config
 
@@ -110,93 +102,84 @@ def _get_face_map(
     return my_lib.font_util.build_pil_face_map(font_config, _FONT_SPEC)
 
 
-def _hide_label_and_icon(driver: WebDriver, wait: WebDriverWait[WebDriver]) -> None:
+_SCRIPT_HIDE_ELEMENTS = """() => {{
+    const elements = document.getElementsByClassName("{class_name}");
+    for (let i = 0; i < elements.length; i++) {{
+        elements[i].style.display = "{mode}";
+    }}
+}}"""
+
+_SCRIPT_ELEMENT_PRESENT = '() => document.getElementsByClassName("{class_name}").length > 0'
+
+# NOTE: SPA のため readyState はタイル再描画の完了を保証しない。
+# レーダータイル (img 要素) のロード完了を待ってからスクリーンショットを撮る。
+_SCRIPT_IMAGES_COMPLETE = "() => Array.from(document.images).every(i => i.complete)"
+
+
+def _find(page: my_lib.browser.Page, xpath: str) -> my_lib.browser.Element:
+    """XPath で要素を 1 つ取得する（存在しなければ例外）。"""
+    element = page.find(my_lib.browser.Xpath(xpath))
+    if element is None:
+        raise RuntimeError(f"要素が見つかりません: {xpath}")
+    return element
+
+
+def _cloud_element_size(page: my_lib.browser.Page) -> dict[str, int]:
+    """雲画像要素の実寸を取得する。"""
+    box = _find(page, _CLOUD_IMAGE_XPATH).bounding_box()
+    if box is None:
+        raise RuntimeError("雲画像要素のサイズを取得できませんでした")
+    return {"width": round(box.width), "height": round(box.height)}
+
+
+def _hide_label_and_icon(page: my_lib.browser.Page) -> None:
     PARTS_LIST = [
         {"class": "jmatile-map-title", "mode": "none"},
         {"class": "leaflet-bar", "mode": "none"},
         {"class": "leaflet-control-attribution", "mode": "none"},
         {"class": "leaflet-control-scale-line", "mode": "none"},
     ]
-    SCRIPT_CHANGE_DISPAY = """
-var elements = document.getElementsByClassName("{class_name}")
-    for (i = 0; i < elements.length; i++) {{
-        elements[i].style.display="{mode}"
-    }}
-"""
 
     for parts in PARTS_LIST:
-        wait.until(
-            selenium.webdriver.support.expected_conditions.presence_of_element_located(
-                (selenium.webdriver.common.by.By.CLASS_NAME, parts["class"])
-            )
-        )
+        page.wait_until(_SCRIPT_ELEMENT_PRESENT.format(class_name=parts["class"]))
 
     for parts in PARTS_LIST:
-        driver.execute_script(
-            SCRIPT_CHANGE_DISPAY.format(
+        page.evaluate(
+            _SCRIPT_HIDE_ELEMENTS.format(
                 class_name=parts["class"],
                 mode=parts["mode"],
             )
         )
 
 
-def _change_setting(driver: WebDriver, wait: WebDriverWait[WebDriver]) -> None:
-    my_lib.selenium_util.click_xpath(
-        driver,
-        '//a[contains(@aria-label, "色の濃さ")]',
-        wait,
-        True,
-    )
-    my_lib.selenium_util.click_xpath(
-        driver,
-        '//span[contains(text(), "濃い")]',
-        wait,
-        True,
-    )
-    my_lib.selenium_util.click_xpath(
-        driver,
-        '//a[contains(@aria-label, "地図を切り替え")]',
-        wait,
-        True,
-    )
-    my_lib.selenium_util.click_xpath(
-        driver,
-        '//span[contains(text(), "地名なし")]',
-        wait,
-        True,
-    )
+def _change_setting(page: my_lib.browser.Page) -> None:
+    page.wait_clickable(my_lib.browser.Xpath('//a[contains(@aria-label, "色の濃さ")]')).click()
+    page.wait_clickable(my_lib.browser.Xpath('//span[contains(text(), "濃い")]')).click()
+    page.wait_clickable(my_lib.browser.Xpath('//a[contains(@aria-label, "地図を切り替え")]')).click()
+    page.wait_clickable(my_lib.browser.Xpath('//span[contains(text(), "地名なし")]')).click()
 
 
-def _shape_cloud_display(
-    driver: WebDriver,
-    wait: WebDriverWait[WebDriver],
-    width: int,
-    height: int,
-    is_future: bool,
-) -> None:
+def _shape_cloud_display(page: my_lib.browser.Page, is_future: bool) -> None:
     if is_future:
-        my_lib.selenium_util.click_xpath(
-            driver,
-            '//div[@class="jmatile-control"]//div[contains(text(), " +1時間 ")]',
-            wait,
-            True,
-        )
+        page.wait_clickable(
+            my_lib.browser.Xpath('//div[@class="jmatile-control"]//div[contains(text(), " +1時間 ")]')
+        ).click()
 
-    _change_setting(driver, wait)
-    _hide_label_and_icon(driver, wait)
+    _change_setting(page)
+    _hide_label_and_icon(page)
 
 
-def _change_window_size_fallback(driver: WebDriver, width: int, height: int) -> dict[str, int]:
+def _change_window_size_fallback(page: my_lib.browser.Page, width: int, height: int) -> dict[str, int]:
     """従来のウィンドウサイズ調整ロジック（フォールバック用）"""
     logging.info("Using fallback window size adjustment")
 
     # NOTE: まずはサイズを大きめにしておく
-    driver.set_window_size(int(height * 2), int(height * 1.5))
+    window_size = {"width": int(height * 2), "height": int(height * 1.5)}
+    page.set_viewport(window_size["width"], window_size["height"])
     time.sleep(1)
 
     # NOTE: 最初に横サイズを調整
-    window_size = driver.get_window_size()
-    element_size = driver.find_element(selenium.webdriver.common.by.By.XPATH, _CLOUD_IMAGE_XPATH).size
+    element_size = _cloud_element_size(page)
     logging.info(
         "[actual] window: %d x %d, element: %d x %d",
         window_size["width"],
@@ -207,13 +190,13 @@ def _change_window_size_fallback(driver: WebDriver, width: int, height: int) -> 
 
     if element_size["width"] != width:
         target_window_width = window_size["width"] + (width - element_size["width"])
-        logging.info("[change] window: %d x %d", target_window_width, window_size["height"])
-        driver.set_window_size(target_window_width, height)
+        logging.info("[change] window: %d x %d", target_window_width, height)
+        window_size = {"width": target_window_width, "height": height}
+        page.set_viewport(target_window_width, height)
         time.sleep(1)
 
     # NOTE: 次に縦サイズを調整
-    window_size = driver.get_window_size()
-    element_size = driver.find_element(selenium.webdriver.common.by.By.XPATH, _CLOUD_IMAGE_XPATH).size
+    element_size = _cloud_element_size(page)
     logging.info(
         "[actual] window: %d x %d, element: %d x %d",
         window_size["width"],
@@ -224,14 +207,12 @@ def _change_window_size_fallback(driver: WebDriver, width: int, height: int) -> 
     if element_size["height"] != height:
         target_window_height = window_size["height"] + (height - element_size["height"])
         logging.info("[change] window: %d x %d", window_size["width"], target_window_height)
-        driver.set_window_size(
-            window_size["width"],
-            target_window_height,
-        )
+        window_size = {"width": window_size["width"], "height": target_window_height}
+        page.set_viewport(window_size["width"], target_window_height)
         time.sleep(1)
 
-    final_window_size = driver.get_window_size()
-    element_size = driver.find_element(selenium.webdriver.common.by.By.XPATH, _CLOUD_IMAGE_XPATH).size
+    final_window_size = window_size
+    element_size = _cloud_element_size(page)
     logging.info(
         "[final] window: %d x %d, element: %d x %d",
         final_window_size["width"],
@@ -243,7 +224,7 @@ def _change_window_size_fallback(driver: WebDriver, width: int, height: int) -> 
     return final_window_size
 
 
-def _change_window_size(driver: WebDriver, width: int, height: int) -> dict[str, int]:
+def _change_window_size(page: my_lib.browser.Page, width: int, height: int) -> dict[str, int]:
     """最適化されたウィンドウサイズ調整（キャッシュ使用+フォールバック）"""
     logging.info("target: %d x %d", width, height)
 
@@ -258,11 +239,11 @@ def _change_window_size(driver: WebDriver, width: int, height: int) -> dict[str,
             cached_window_size["width"],
             cached_window_size["height"],
         )
-        driver.set_window_size(cached_window_size["width"], cached_window_size["height"])
+        page.set_viewport(cached_window_size["width"], cached_window_size["height"])
         time.sleep(1)  # 短い待機時間
 
         # 結果を確認
-        element_size = driver.find_element(selenium.webdriver.common.by.By.XPATH, _CLOUD_IMAGE_XPATH).size
+        element_size = _cloud_element_size(page)
         tolerance = 5  # 許容誤差
 
         if (
@@ -270,15 +251,15 @@ def _change_window_size(driver: WebDriver, width: int, height: int) -> dict[str,
             and abs(element_size["height"] - height) <= tolerance
         ):
             logging.info("Cached window size worked correctly")
-            return driver.get_window_size()
+            return cached_window_size
         else:
             logging.info("Cached window size failed, falling back to adjustment logic")
 
     # キャッシュが無いか失敗した場合はフォールバック
-    final_window_size = _change_window_size_fallback(driver, width, height)
+    final_window_size = _change_window_size_fallback(page, width, height)
 
     # 成功した場合はキャッシュに保存
-    element_size = driver.find_element(selenium.webdriver.common.by.By.XPATH, _CLOUD_IMAGE_XPATH).size
+    element_size = _cloud_element_size(page)
     if (element_size["width"], element_size["height"]) == (width, height):
         cache[cache_key] = final_window_size
         my_lib.serializer.store(_WINDOW_SIZE_CACHE_FILE, cache)
@@ -293,8 +274,7 @@ def _change_window_size(driver: WebDriver, width: int, height: int) -> dict[str,
 
 
 def _fetch_cloud_image(
-    driver: WebDriver,
-    wait: WebDriverWait[WebDriver],
+    page: my_lib.browser.Page,
     url: str,
     width: int,
     height: int,
@@ -302,25 +282,17 @@ def _fetch_cloud_image(
 ) -> bytes:
     logging.info("fetch cloud image")
 
-    driver.get(url)
+    page.goto(url)
 
-    wait.until(
-        selenium.webdriver.support.expected_conditions.presence_of_element_located(
-            (selenium.webdriver.common.by.By.XPATH, _CLOUD_IMAGE_XPATH)
-        )
-    )
+    page.wait_visible(my_lib.browser.Xpath(_CLOUD_IMAGE_XPATH))
 
-    _change_window_size(driver, width, height)
-    _shape_cloud_display(driver, wait, width, height, is_future)
+    _change_window_size(page, width, height)
+    _shape_cloud_display(page, is_future)
 
-    # NOTE: SPA のため readyState はタイル再描画の完了を保証しない。
-    # レーダータイル (img 要素) のロード完了を待ってからスクリーンショットを撮る。
-    wait.until(
-        lambda driver: driver.execute_script("return Array.from(document.images).every(i => i.complete)")
-    )
+    page.wait_until(_SCRIPT_IMAGES_COMPLETE)
     time.sleep(0.5)
 
-    return driver.find_element(selenium.webdriver.common.by.By.XPATH, _CLOUD_IMAGE_XPATH).screenshot_as_png
+    return _find(page, _CLOUD_IMAGE_XPATH).screenshot()
 
 
 def _retouch_cloud_image(
@@ -478,7 +450,7 @@ def _create_rain_cloud_img(
 ) -> tuple[PIL.Image.Image, PIL.Image.Image]:
     logging.info("create rain cloud image (%s)", "future" if sub_panel_config.is_future else "current")
 
-    driver = None
+    browser = None
     img = None
     profile_name = _get_driver_profile_name(sub_panel_config.is_future)
 
@@ -493,36 +465,45 @@ def _create_rain_cloud_img(
         )
 
     try:
-        driver = my_lib.selenium_util.create_driver(profile_name, _DATA_PATH, use_undetected=False)
+        browser = my_lib.browser.launch(
+            my_lib.browser.BrowserProfile(name=profile_name, data_dir=_DATA_PATH, headless=True)
+        )
+        # NOTE: 永続コンテキストの既定ページ（最初のタブ）を使う。
+        page = browser.pages()[0]
 
-        with my_lib.selenium_util.error_handler(
-            driver,
-            message=f"Failed to fetch rain cloud image ({sub_panel_config.title})",
-            on_error=on_error if trial >= _PATIENT_COUNT else None,
-            reraise=True,
-        ):
-            wait = selenium.webdriver.support.wait.WebDriverWait(driver, 5)
-            my_lib.selenium_util.clear_cache(driver)
+        try:
+            browser.maintenance.clear_cache()
 
             img = _fetch_cloud_image(
-                driver,
-                wait,
+                page,
                 rain_cloud_config.data.jma.url,
                 sub_panel_config.width,
                 sub_panel_config.height,
                 sub_panel_config.is_future,
             )
+        except Exception as e:
+            # NOTE: PATIENT_COUNT を超えた試行でのみ、ページ状態を添えて Slack 通知する
+            if trial >= _PATIENT_COUNT:
+                screenshot = None
+                page_source = None
+                try:
+                    screenshot = PIL.Image.open(io.BytesIO(page.screenshot()))
+                    page_source = page.content
+                except Exception:
+                    logging.warning("Failed to capture page state for error notification")
+                on_error(e, screenshot, page_source)
+            raise
     except Exception:
         # NOTE: リトライまでに時間を空けるようにする
         time.sleep(10)
         raise
     finally:
-        # 必ずdriverをクリーンアップ
-        if driver:
+        # 必ずブラウザをクリーンアップ
+        if browser:
             try:
-                my_lib.selenium_util.quit_driver_gracefully(driver)
+                browser.close()
             except Exception as cleanup_error:
-                logging.warning("Failed to cleanup driver: %s", cleanup_error)
+                logging.warning("Failed to cleanup browser: %s", cleanup_error)
             # NOTE: プロファイルはプロセス固有の使い捨てのため、削除してディスク肥大化を防ぐ
             my_lib.chrome_util.delete_profile(profile_name, _DATA_PATH)
 

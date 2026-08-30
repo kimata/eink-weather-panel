@@ -6,10 +6,39 @@ rain_cloud.py のユニットテスト
 
 import os
 
+import my_lib.browser
 import pytest
 
 # このファイル全体のテストを selenium マークする
 pytestmark = pytest.mark.selenium
+
+
+def _make_page(mocker, box=None, boxes=None):
+    """雲画像要素サイズを返す Page モックを生成する。
+
+    box: 単一の (width, height) を常に返す
+    boxes: (width, height) のリストを順番に返す（bounding_box の side_effect）
+    """
+    page = mocker.MagicMock()
+    element = mocker.MagicMock()
+    if boxes is not None:
+        element.bounding_box.side_effect = [
+            my_lib.browser.BoundingBox(x=0, y=0, width=w, height=h) for (w, h) in boxes
+        ]
+    else:
+        w, h = box if box is not None else (800, 600)
+        element.bounding_box.return_value = my_lib.browser.BoundingBox(x=0, y=0, width=w, height=h)
+    page.find.return_value = element
+    return page
+
+
+def _make_browser(mocker, page=None):
+    """pages() / maintenance / close を備えた Browser モックを生成する。"""
+    browser = mocker.MagicMock()
+    if page is None:
+        page = mocker.MagicMock()
+    browser.pages.return_value = [page]
+    return browser
 
 
 class TestGetDriverProfileName:
@@ -100,20 +129,26 @@ class TestCreateDummyMode:
         assert result[0] is not None
 
 
-class TestDriverCleanup:
-    """ドライバー クリーンアップ関連のテスト"""
+class TestBrowserCleanup:
+    """ブラウザ クリーンアップ関連のテスト"""
 
-    def test_driver_cleanup_error(self, config, mocker):
-        """ドライバークリーンアップエラー時も動作すること"""
+    def test_browser_cleanup_error(self, config, mocker):
+        """ブラウザクリーンアップエラー時も動作すること"""
         import weather_display.panel.rain_cloud
 
         mocker.patch.dict(os.environ, {"DUMMY_MODE": "false"})
 
-        # quit_driver_gracefully でエラーを発生させる
-        mocker.patch(
-            "my_lib.selenium_util.quit_driver_gracefully",
-            side_effect=Exception("Cleanup error"),
+        # browser.close() でエラーを発生させる
+        mock_browser = _make_browser(mocker)
+        mock_browser.close.side_effect = Exception("Cleanup error")
+        mocker.patch("my_lib.browser.launch", return_value=mock_browser)
+        mocker.patch.object(
+            weather_display.panel.rain_cloud,
+            "_fetch_cloud_image",
+            side_effect=Exception("Fetch error"),
         )
+        mocker.patch("weather_display.panel.rain_cloud.time.sleep")
+        mocker.patch("my_lib.panel_util.time.sleep")
 
         result = weather_display.panel.rain_cloud.create(config)
 
@@ -127,43 +162,38 @@ class TestWindowSizeCache:
         """キャッシュが有効な場合"""
         import weather_display.panel.rain_cloud
 
-        # モックドライバーを作成
-        mock_driver = mocker.MagicMock()
-        mock_element = mocker.MagicMock()
-        mock_element.size = {"width": 800, "height": 600}
-        mock_driver.find_element.return_value = mock_element
-        mock_driver.get_window_size.return_value = {"width": 850, "height": 650}
+        # 要素サイズがターゲットと一致する Page モック
+        page = _make_page(mocker, box=(800, 600))
 
         # キャッシュデータを設定
         cache_data = {"800x600": {"width": 850, "height": 650}}
         mocker.patch("my_lib.serializer.load", return_value=cache_data)
+        mocker.patch("weather_display.panel.rain_cloud.time.sleep")
 
-        result = weather_display.panel.rain_cloud._change_window_size(mock_driver, 800, 600)
+        result = weather_display.panel.rain_cloud._change_window_size(page, 800, 600)
 
         assert result == {"width": 850, "height": 650}
+        page.set_viewport.assert_called_with(850, 650)
 
     def test_change_window_size_cache_mismatch(self, mocker):
         """キャッシュサイズが一致しない場合フォールバック"""
         import weather_display.panel.rain_cloud
 
-        # モックドライバーを作成
-        mock_driver = mocker.MagicMock()
-        mock_element = mocker.MagicMock()
-        # 最初はキャッシュサイズと一致しない、その後一致する
-        mock_element.size = {"width": 750, "height": 550}
-        mock_driver.find_element.return_value = mock_element
+        # 要素サイズがターゲットと一致しない Page モック
+        page = _make_page(mocker, box=(750, 550))
 
         # キャッシュデータを設定
         cache_data = {"800x600": {"width": 850, "height": 650}}
         mocker.patch("my_lib.serializer.load", return_value=cache_data)
         mocker.patch("my_lib.serializer.store")
+        mocker.patch("weather_display.panel.rain_cloud.time.sleep")
         mocker.patch.object(
             weather_display.panel.rain_cloud,
             "_change_window_size_fallback",
             return_value={"width": 860, "height": 660},
         )
 
-        result = weather_display.panel.rain_cloud._change_window_size(mock_driver, 800, 600)
+        result = weather_display.panel.rain_cloud._change_window_size(page, 800, 600)
 
         assert result == {"width": 860, "height": 660}
 
@@ -172,78 +202,41 @@ class TestChangeWindowSizeFallback:
     """ウィンドウサイズ調整フォールバックのテスト"""
 
     def test__change_window_size_fallback_adjusts_width(self, mocker):
-        """幅が一致しない場合にウィンドウサイズを調整すること (line 177-180)"""
+        """幅が一致しない場合にビューポートサイズを調整すること"""
         import weather_display.panel.rain_cloud
 
-        mock_driver = mocker.MagicMock()
-
-        # find_element の呼び出し回数に応じて異なるサイズを返す
-        call_count = [0]
-
-        def get_mock_element(*args, **kwargs):
-            call_count[0] += 1
-            mock_element = mocker.MagicMock()
-            if call_count[0] == 1:
-                # 最初: 幅が一致しない
-                mock_element.size = {"width": 750, "height": 600}
-            else:
-                # 調整後: 一致
-                mock_element.size = {"width": 800, "height": 600}
-            return mock_element
-
-        mock_driver.find_element.side_effect = get_mock_element
-        mock_driver.get_window_size.return_value = {"width": 850, "height": 650}
+        # 1回目: 幅が一致しない、以降: 一致
+        page = _make_page(mocker, boxes=[(750, 600), (800, 600), (800, 600)])
         mocker.patch("weather_display.panel.rain_cloud.time.sleep")
 
-        weather_display.panel.rain_cloud._change_window_size_fallback(mock_driver, 800, 600)
+        weather_display.panel.rain_cloud._change_window_size_fallback(page, 800, 600)
 
-        # set_window_size が呼ばれていること（初期サイズ設定 + 幅調整）
-        assert mock_driver.set_window_size.call_count >= 2
+        # set_viewport が呼ばれていること（初期サイズ設定 + 幅調整）
+        assert page.set_viewport.call_count >= 2
 
     def test__change_window_size_fallback_adjusts_height(self, mocker):
-        """高さが一致しない場合にウィンドウサイズを調整すること (line 193-200)"""
+        """高さが一致しない場合にビューポートサイズを調整すること"""
         import weather_display.panel.rain_cloud
 
-        mock_driver = mocker.MagicMock()
-        mock_element = mocker.MagicMock()
-
-        call_count = [0]
-
-        def get_element_size():
-            call_count[0] += 1
-            if call_count[0] <= 2:
-                # 最初の2回: 幅は一致、高さが一致しない
-                return {"width": 800, "height": 550}
-            else:
-                # 調整後: 一致
-                return {"width": 800, "height": 600}
-
-        mock_element_prop = mocker.PropertyMock(side_effect=get_element_size)
-        type(mock_element).size = mock_element_prop
-        mock_driver.find_element.return_value = mock_element
-        mock_driver.get_window_size.return_value = {"width": 850, "height": 650}
-
+        # 幅は一致、高さが最初一致しない、調整後一致
+        page = _make_page(mocker, boxes=[(800, 550), (800, 550), (800, 600)])
         mocker.patch("weather_display.panel.rain_cloud.time.sleep")
 
-        weather_display.panel.rain_cloud._change_window_size_fallback(mock_driver, 800, 600)
+        weather_display.panel.rain_cloud._change_window_size_fallback(page, 800, 600)
 
-        # set_window_size が複数回呼ばれていること
-        assert mock_driver.set_window_size.call_count >= 2
+        # set_viewport が複数回呼ばれていること（初期サイズ設定 + 高さ調整）
+        assert page.set_viewport.call_count >= 2
 
 
 class TestCacheSave:
     """キャッシュ保存のテスト"""
 
     def test_change_window_size_saves_cache_on_success(self, mocker):
-        """サイズ一致時にキャッシュが保存されること (line 252-254)"""
+        """サイズ一致時にキャッシュが保存されること"""
         import weather_display.panel.rain_cloud
 
-        mock_driver = mocker.MagicMock()
-        mock_element = mocker.MagicMock()
-        # 成功: サイズが一致
-        mock_element.size = {"width": 800, "height": 600}
-        mock_driver.find_element.return_value = mock_element
-        mock_driver.get_window_size.return_value = {"width": 850, "height": 650}
+        # フォールバック後の要素サイズがターゲットと一致
+        page = _make_page(mocker, box=(800, 600))
 
         # キャッシュが空
         mocker.patch("my_lib.serializer.load", return_value={})
@@ -255,7 +248,7 @@ class TestCacheSave:
             return_value={"width": 850, "height": 650},
         )
 
-        weather_display.panel.rain_cloud._change_window_size(mock_driver, 800, 600)
+        weather_display.panel.rain_cloud._change_window_size(page, 800, 600)
 
         # キャッシュが保存されること
         mock_store.assert_called_once()
@@ -265,7 +258,7 @@ class TestRetouchCloudImageWhiteMap:
     """白地図処理のテスト"""
 
     def test__retouch_cloud_image_without_white_areas(self, config):
-        """白地図がない画像でも処理できること (line 321)"""
+        """白地図がない画像でも処理できること"""
         import io
 
         import PIL.Image
@@ -292,49 +285,51 @@ class TestExceptionHandling:
 
         mocker.patch.dict(os.environ, {"DUMMY_MODE": "false"})
 
-        # ドライバー作成後に例外を発生させ、スクリーンショット取得も失敗させる
-        mock_driver = mocker.MagicMock()
-        mock_driver.get_screenshot_as_png.side_effect = Exception("Screenshot error")
-        mocker.patch("my_lib.selenium_util.create_driver", return_value=mock_driver)
+        # ブラウザ生成後に例外を発生させ、スクリーンショット取得も失敗させる
+        page = mocker.MagicMock()
+        page.screenshot.side_effect = Exception("Screenshot error")
+        mock_browser = _make_browser(mocker, page=page)
+        mocker.patch("my_lib.browser.launch", return_value=mock_browser)
         mocker.patch.object(
             weather_display.panel.rain_cloud,
             "_fetch_cloud_image",
             side_effect=Exception("Fetch error"),
         )
         mocker.patch("weather_display.panel.rain_cloud.time.sleep")
-        mocker.patch("my_lib.selenium_util.quit_driver_gracefully")
+        mocker.patch("my_lib.panel_util.time.sleep")
 
-        # PATIENT_COUNT を超えた試行数で呼び出し
+        original_count = weather_display.panel.rain_cloud._PATIENT_COUNT
         weather_display.panel.rain_cloud._PATIENT_COUNT = 0
-
-        # この場合はエラーがリトライで処理される
-        result = weather_display.panel.rain_cloud.create(config)
+        try:
+            result = weather_display.panel.rain_cloud.create(config)
+        finally:
+            weather_display.panel.rain_cloud._PATIENT_COUNT = original_count
 
         # エラー画像が返される
         assert len(result) >= 2
 
     def test__create_rain_cloud_img_with_slack_notification(self, config, mocker):
-        """Slack通知が呼ばれること (line 441-456)"""
+        """Slack通知が呼ばれること"""
         import weather_display.panel.rain_cloud
 
         mocker.patch.dict(os.environ, {"DUMMY_MODE": "false"})
 
-        # PATIENT_COUNT を0にして最初のエラーで通知
-        original_count = weather_display.panel.rain_cloud._PATIENT_COUNT
-        weather_display.panel.rain_cloud._PATIENT_COUNT = 0
-
-        mock_driver = mocker.MagicMock()
-        mock_driver.get_screenshot_as_png.return_value = b"\x89PNG\r\n\x1a\n"
-        mocker.patch("my_lib.selenium_util.create_driver", return_value=mock_driver)
+        page = mocker.MagicMock()
+        page.screenshot.return_value = b"\x89PNG\r\n\x1a\n"
+        page.content = "<html></html>"
+        mock_browser = _make_browser(mocker, page=page)
+        mocker.patch("my_lib.browser.launch", return_value=mock_browser)
         mocker.patch.object(
             weather_display.panel.rain_cloud,
             "_fetch_cloud_image",
             side_effect=Exception("Fetch error"),
         )
         mock_sleep = mocker.patch("weather_display.panel.rain_cloud.time.sleep")
-        mocker.patch("my_lib.selenium_util.quit_driver_gracefully")
+        mocker.patch("my_lib.panel_util.time.sleep")
         mock_slack = mocker.patch("my_lib.notify.slack.error_with_image")
 
+        original_count = weather_display.panel.rain_cloud._PATIENT_COUNT
+        weather_display.panel.rain_cloud._PATIENT_COUNT = 0
         try:
             weather_display.panel.rain_cloud.create(config)
         finally:
@@ -344,36 +339,34 @@ class TestExceptionHandling:
         assert mock_slack.called or mock_sleep.called
 
 
-class TestDriverNoneCase:
-    """driver が None の場合のテスト"""
+class TestBrowserLaunchFails:
+    """ブラウザ生成に失敗した場合のテスト"""
 
-    def test__create_rain_cloud_img_driver_creation_fails(self, config, mocker):
-        """ドライバー作成失敗時に finally で driver が None のケース (line 460->466)"""
+    def test__create_rain_cloud_img_launch_fails(self, config, mocker):
+        """ブラウザ生成失敗時に finally で browser が None のケース"""
         import weather_display.panel.rain_cloud
 
         mocker.patch.dict(os.environ, {"DUMMY_MODE": "false"})
 
-        # create_driver が例外を投げる -> driver は None のまま
+        # launch が例外を投げる -> browser は None のまま
         mocker.patch(
-            "my_lib.selenium_util.create_driver",
-            side_effect=Exception("Driver creation failed"),
+            "my_lib.browser.launch",
+            side_effect=Exception("Browser launch failed"),
         )
         mocker.patch("weather_display.panel.rain_cloud.time.sleep")
-        mocker.patch("my_lib.selenium_util.quit_driver_gracefully")
+        mocker.patch("my_lib.panel_util.time.sleep")
 
         result = weather_display.panel.rain_cloud.create(config)
 
         # エラー画像が返される
         assert len(result) >= 2
-        # driver が None なので quit_driver_gracefully は呼ばれない
-        # (finally ブロックの if driver: が False)
 
 
 class TestSlackNotificationBranch:
     """Slack通知分岐のテスト"""
 
     def test_slack_notification_when_trial_exceeds_patient_count(self, config, mocker):
-        """trial >= PATIENT_COUNT の時にSlack通知が呼ばれること (line 441->456)"""
+        """trial >= PATIENT_COUNT の時にSlack通知が呼ばれること"""
         import io
 
         import PIL.Image
@@ -388,11 +381,11 @@ class TestSlackNotificationBranch:
         img.save(buffer, format="PNG")
         png_bytes = buffer.getvalue()
 
-        mock_driver = mocker.MagicMock()
-        mock_driver.get_screenshot_as_png.return_value = png_bytes
-
-        mocker.patch("my_lib.selenium_util.create_driver", return_value=mock_driver)
-        mocker.patch("my_lib.selenium_util.clear_cache")
+        page = mocker.MagicMock()
+        page.screenshot.return_value = png_bytes
+        page.content = "<html></html>"
+        mock_browser = _make_browser(mocker, page=page)
+        mocker.patch("my_lib.browser.launch", return_value=mock_browser)
 
         # _fetch_cloud_image で例外を発生させる
         mocker.patch.object(
@@ -401,7 +394,6 @@ class TestSlackNotificationBranch:
             side_effect=Exception("Fetch error"),
         )
         mocker.patch("weather_display.panel.rain_cloud.time.sleep")
-        mocker.patch("my_lib.selenium_util.quit_driver_gracefully")
         mock_slack = mocker.patch("my_lib.notify.slack.error_with_image")
 
         # PATIENT_COUNT を 0 に設定し、trial=0 で条件を満たす
@@ -409,10 +401,9 @@ class TestSlackNotificationBranch:
         weather_display.panel.rain_cloud._PATIENT_COUNT = 0
 
         try:
-            # _create_rain_cloud_img を直接呼び出して trial を制御
-            face_map = {}
             from weather_display.panel.rain_cloud import SubPanelConfig
 
+            face_map = {}
             sub_panel_config = SubPanelConfig(
                 is_future=False,
                 title="現在",
@@ -422,6 +413,7 @@ class TestSlackNotificationBranch:
                 offset_y=0,
             )
             try:
+                # _create_rain_cloud_img を直接呼び出して trial を制御
                 weather_display.panel.rain_cloud._create_rain_cloud_img(
                     config.rain_cloud,
                     sub_panel_config,
@@ -442,7 +434,7 @@ class TestSideBySideLayout:
     """横並びレイアウトのテスト"""
 
     def test_create_rain_cloud_panel_impl_side_by_side_true(self, config, mocker):
-        """create_rain_cloud_panel_impl で is_side_by_side=True (line 564-568)"""
+        """create_rain_cloud_panel_impl で is_side_by_side=True"""
         import my_lib.panel_config
         import PIL.Image
 
@@ -460,7 +452,7 @@ class TestSideBySideLayout:
         context = my_lib.panel_config.NormalPanelContext(
             font_config=config.font,
             slack_config=config.slack,
-            is_side_by_side=True,  # line 564-568
+            is_side_by_side=True,
         )
 
         result = weather_display.panel.rain_cloud._create_rain_cloud_panel_impl(
@@ -472,7 +464,7 @@ class TestSideBySideLayout:
         assert result is not None
 
     def test_create_rain_cloud_panel_impl_side_by_side_false(self, config, mocker):
-        """create_rain_cloud_panel_impl で is_side_by_side=False (line 569-573)"""
+        """create_rain_cloud_panel_impl で is_side_by_side=False"""
         import my_lib.panel_config
         import PIL.Image
 
@@ -490,7 +482,7 @@ class TestSideBySideLayout:
         context = my_lib.panel_config.NormalPanelContext(
             font_config=config.font,
             slack_config=config.slack,
-            is_side_by_side=False,  # line 569-573
+            is_side_by_side=False,
         )
 
         result = weather_display.panel.rain_cloud._create_rain_cloud_panel_impl(
@@ -502,22 +494,22 @@ class TestSideBySideLayout:
         assert result is not None
 
 
-class TestDriverNoneCoverage:
-    """driver が None の分岐カバレッジテスト"""
+class TestBrowserCleanupCoverage:
+    """ブラウザ クリーンアップ分岐のカバレッジテスト"""
 
-    def test__create_rain_cloud_img_finally_with_driver_none(self, config, mocker):
-        """finally ブロックで driver が None の場合 (line 460->466 False branch)"""
+    def test__create_rain_cloud_img_finally_with_browser_none(self, config, mocker):
+        """finally ブロックで browser が None の場合 (close/delete_profile 未呼び出し)"""
         import weather_display.panel.rain_cloud
 
         mocker.patch.dict(os.environ, {"DUMMY_MODE": "false"})
 
-        # create_driver でエラー → driver は None のまま
+        # launch でエラー → browser は None のまま
         mocker.patch(
-            "my_lib.selenium_util.create_driver",
-            side_effect=RuntimeError("Driver creation failed"),
+            "my_lib.browser.launch",
+            side_effect=RuntimeError("Browser launch failed"),
         )
         mocker.patch("weather_display.panel.rain_cloud.time.sleep")
-        mock_quit = mocker.patch("my_lib.selenium_util.quit_driver_gracefully")
+        mock_delete = mocker.patch("my_lib.chrome_util.delete_profile")
 
         from weather_display.panel.rain_cloud import SubPanelConfig
 
@@ -531,7 +523,7 @@ class TestDriverNoneCoverage:
             offset_y=0,
         )
 
-        # 例外が発生するが、finally で driver が None なので quit は呼ばれない
+        # 例外が発生するが、finally で browser が None なので close/delete は呼ばれない
         try:
             weather_display.panel.rain_cloud._create_rain_cloud_img(
                 config.rain_cloud,
@@ -543,11 +535,11 @@ class TestDriverNoneCoverage:
         except RuntimeError:
             pass  # 例外は想定内
 
-        # driver が None なので quit_driver_gracefully は呼ばれないことを確認
-        assert not mock_quit.called
+        # browser が None なので delete_profile は呼ばれないことを確認
+        assert not mock_delete.called
 
-    def test__create_rain_cloud_img_finally_with_driver_success(self, config, mocker):
-        """finally ブロックで driver が存在し正常終了する場合 (line 460->466 True branch)"""
+    def test__create_rain_cloud_img_finally_with_browser_success(self, config, mocker):
+        """finally ブロックで browser が存在し正常終了する場合 (close 呼び出し)"""
         import io
 
         import PIL.Image
@@ -562,11 +554,8 @@ class TestDriverNoneCoverage:
         img.save(buffer, format="PNG")
         png_bytes = buffer.getvalue()
 
-        mock_driver = mocker.MagicMock()
-        mock_driver.get_screenshot_as_png.return_value = png_bytes
-
-        mocker.patch("my_lib.selenium_util.create_driver", return_value=mock_driver)
-        mocker.patch("my_lib.selenium_util.clear_cache")
+        mock_browser = _make_browser(mocker)
+        mocker.patch("my_lib.browser.launch", return_value=mock_browser)
 
         # _fetch_cloud_image が正常に画像を返す
         mocker.patch.object(
@@ -593,8 +582,7 @@ class TestDriverNoneCoverage:
             "_draw_caption",
             return_value=mock_result_img,
         )
-
-        mock_quit = mocker.patch("my_lib.selenium_util.quit_driver_gracefully")
+        mocker.patch("my_lib.chrome_util.delete_profile")
 
         from weather_display.panel.rain_cloud import SubPanelConfig
 
@@ -616,15 +604,12 @@ class TestDriverNoneCoverage:
             trial=0,
         )
 
-        # driver が存在するので quit_driver_gracefully が呼ばれること
-        assert mock_quit.called
+        # browser が存在するので close が呼ばれること
+        assert mock_browser.close.called
         assert result is not None
 
-    def test__create_rain_cloud_img_with_driver_none_but_success(self, config, mocker):
-        """driver が None でも関数が正常終了する場合 (line 460->466 False branch)
-
-        理論上は到達不能だが、テスト可能にするため全ての driver 操作をモック
-        """
+    def test__create_rain_cloud_img_deletes_profile_on_success(self, config, mocker):
+        """正常終了時にプロファイルが削除されること"""
         import io
 
         import PIL.Image
@@ -633,28 +618,19 @@ class TestDriverNoneCoverage:
 
         mocker.patch.dict(os.environ, {"DUMMY_MODE": "false"})
 
-        # テスト用の PNG 画像を作成
         img = PIL.Image.new("RGB", (100, 100), (255, 255, 255))
         buffer = io.BytesIO()
         img.save(buffer, format="PNG")
         png_bytes = buffer.getvalue()
 
-        # create_driver が None を返す
-        mocker.patch("my_lib.selenium_util.create_driver", return_value=None)
-        mocker.patch("my_lib.selenium_util.clear_cache")
+        mock_browser = _make_browser(mocker)
+        mocker.patch("my_lib.browser.launch", return_value=mock_browser)
 
-        # WebDriverWait を完全にモック
-        mock_wait = mocker.MagicMock()
-        mocker.patch("selenium.webdriver.support.wait.WebDriverWait", return_value=mock_wait)
-
-        # _fetch_cloud_image が正常に画像を返す
         mocker.patch.object(
             weather_display.panel.rain_cloud,
             "_fetch_cloud_image",
             return_value=png_bytes,
         )
-
-        # _retouch_cloud_image もモック
         mock_result_img = PIL.Image.new("RGBA", (100, 100), (255, 255, 255, 255))
         mock_result_bar = PIL.Image.new("RGBA", (10, 100), (255, 0, 0, 255))
         mocker.patch.object(
@@ -672,8 +648,7 @@ class TestDriverNoneCoverage:
             "_draw_caption",
             return_value=mock_result_img,
         )
-
-        mock_quit = mocker.patch("my_lib.selenium_util.quit_driver_gracefully")
+        mock_delete = mocker.patch("my_lib.chrome_util.delete_profile")
 
         from weather_display.panel.rain_cloud import SubPanelConfig
 
@@ -695,6 +670,7 @@ class TestDriverNoneCoverage:
             trial=0,
         )
 
-        # driver が None なので quit_driver_gracefully は呼ばれないこと
-        assert not mock_quit.called
+        # clear_cache と delete_profile が呼ばれること
+        assert mock_browser.maintenance.clear_cache.called
+        assert mock_delete.called
         assert result is not None
