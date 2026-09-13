@@ -42,7 +42,7 @@ ENV PATH="/home/ubuntu/.local/bin:$PATH"
 ENV UV_LINK_MODE=copy
 
 # ubuntu ユーザーで uv をインストール
-RUN curl -LsSf https://astral.sh/uv/install.sh | sh
+RUN curl -LsSf https://astral.sh/uv/0.12.13/install.sh | sh
 
 WORKDIR /opt/eink-weather-panel
 
