@@ -33,11 +33,11 @@ def _make_page(mocker, box=None, boxes=None):
 
 
 def _make_browser(mocker, page=None):
-    """pages() / maintenance / close を備えた Browser モックを生成する。"""
+    """page() / maintenance / close を備えた Browser モックを生成する。"""
     browser = mocker.MagicMock()
     if page is None:
         page = mocker.MagicMock()
-    browser.pages.return_value = [page]
+    browser.page.return_value.__enter__.return_value = page
     return browser
 
 

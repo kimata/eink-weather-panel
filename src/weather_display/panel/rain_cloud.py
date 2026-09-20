@@ -468,31 +468,30 @@ def _create_rain_cloud_img(
         browser = my_lib.browser.launch(
             my_lib.browser.BrowserProfile(name=profile_name, data_dir=_DATA_PATH, headless=True)
         )
-        # NOTE: 永続コンテキストの既定ページ（最初のタブ）を使う。
-        page = browser.pages()[0]
+        browser.maintenance.clear_cache()
 
-        try:
-            browser.maintenance.clear_cache()
-
-            img = _fetch_cloud_image(
-                page,
-                rain_cloud_config.data.jma.url,
-                sub_panel_config.width,
-                sub_panel_config.height,
-                sub_panel_config.is_future,
-            )
-        except Exception as e:
-            # NOTE: PATIENT_COUNT を超えた試行でのみ、ページ状態を添えて Slack 通知する
-            if trial >= _PATIENT_COUNT:
-                screenshot = None
-                page_source = None
-                try:
-                    screenshot = PIL.Image.open(io.BytesIO(page.screenshot()))
-                    page_source = page.content
-                except Exception:
-                    logging.warning("Failed to capture page state for error notification")
-                on_error(e, screenshot, page_source)
-            raise
+        # NOTE: タブは取得 1 回分のスコープで開き、with を抜けると閉じる。
+        with browser.page() as page:
+            try:
+                img = _fetch_cloud_image(
+                    page,
+                    rain_cloud_config.data.jma.url,
+                    sub_panel_config.width,
+                    sub_panel_config.height,
+                    sub_panel_config.is_future,
+                )
+            except Exception as e:
+                # NOTE: PATIENT_COUNT を超えた試行でのみ、ページ状態を添えて Slack 通知する
+                if trial >= _PATIENT_COUNT:
+                    screenshot = None
+                    page_source = None
+                    try:
+                        screenshot = PIL.Image.open(io.BytesIO(page.screenshot()))
+                        page_source = page.content
+                    except Exception:
+                        logging.warning("Failed to capture page state for error notification")
+                    on_error(e, screenshot, page_source)
+                raise
     except Exception:
         # NOTE: リトライまでに時間を空けるようにする
         time.sleep(10)
