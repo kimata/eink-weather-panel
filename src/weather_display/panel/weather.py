@@ -168,10 +168,24 @@ def _get_image(weather_info: my_lib.weather.WeatherInfo) -> PIL.Image.Image:
     return PIL.Image.fromarray(img).convert("LA")
 
 
+# NOTE: 予報の風速が 0 (静穏) のときに体感温度の計算に用いる風速 [m/s]。
+# Yahoo 天気の風速は整数 m/s 表示で、0 は気象庁の観測定義「静穏 (0.3 m/s 未満)」に相当するため、
+# その中央値を代表値として用いる。Misnar 式に 0 を入れると分母の 1/A 項が支配的になり、
+# 体感温度が気温を上回る不自然な値 (例: 気温 10℃・湿度 89% で 12.6℃) になるのを避ける。
+_CALM_WIND_SPEED = 0.25
+
+
 # NOTE: 体感温度の計算 (Gregorczuk, 1972)
 def _calc_misnar_formula(temp: float, humi: float, wind: float) -> float:
     a = 1.76 + 1.4 * (wind**0.75)
     return 37 - (37 - temp) / (0.68 - 0.0014 * humi + 1 / a) - 0.29 * temp * (1 - humi / 100)
+
+
+def _calc_sensible_temp(temp: float, humi: float, wind: float) -> float:
+    """予報値から体感温度を計算する (静穏時は風速を _CALM_WIND_SPEED に読み替える)"""
+    if wind <= 0:
+        wind = _CALM_WIND_SPEED
+    return _calc_misnar_formula(temp, humi, wind)
 
 
 def _draw_weather(
@@ -574,7 +588,7 @@ def _draw_hourly_weather(
             face_map["temp_sens"],
         )
     else:
-        temp_sens = _calc_misnar_formula(info.temp, info.humi, info.wind.speed)
+        temp_sens = _calc_sensible_temp(info.temp, info.humi, info.wind.speed)
         next_pos_y = _draw_temp(
             img,
             temp_sens,

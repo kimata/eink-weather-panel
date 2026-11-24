@@ -89,6 +89,45 @@ class TestCalcMisnarFormula:
         assert -50 < result < 60  # 合理的な範囲内
 
 
+class TestCalcSensibleTemp:
+    """予報値からの体感温度計算 (静穏時の風速読み替え) のテスト"""
+
+    def test_calm_wind_is_replaced(self):
+        """風速 0 (静穏) のときは _CALM_WIND_SPEED で計算されること"""
+        from weather_display.panel.weather import (
+            _CALM_WIND_SPEED,
+            _calc_misnar_formula,
+            _calc_sensible_temp,
+        )
+
+        assert _calc_sensible_temp(10, 89, 0) == _calc_misnar_formula(10, 89, _CALM_WIND_SPEED)
+
+    def test_calm_wind_does_not_exceed_air_temperature(self):
+        """静穏・低温・高湿度 (2026-11-24 15時の予報値) で体感温度が気温を上回らないこと"""
+        from weather_display.panel.weather import _calc_sensible_temp
+
+        # NOTE: Misnar 式に風速 0 を直接入れると 12.65℃ になっていた
+        result = _calc_sensible_temp(10, 89, 0)
+
+        assert 9.0 <= result < 10.0
+
+    @pytest.mark.parametrize("wind", [1, 2, 3, 5])
+    def test_non_calm_wind_is_unchanged(self, wind):
+        """風速が 0 より大きいときは式にそのまま渡されること"""
+        from weather_display.panel.weather import _calc_misnar_formula, _calc_sensible_temp
+
+        assert _calc_sensible_temp(10, 89, wind) == _calc_misnar_formula(10, 89, wind)
+
+    def test_calm_is_continuous_with_light_wind(self):
+        """静穏時の体感温度が風速 1 m/s のときより高く、かつ極端に離れていないこと"""
+        from weather_display.panel.weather import _calc_sensible_temp
+
+        calm = _calc_sensible_temp(10, 89, 0)
+        light = _calc_sensible_temp(10, 89, 1)
+
+        assert light < calm < light + 5
+
+
 class TestRotationMap:
     """風向きマップのテスト"""
 
