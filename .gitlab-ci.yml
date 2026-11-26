@@ -4,6 +4,10 @@ variables:
     UV_LINK_MODE: copy
     UV_CACHE_DIR: .uv-cache
     PYRIGHT_PYTHON_FORCE_VERSION: latest
+    # NOTE: pyright-python は node が無いと nodeenv で「最新版」の node を入れるが、
+    # nodejs.org の配布一覧にプレリリース (例: v27.0.0-alpha) が載ると nodeenv 1.10 系が
+    # バージョンのパースに失敗する。LTS を明示して安定版のみを対象にする
+    PYRIGHT_PYTHON_NODE_VERSION: lts
     UV_HTTP_TIMEOUT: "120"
 
     UV_EXTRA_INDEX_URL: "http://proxy:3141/simple/"
